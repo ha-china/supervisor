@@ -8,7 +8,6 @@ import signal
 import warnings
 
 from colorlog import ColoredFormatter
-from sentry_sdk import capture_exception
 
 from .addons.manager import AddonManager
 from .api import RestAPI
@@ -46,7 +45,7 @@ from .services import ServiceManager
 from .store import StoreManager
 from .supervisor import Supervisor
 from .updater import Updater
-from .utils.sentry import init_sentry
+from .utils.sentry import capture_exception, init_sentry
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -56,11 +55,11 @@ async def initialize_coresys() -> CoreSys:
     coresys = await CoreSys().load_config()
 
     # Initialize core objects
-    coresys.docker = await DockerAPI(coresys).load_config()
+    coresys.docker = await DockerAPI(coresys).post_init()
     coresys.resolution = await ResolutionManager(coresys).load_config()
     await coresys.resolution.load_modules()
     coresys.jobs = await JobManager(coresys).load_config()
-    coresys.core = Core(coresys)
+    coresys.core = await Core(coresys).post_init()
     coresys.plugins = await PluginManager(coresys).load_config()
     coresys.arch = CpuArch(coresys)
     coresys.auth = await Auth(coresys).load_config()
@@ -70,8 +69,8 @@ async def initialize_coresys() -> CoreSys:
     coresys.homeassistant = await HomeAssistant(coresys).load_config()
     coresys.addons = await AddonManager(coresys).load_config()
     coresys.backups = await BackupManager(coresys).load_config()
-    coresys.host = HostManager(coresys)
-    coresys.hardware = HardwareManager(coresys)
+    coresys.host = await HostManager(coresys).post_init()
+    coresys.hardware = await HardwareManager(coresys).post_init()
     coresys.ingress = await Ingress(coresys).load_config()
     coresys.tasks = Tasks(coresys)
     coresys.services = await ServiceManager(coresys).load_config()

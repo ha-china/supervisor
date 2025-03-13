@@ -12,6 +12,7 @@ from uuid import uuid4
 from aiohttp import web
 from aiohttp.test_utils import TestClient
 from awesomeversion import AwesomeVersion
+from blockbuster import BlockBuster, blockbuster_ctx
 from dbus_fast import BusType
 from dbus_fast.aio.message_bus import MessageBus
 import pytest
@@ -63,6 +64,19 @@ from .dbus_service_mocks.network_manager import NetworkManager as NetworkManager
 # pylint: disable=redefined-outer-name, protected-access
 
 
+@pytest.fixture(autouse=True)
+def blockbuster() -> BlockBuster:
+    """Raise for blocking I/O in event loop."""
+    # Only scanning supervisor code for now as that's our primary interest
+    # This will still raise for tests that call utilities in supervisor code that block
+    # But it will ignore calls to libraries and such that do blocking I/O directly from tests
+    # Removing that would be nice but a todo for the future
+
+    # pylint: disable-next=contextmanager-generator-missing-cleanup
+    with blockbuster_ctx(scanned_modules=["supervisor"]) as bb:
+        yield bb
+
+
 @pytest.fixture
 async def path_extern() -> None:
     """Set external path env for tests."""
@@ -99,7 +113,7 @@ async def docker() -> DockerAPI:
         ),
         patch("supervisor.docker.manager.DockerAPI.unload"),
     ):
-        docker_obj = DockerAPI(MagicMock())
+        docker_obj = await DockerAPI(MagicMock()).post_init()
         docker_obj.config._data = {"registries": {}}
         with patch("supervisor.docker.monitor.DockerMonitor.load"):
             await docker_obj.load()
@@ -315,6 +329,7 @@ async def coresys(
     with (
         patch("supervisor.bootstrap.initialize_system"),
         patch("supervisor.utils.sentry.sentry_sdk.init"),
+        patch("supervisor.core.Core._write_run_state"),
     ):
         coresys_obj = await initialize_coresys()
 
@@ -389,7 +404,7 @@ async def coresys(
 async def ha_ws_client(coresys: CoreSys) -> AsyncMock:
     """Return HA WS client mock for assertions."""
     # Set Supervisor Core state to RUNNING, otherwise WS events won't be delivered
-    coresys.core.state = CoreState.RUNNING
+    await coresys.core.set_state(CoreState.RUNNING)
     await asyncio.sleep(0)
     client = coresys.homeassistant.websocket._client
     client.async_send_command.reset_mock()
@@ -501,10 +516,14 @@ def store_manager(coresys: CoreSys):
 
 
 @pytest.fixture
-def run_supervisor_state() -> Generator[MagicMock]:
+def run_supervisor_state(request: pytest.FixtureRequest) -> Generator[MagicMock]:
     """Fixture to simulate Supervisor state file in /run/supervisor."""
-    with patch("supervisor.core.RUN_SUPERVISOR_STATE") as mock_run:
-        yield mock_run
+    if getattr(request, "param", "test_file"):
+        with patch("supervisor.core.RUN_SUPERVISOR_STATE") as mock_run:
+            yield mock_run
+    else:
+        with patch("supervisor.core.Core._write_run_state") as mock_write_state:
+            yield mock_write_state
 
 
 @pytest.fixture

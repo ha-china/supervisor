@@ -49,7 +49,7 @@ class GitRepo(CoreSysAttributes):
 
     async def load(self) -> None:
         """Init Git add-on repository."""
-        if not (self.path / ".git").is_dir():
+        if not await self.sys_run_in_executor((self.path / ".git").is_dir):
             await self.clone()
             return
 
@@ -131,6 +131,13 @@ class GitRepo(CoreSysAttributes):
 
         async with self.lock:
             _LOGGER.info("Update add-on %s repository from %s", self.path, self.url)
+
+            try:
+                git_cmd = git.Git()
+                await self.sys_run_in_executor(git_cmd.ls_remote, "--heads", self.url)
+            except git.CommandError as err:
+                _LOGGER.warning("Wasn't able to update %s repo: %s.", self.url, err)
+                raise StoreGitError() from err
 
             try:
                 branch = self.repo.active_branch.name

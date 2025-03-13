@@ -475,7 +475,7 @@ class APIBackups(CoreSysAttributes):
         _LOGGER.info("Downloading backup %s", backup.slug)
         filename = backup.all_locations[location][ATTR_PATH]
         # If the file is missing, return 404 and trigger reload of location
-        if not filename.is_file():
+        if not await self.sys_run_in_executor(filename.is_file):
             self.sys_create_task(self.sys_backups.reload(location))
             return web.Response(status=404)
 
@@ -531,6 +531,8 @@ class APIBackups(CoreSysAttributes):
 
         def close_backup_file() -> None:
             if backup_file_stream:
+                # Make sure it got closed, in case of exception. It is safe to
+                # close the file stream twice.
                 backup_file_stream.close()
             if temp_dir:
                 temp_dir.cleanup()
@@ -541,6 +543,7 @@ class APIBackups(CoreSysAttributes):
             tar_file = await self.sys_run_in_executor(open_backup_file)
             while chunk := await contents.read_chunk(size=2**16):
                 await self.sys_run_in_executor(backup_file_stream.write, chunk)
+            await self.sys_run_in_executor(backup_file_stream.close)
 
             backup = await asyncio.shield(
                 self.sys_backups.import_backup(
@@ -563,8 +566,7 @@ class APIBackups(CoreSysAttributes):
             return False
 
         finally:
-            if temp_dir or backup:
-                await self.sys_run_in_executor(close_backup_file)
+            await self.sys_run_in_executor(close_backup_file)
 
         if backup:
             return {ATTR_SLUG: backup.slug}

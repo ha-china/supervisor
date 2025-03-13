@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Iterable
+from collections.abc import Awaitable
 import errno
 import logging
 from pathlib import Path
@@ -179,12 +179,18 @@ class BackupManager(FileConfiguration, JobGroup):
         )
         self.sys_jobs.current.stage = stage
 
-    def _list_backup_files(self, path: Path) -> Iterable[Path]:
+    async def _list_backup_files(self, path: Path) -> list[Path]:
         """Return iterable of backup files, suppress and log OSError for network mounts."""
-        try:
+
+        def find_backups() -> list[Path]:
             # is_dir does a stat syscall which raises if the mount is down
+            # Returning an iterator causes I/O while iterating, coerce into list here
             if path.is_dir():
-                return path.glob("*.tar")
+                return list(path.glob("*.tar"))
+            return []
+
+        try:
+            return await self.sys_run_in_executor(find_backups)
         except OSError as err:
             if err.errno == errno.EBADMSG and path in {
                 self.sys_config.path_backup,
@@ -278,9 +284,7 @@ class BackupManager(FileConfiguration, JobGroup):
         tasks = [
             self.sys_create_task(_load_backup(_location, tar_file))
             for _location, path in locations.items()
-            for tar_file in await self.sys_run_in_executor(
-                self._list_backup_files, path
-            )
+            for tar_file in await self._list_backup_files(path)
         ]
 
         _LOGGER.info("Found %d backup files", len(tasks))
@@ -496,7 +500,7 @@ class BackupManager(FileConfiguration, JobGroup):
         addon_start_tasks: list[Awaitable[None]] | None = None
 
         try:
-            self.sys_core.state = CoreState.FREEZE
+            await self.sys_core.set_state(CoreState.FREEZE)
 
             async with backup.create():
                 # HomeAssistant Folder is for v1
@@ -549,7 +553,7 @@ class BackupManager(FileConfiguration, JobGroup):
 
             return backup
         finally:
-            self.sys_core.state = CoreState.RUNNING
+            await self.sys_core.set_state(CoreState.RUNNING)
 
     @Job(
         name="backup_manager_full_backup",
@@ -808,7 +812,7 @@ class BackupManager(FileConfiguration, JobGroup):
             )
 
         _LOGGER.info("Full-Restore %s start", backup.slug)
-        self.sys_core.state = CoreState.FREEZE
+        await self.sys_core.set_state(CoreState.FREEZE)
 
         try:
             # Stop Home-Assistant / Add-ons
@@ -823,7 +827,7 @@ class BackupManager(FileConfiguration, JobGroup):
                 location=location,
             )
         finally:
-            self.sys_core.state = CoreState.RUNNING
+            await self.sys_core.set_state(CoreState.RUNNING)
 
         if success:
             _LOGGER.info("Full-Restore %s done", backup.slug)
@@ -878,7 +882,7 @@ class BackupManager(FileConfiguration, JobGroup):
             )
 
         _LOGGER.info("Partial-Restore %s start", backup.slug)
-        self.sys_core.state = CoreState.FREEZE
+        await self.sys_core.set_state(CoreState.FREEZE)
 
         try:
             success = await self._do_restore(
@@ -890,7 +894,7 @@ class BackupManager(FileConfiguration, JobGroup):
                 location=location,
             )
         finally:
-            self.sys_core.state = CoreState.RUNNING
+            await self.sys_core.set_state(CoreState.RUNNING)
 
         if success:
             _LOGGER.info("Partial-Restore %s done", backup.slug)
@@ -904,7 +908,7 @@ class BackupManager(FileConfiguration, JobGroup):
     )
     async def freeze_all(self, timeout: float = DEFAULT_FREEZE_TIMEOUT) -> None:
         """Freeze system to prepare for an external backup such as an image snapshot."""
-        self.sys_core.state = CoreState.FREEZE
+        await self.sys_core.set_state(CoreState.FREEZE)
 
         # Determine running addons
         installed = self.sys_addons.installed.copy()
@@ -957,7 +961,7 @@ class BackupManager(FileConfiguration, JobGroup):
                 if task
             ]
         finally:
-            self.sys_core.state = CoreState.RUNNING
+            await self.sys_core.set_state(CoreState.RUNNING)
             self._thaw_event.clear()
             self._thaw_task = None
 
