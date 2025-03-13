@@ -219,7 +219,7 @@ class Updater(FileConfiguration, CoreSysAttributes):
                         f"Fetching version from {url} response with {request.status}",
                         _LOGGER.warning,
                     )
-                data = await request.read().replace('ghcr.io', 'ghcr.nju.edu.cn')
+                data = await request.read()
 
         except (aiohttp.ClientError, TimeoutError) as err:
             self.sys_supervisor.connectivity = False
@@ -298,7 +298,7 @@ class Updater(FileConfiguration, CoreSysAttributes):
 
             # Update images for that versions
             self._data[ATTR_IMAGE][ATTR_HOMEASSISTANT] = data["images"]["core"]
-            self._data[ATTR_IMAGE][ATTR_SUPERVISOR] = data["images"]["supervisor"].replace('home-assistant','ha-china')
+            self._data[ATTR_IMAGE][ATTR_SUPERVISOR] = data["images"]["supervisor"]
             self._data[ATTR_IMAGE][ATTR_AUDIO] = data["images"]["audio"]
             self._data[ATTR_IMAGE][ATTR_CLI] = data["images"]["cli"]
             self._data[ATTR_IMAGE][ATTR_DNS] = data["images"]["dns"]
