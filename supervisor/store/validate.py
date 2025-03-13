@@ -6,15 +6,15 @@ from ..const import ATTR_MAINTAINER, ATTR_NAME, ATTR_REPOSITORIES, ATTR_URL
 from ..validate import RE_REPOSITORY
 from .const import StoreType
 
-URL_COMMUNITY_ADDONS = "https://github.com/hassio-addons/repository"
-URL_ESPHOME = "https://github.com/esphome/home-assistant-addon"
-URL_MUSIC_ASSISTANT = "https://github.com/music-assistant/home-assistant-addon"
+#URL_COMMUNITY_ADDONS = "https://github.com/hassio-addons/repository"
+URL_ESPHOME = "https://gitee.com/desmond_GT/hassio-addons"
+#URL_MUSIC_ASSISTANT = "https://github.com/music-assistant/home-assistant-addon"
 BUILTIN_REPOSITORIES = {
     StoreType.CORE,
     StoreType.LOCAL,
-    URL_COMMUNITY_ADDONS,
+#    URL_COMMUNITY_ADDONS,
     URL_ESPHOME,
-    URL_MUSIC_ASSISTANT,
+#    URL_MUSIC_ASSISTANT,
 }
 
 # pylint: disable=no-value-for-parameter
