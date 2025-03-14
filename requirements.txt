@@ -1,7 +1,7 @@
 aiodns==3.2.0
 aiohttp==3.11.13
 atomicwrites-homeassistant==1.4.1
-attrs==25.1.0
+attrs==25.2.0
 awesomeversion==24.6.0
 blockbuster==1.5.23
 brotli==1.1.0
@@ -25,6 +25,6 @@ securetar==2025.2.1
 sentry-sdk==2.22.0
 setuptools==76.0.0
 voluptuous==0.15.2
-dbus-fast==2.37.0
+dbus-fast==2.39.3
 typing_extensions==4.12.2
 zlib-fast==0.2.1
