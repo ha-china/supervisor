@@ -180,7 +180,7 @@ class HomeAssistant(FileConfiguration, CoreSysAttributes):
     @property
     def default_image(self) -> str:
         """Return the default image for this system."""
-        return f"ghcr.io/home-assistant/{self.sys_machine}-homeassistant"
+        return f"ghcr.nju.edu.cn/home-assistant/{self.sys_machine}-homeassistant"
 
     @property
     def image(self) -> str:
