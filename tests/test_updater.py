@@ -16,7 +16,7 @@ from tests.dbus_service_mocks.network_manager import (
     NetworkManager as NetworkManagerService,
 )
 
-URL_TEST = "https://version.home-assistant.io/stable.json"
+URL_TEST = "https://version.hasscn.top/stable.json"
 
 
 @pytest.mark.usefixtures("no_job_throttle")
@@ -127,5 +127,5 @@ async def test_delayed_fetch_for_connectivity(
     coresys.websession.get.assert_called_once()
     assert (
         coresys.websession.get.call_args[0][0]
-        == "https://version.home-assistant.io/stable.json"
+        == "https://version.hasscn.top/stable.json"
     )
