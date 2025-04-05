@@ -6,7 +6,7 @@ on:
       channel:
         description: "Channel"
         required: true
-        default: "dev"
+        default: "stable"
       version:
         description: "Version"
         required: true
