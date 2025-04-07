@@ -6,7 +6,7 @@
     },
     "core": {
         "name": "Official add-ons",
-        "url": "https://home-assistant.io/addons",
-        "maintainer": "Home Assistant"
+        "url": "https://gitee.com/desmond_GT/hassio-addons",
+        "maintainer": "Desmond Dong"
     }
 }
