@@ -50,7 +50,7 @@ jobs:
         run: |
           mkdir -p .github/backup_workflows
           if [ -f .github/workflows/builder.yml ]; then
-            mv .github/workflows/builder.yml .github/backup_workflows/
+            mv .github/workflows/builder.yml .github/workflows/builder.bak
           fi
 
       - name: Copy custom workflows from China
