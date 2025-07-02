@@ -255,8 +255,8 @@ jobs:
       - name: Pull Supervisor
         if: needs.init.outputs.publish == 'true'
         run: |
-          docker pull ghcr.io/home-assistant/amd64-hassio-supervisor:${{ needs.init.outputs.version }}
-          docker tag ghcr.io/home-assistant/amd64-hassio-supervisor:${{ needs.init.outputs.version }} ghcr.io/home-assistant/amd64-hassio-supervisor:runner
+          docker pull ghcr.io/ha-china/amd64-hassio-supervisor:${{ needs.init.outputs.version }}
+          docker tag ghcr.io/ha-china/amd64-hassio-supervisor:${{ needs.init.outputs.version }} ghcr.io/ha-china/amd64-hassio-supervisor:runner
 
       - name: Create the Supervisor
         run: |
@@ -273,7 +273,7 @@ jobs:
             -e SUPERVISOR_NAME=hassio_supervisor \
             -e SUPERVISOR_DEV=1 \
             -e SUPERVISOR_MACHINE="qemux86-64" \
-          ghcr.io/home-assistant/amd64-hassio-supervisor:runner
+          ghcr.io/ha-china/amd64-hassio-supervisor:runner
 
       - name: Start the Supervisor
         run: docker start hassio_supervisor
