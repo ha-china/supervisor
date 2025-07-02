@@ -22,7 +22,9 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
+      - name: Set GitHub PAT remote
+        run: |
+          git remote set-url origin https://${{ secrets.GH_PAT }}@github.com/ha-china/supervisor.git
       - name: Sync all branches and tags
         run: |
           git remote add upstream https://github.com/home-assistant/supervisor.git
@@ -33,9 +35,7 @@ jobs:
           done
           git fetch upstream +refs/tags/*:refs/tags/*
           git push origin --tags
-      - name: Set GitHub PAT remote
-        run: |
-          git remote set-url origin https://${{ secrets.GH_PAT }}@github.com/ha-china/supervisor.git
+
       - name: Merge upstream/main into your main
         run: |
           git checkout main
