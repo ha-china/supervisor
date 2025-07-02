@@ -127,9 +127,9 @@ jobs:
             sed -i 's|ghcr.io|ghcr.nju.edu.cn|g' supervisor/plugins/base.py
             sed -i 's|ghcr.io|ghcr.nju.edu.cn|g' supervisor/addons/build.py
             sed -i  \
-              -e 's|URL_COMMUNITY_ADDONS|#URL_COMMUNITY_ADDONS|g' \
-              -e 's|URL_ESPHOME|#URL_ESPHOME|g' \
-              -e 's|URL_MUSIC_ASSISTANT|#URL_MUSIC_ASSISTANT|g' supervisor/store/validate.py
+              -e 's|COMMUNITY_ADDONS|#COMMUNITY_ADDONS|g' \
+              -e 's|ESPHOME|#ESPHOME|g' \
+              -e 's|MUSIC_ASSISTANT|#MUSIC_ASSISTANT|g' supervisor/store/validate.py
             sed -i 's|version.home-assistant.io|version.hasscn.top|g' tests/test_updater.py
             sed -i 's|ghcr.io|ghcr.nju.edu.cn|g' tests/homeassistant/test_core.py
 
