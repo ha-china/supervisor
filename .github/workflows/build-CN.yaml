@@ -206,7 +206,7 @@ jobs:
             $BUILD_ARGS \
             --${{ matrix.arch }} \
             --target /data \
-            --no-cosign \
+            --cosign \
             --generic ${{ needs.init.outputs.version }}
         env:
           CAS_API_KEY: ${{ secrets.CAS_TOKEN }}
