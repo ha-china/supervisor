@@ -46,22 +46,18 @@ jobs:
           git checkout main
           git merge --ff-only upstream/main || echo "Already up to date"
 
-      - name: Remove upstream workflows to avoid permission issues ✅
-        run: |
-          mkdir -p .github/backup_workflows
-          if [ -f .github/workflows/builder.yml ]; then
-            mv .github/workflows/builder.yml .github/workflows/builder.bak
-          fi
 
       - name: Copy custom workflows from China
         run: |
           git checkout China
           cp .github/workflows/Auto_Update.yaml /tmp/
           cp .github/workflows/build-CN.yaml /tmp/
+          cp .github/workflows/builder.yaml /tmp/
           git checkout main
-          cp /tmp/Auto_Update.yaml .github/workflows/Auto_Update.yaml 
-          cp /tmp/build-CN.yaml .github/workflows/build-CN.yaml
-          git add .github/workflows/build-CN.yaml .github/workflows/Auto_Update.yaml
+          cp -f /tmp/Auto_Update.yaml .github/workflows/Auto_Update.yaml 
+          cp -f /tmp/build-CN.yaml .github/workflows/build-CN.yaml
+          cp -f /tmp/builder.yaml .github/workflows/builder.yaml
+          git add .github/workflows/build-CN.yaml .github/workflows/Auto_Update.yaml .github/workflows/builder.yaml
           git commit -m "Restore custom workflows from China" || echo "Nothing to commit"
 
       - name: Push updates back with PAT ✅ 强制使用 PAT 推送
