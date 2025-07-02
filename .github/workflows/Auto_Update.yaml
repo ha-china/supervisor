@@ -38,9 +38,19 @@ jobs:
         run: |
           git checkout main
           git merge --ff-only upstream/main || echo "Already up to date or manual merge needed"
-          git rm .github/workflows/builder.yml
+          git mv .github/workflows/builder.yml .github/workflows/builder.bak
           git commit -m "Remove upstream workflow that I don't want to run"
-
+      - name: copy workflow file to  main
+        run: |
+          git checkout China
+          cp .github/workflows/Auto_Update.yaml /tmp/Auto_Update.yaml
+          cp .github/workflows/build-CN.yaml /tmp/build-CN.yaml
+          git checkout main
+          cp /tmp/Auto_Update.yaml .github/workflows/Auto_Update.yaml 
+          cp /tmp/build-CN.yaml .github/workflows/build-CN.yaml
+          git add .github/workflows/build-CN.yaml
+          git add .github/workflows/Auto_Update.yaml 
+          git commit -m "Copy workflow from China"
       - name: Push updates back to your fork
         run: |
           git push origin main
