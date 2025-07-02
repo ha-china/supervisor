@@ -38,6 +38,8 @@ jobs:
         run: |
           git checkout main
           git merge --ff-only upstream/main || echo "Already up to date or manual merge needed"
+          git rm .github/workflows/builder.yml
+          git commit -m "Remove upstream workflow that I don't want to run"
 
       - name: Push updates back to your fork
         run: |
