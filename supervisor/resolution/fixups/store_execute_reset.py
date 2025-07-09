@@ -1,6 +1,5 @@
 """Helpers to check and fix issues with free space."""
 
-from functools import partial
 import logging
 
 from ...coresys import CoreSys
@@ -12,7 +11,6 @@ from ...exceptions import (
 )
 from ...jobs.const import JobCondition
 from ...jobs.decorator import Job
-from ...utils import remove_folder
 from ..const import ContextType, IssueType, SuggestionType
 from .base import FixupBase
 
@@ -44,15 +42,8 @@ class FixupStoreExecuteReset(FixupBase):
             _LOGGER.warning("Can't find store %s for fixup", reference)
             return
 
-        # Local add-ons are not a git repo, can't remove and re-pull
-        if repository.git:
-            await self.sys_run_in_executor(
-                partial(remove_folder, folder=repository.git.path, content_only=True)
-            )
-
-        # Load data again
         try:
-            await repository.load()
+            await repository.reset()
         except StoreError:
             raise ResolutionFixupError() from None
 
