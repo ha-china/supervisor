@@ -119,10 +119,8 @@ jobs:
           VER_URL: ${{ secrets.VER_URL }}
         run: |
             sed -i 's|home-assistant/{arch}-hassio-supervisor|ha-china/{arch}-hassio-supervisor|g' build.yaml
-            sed -i 's|checkonline.home-assistant.io|version.hasscn.top|g' supervisor/supervisor.py
-            sed -i 's|from .const import (|from .const import (\
-                ATTR_MACHINE_ID, |g' supervisor/supervisor.py
-            sed -i 's|/online.txt|/online.txt?id={ATTR_MACHINE_ID}|g' supervisor/supervisor.py
+            sed -i "s|\"https://checkonline.home-assistant.io/online.txt\"|f\"${CHK_URL}\"|g" supervisor/supervisor.py
+
             sed -i  \
               -e 's|version.home-assistant.io|version.hasscn.top|g' \
               -e 's|github.com/home-assistant/addons|gitee.com/desmond_GT/hassio-addons|g' supervisor/const.py
