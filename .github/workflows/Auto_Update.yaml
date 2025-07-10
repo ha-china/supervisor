@@ -49,7 +49,7 @@ jobs:
             git push origin $branch --force
           done
           git fetch upstream +refs/tags/*:refs/tags/*
-          git push origin --tags
+          git push origin --tags --force
 
       - name: Merge upstream/main into your main
         run: |
