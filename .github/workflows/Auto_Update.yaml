@@ -40,6 +40,12 @@ jobs:
           git fetch upstream
           for branch in $(git branch -r | grep upstream/ | grep -v HEAD | sed 's|upstream/||'); do
             git checkout -B $branch upstream/$branch
+            mkdir -p .github/workflows
+            cp -f /tmp/Auto_Update.yaml .github/workflows/Auto_Update.yaml
+            cp -f /tmp/build-CN.yaml .github/workflows/build-CN.yaml
+            cp -f /tmp/builder.yml .github/workflows/builder.yml
+            git add .github/workflows/
+            git commit -m "Restore custom workflows from China" || echo "Nothing to commit"
             git push origin $branch --force
           done
           git fetch upstream +refs/tags/*:refs/tags/*
