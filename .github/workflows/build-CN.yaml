@@ -137,6 +137,7 @@ jobs:
             sed -i 's|version.home-assistant.io|version.hasscn.top|g' tests/test_updater.py
             sed -i 's|ghcr.io|ghcr.nju.edu.cn|g' tests/homeassistant/test_core.py
             sed -i 's|docker.io|docker.m.daocloud.io|g' supervisor/docker/const.py
+            sed -i "s|https://9c6ea70f49234442b4746e447b24747e@o427061.ingest.sentry.io/5370612|https://b2ecb516add9d8f199ea63eae6c17a9d@o4509679144009728.ingest.us.sentry.io/4509790590664704|g" supervisor/utils/sentry.py
             
 
       - name: Write env-file
