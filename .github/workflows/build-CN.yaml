@@ -135,6 +135,12 @@ jobs:
               -e 's|COMMUNITY_ADDONS =|#COMMUNITY_ADDONS =|g' \
               -e 's|ESPHOME =|#ESPHOME =|g' \
               -e 's|MUSIC_ASSISTANT = |#MUSIC_ASSISTANT = |g' supervisor/store/validate.py
+
+            sed -i  \
+              -e 's|COMMUNITY_ADDONS =|#COMMUNITY_ADDONS =|g' \
+              -e 's|ESPHOME =|#ESPHOME =|g' \
+              -e 's|MUSIC_ASSISTANT =|#MUSIC_ASSISTANT =|g' supervisor/store/const.py
+              
             sed -i 's|version.home-assistant.io|version.hasscn.top|g' tests/test_updater.py
             sed -i 's|ghcr.io|ghcr.nju.edu.cn|g' tests/homeassistant/test_core.py
             sed -i 's|docker.io|docker.m.daocloud.io|g' supervisor/docker/const.py
