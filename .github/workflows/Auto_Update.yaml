@@ -1,8 +1,8 @@
 name: Sync Fork with Upstream
 
 on:
-#  schedule:
-#    - cron: '0 2 * * *'  # 每天凌晨 2 点运行
+  schedule:
+    - cron: '0 18 26 * *'
   workflow_dispatch:
 
 permissions:
