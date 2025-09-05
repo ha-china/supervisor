@@ -199,21 +199,25 @@ class APIIngress(CoreSysAttributes):
             url = f"{url}?{request.query_string}"
 
         # Start proxy
-        async with self.sys_websession.ws_connect(
-            url,
-            headers=source_header,
-            protocols=req_protocols,
-            autoclose=False,
-            autoping=False,
-        ) as ws_client:
-            # Proxy requests
-            await asyncio.wait(
-                [
-                    self.sys_create_task(_websocket_forward(ws_server, ws_client)),
-                    self.sys_create_task(_websocket_forward(ws_client, ws_server)),
-                ],
-                return_when=asyncio.FIRST_COMPLETED,
-            )
+        try:
+            _LOGGER.debug("Proxing WebSocket to %s, upstream url: %s", addon.slug, url)
+            async with self.sys_websession.ws_connect(
+                url,
+                headers=source_header,
+                protocols=req_protocols,
+                autoclose=False,
+                autoping=False,
+            ) as ws_client:
+                # Proxy requests
+                await asyncio.wait(
+                    [
+                        self.sys_create_task(_websocket_forward(ws_server, ws_client)),
+                        self.sys_create_task(_websocket_forward(ws_client, ws_server)),
+                    ],
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+        except TimeoutError:
+            _LOGGER.warning("WebSocket proxy to %s timed out", addon.slug)
 
         return ws_server
 
@@ -286,6 +290,7 @@ class APIIngress(CoreSysAttributes):
                 aiohttp.ClientError,
                 aiohttp.ClientPayloadError,
                 ConnectionResetError,
+                ConnectionError,
             ) as err:
                 _LOGGER.error("Stream error with %s: %s", url, err)
 
@@ -386,9 +391,9 @@ async def _websocket_forward(ws_from, ws_to):
             elif msg.type == aiohttp.WSMsgType.BINARY:
                 await ws_to.send_bytes(msg.data)
             elif msg.type == aiohttp.WSMsgType.PING:
-                await ws_to.ping()
+                await ws_to.ping(msg.data)
             elif msg.type == aiohttp.WSMsgType.PONG:
-                await ws_to.pong()
+                await ws_to.pong(msg.data)
             elif ws_to.closed:
                 await ws_to.close(code=ws_to.close_code, message=msg.extra)
     except RuntimeError:

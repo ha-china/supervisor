@@ -9,12 +9,14 @@ from typing import Self, Union
 
 from attr import evolve
 
+from supervisor.jobs.const import JobConcurrency
+
 from ..const import AddonBoot, AddonStartup, AddonState
 from ..coresys import CoreSys, CoreSysAttributes
 from ..exceptions import (
+    AddonNotSupportedError,
     AddonsError,
     AddonsJobError,
-    AddonsNotSupportedError,
     CoreDNSError,
     DockerError,
     HassioError,
@@ -180,8 +182,11 @@ class AddonManager(CoreSysAttributes):
         name="addon_manager_install",
         conditions=ADDON_UPDATE_CONDITIONS,
         on_condition=AddonsJobError,
+        concurrency=JobConcurrency.QUEUE,
     )
-    async def install(self, slug: str) -> None:
+    async def install(
+        self, slug: str, *, validation_complete: asyncio.Event | None = None
+    ) -> None:
         """Install an add-on."""
         self.sys_jobs.current.reference = slug
 
@@ -193,6 +198,10 @@ class AddonManager(CoreSysAttributes):
             raise AddonsError(f"Add-on {slug} does not exist", _LOGGER.error)
 
         store.validate_availability()
+
+        # If being run in the background, notify caller that validation has completed
+        if validation_complete:
+            validation_complete.set()
 
         await Addon(self.coresys, slug).install()
 
@@ -223,7 +232,11 @@ class AddonManager(CoreSysAttributes):
         on_condition=AddonsJobError,
     )
     async def update(
-        self, slug: str, backup: bool | None = False
+        self,
+        slug: str,
+        backup: bool | None = False,
+        *,
+        validation_complete: asyncio.Event | None = None,
     ) -> asyncio.Task | None:
         """Update add-on.
 
@@ -247,6 +260,10 @@ class AddonManager(CoreSysAttributes):
 
         # Check if available, Maybe something have changed
         store.validate_availability()
+
+        # If being run in the background, notify caller that validation has completed
+        if validation_complete:
+            validation_complete.set()
 
         if backup:
             await self.sys_backups.do_backup_partial(
@@ -290,7 +307,7 @@ class AddonManager(CoreSysAttributes):
                 "Version changed, use Update instead Rebuild", _LOGGER.error
             )
         if not force and not addon.need_build:
-            raise AddonsNotSupportedError(
+            raise AddonNotSupportedError(
                 "Can't rebuild a image based add-on", _LOGGER.error
             )
 

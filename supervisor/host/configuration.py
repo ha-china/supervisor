@@ -12,6 +12,7 @@ from ..dbus.const import (
     InterfaceAddrGenMode as NMInterfaceAddrGenMode,
     InterfaceIp6Privacy as NMInterfaceIp6Privacy,
     InterfaceMethod as NMInterfaceMethod,
+    MulticastDnsValue,
 )
 from ..dbus.network.connection import NetworkConnection
 from ..dbus.network.interface import NetworkInterface
@@ -21,10 +22,18 @@ from .const import (
     InterfaceIp6Privacy,
     InterfaceMethod,
     InterfaceType,
+    MulticastDnsMode,
     WifiMode,
 )
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
+
+_MULTICAST_DNS_VALUE_MODE_MAPPING: dict[int, MulticastDnsMode] = {
+    MulticastDnsValue.DEFAULT.value: MulticastDnsMode.DEFAULT,
+    MulticastDnsValue.OFF.value: MulticastDnsMode.OFF,
+    MulticastDnsValue.RESOLVE.value: MulticastDnsMode.RESOLVE,
+    MulticastDnsValue.ANNOUNCE.value: MulticastDnsMode.ANNOUNCE,
+}
 
 
 @dataclass(slots=True)
@@ -82,6 +91,11 @@ class VlanConfig:
     """Represent a vlan configuration."""
 
     id: int
+    # Note: On VLAN creation, parent is the interface name, but in the NetworkManager
+    # config the parent is set to the connection UUID in get_connection_from_interface().
+    # On network update (which we call in apply_changes() on VLAN creation), the
+    # parent is then set to that connection UUID in _map_nm_vlan(), hence we always
+    # operate with a connection UUID as interface!
     interface: str | None
 
 
@@ -102,10 +116,31 @@ class Interface:
     ipv6setting: Ip6Setting | None
     wifi: WifiConfig | None
     vlan: VlanConfig | None
+    mdns: MulticastDnsMode | None
+    llmnr: MulticastDnsMode | None
 
     def equals_dbus_interface(self, inet: NetworkInterface) -> bool:
         """Return true if this represents the dbus interface."""
         if not inet.settings:
+            return False
+
+        # Special handling for VLAN interfaces
+        if self.type == InterfaceType.VLAN and inet.type == DeviceType.VLAN:
+            if not self.vlan:
+                raise RuntimeError("VLAN information missing")
+
+            if inet.settings.vlan:
+                # For VLANs, compare by VLAN id and parent interface
+                return (
+                    inet.settings.vlan.id == self.vlan.id
+                    and inet.settings.vlan.parent == self.vlan.interface
+                )
+            return False
+
+        if (self.type, inet.type) not in [
+            (InterfaceType.ETHERNET, DeviceType.ETHERNET),
+            (InterfaceType.WIRELESS, DeviceType.WIRELESS),
+        ]:
             return False
 
         if inet.settings.match and inet.settings.match.path:
@@ -174,6 +209,13 @@ class Interface:
             and ConnectionStateFlags.IP6_READY in inet.connection.state_flags
         )
 
+        if inet.settings and inet.settings.connection:
+            mdns = inet.settings.connection.mdns
+            llmnr = inet.settings.connection.llmnr
+        else:
+            mdns = None
+            llmnr = None
+
         return Interface(
             name=inet.interface_name,
             mac=inet.hw_address,
@@ -210,6 +252,8 @@ class Interface:
             ipv6setting=ipv6_setting,
             wifi=Interface._map_nm_wifi(inet),
             vlan=Interface._map_nm_vlan(inet),
+            mdns=Interface._map_nm_multicast_dns(mdns),
+            llmnr=Interface._map_nm_multicast_dns(llmnr),
         )
 
     @staticmethod
@@ -316,3 +360,10 @@ class Interface:
             return None
 
         return VlanConfig(inet.settings.vlan.id, inet.settings.vlan.parent)
+
+    @staticmethod
+    def _map_nm_multicast_dns(mode: int | None) -> MulticastDnsMode | None:
+        if mode is None:
+            return None
+
+        return _MULTICAST_DNS_VALUE_MODE_MAPPING.get(mode)

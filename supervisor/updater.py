@@ -8,6 +8,8 @@ import logging
 import aiohttp
 from awesomeversion import AwesomeVersion
 
+from supervisor.jobs.const import JobConcurrency, JobThrottle
+
 from .bus import EventListener
 from .const import (
     ATTR_AUDIO,
@@ -15,7 +17,8 @@ from .const import (
     ATTR_CHANNEL,
     ATTR_CLI,
     ATTR_DNS,
-    ATTR_HASSOS,
+    ATTR_HASSOS_UNRESTRICTED,
+    ATTR_HASSOS_UPGRADE,
     ATTR_HOMEASSISTANT,
     ATTR_IMAGE,
     ATTR_MULTICAST,
@@ -34,7 +37,7 @@ from .exceptions import (
     UpdaterError,
     UpdaterJobError,
 )
-from .jobs.decorator import Job, JobCondition, JobExecutionLimit
+from .jobs.decorator import Job, JobCondition
 from .utils.codenotary import calc_checksum
 from .utils.common import FileConfiguration
 from .validate import SCHEMA_UPDATER_CONFIG
@@ -53,17 +56,27 @@ class Updater(FileConfiguration, CoreSysAttributes):
 
     async def load(self) -> None:
         """Update internal data."""
-        # If there's no connectivity, delay initial version fetch
-        if not self.sys_supervisor.connectivity:
-            self._connectivity_listener = self.sys_bus.register_event(
-                BusEvent.SUPERVISOR_CONNECTIVITY_CHANGE, self._check_connectivity
+        # Delay loading data by default so JobCondition.OS_SUPPORTED works.
+        # Use HAOS unrestricted as indicator as this is what we need to evaluate
+        # if the operating system version is supported.
+        if self.sys_os.board and self.version_hassos_unrestricted is None:
+            _LOGGER.info(
+                "No OS update information found, force refreshing updater information"
             )
-            return
-
-        await self.reload()
+            await self.reload()
 
     async def reload(self) -> None:
         """Update internal data."""
+        # If there's no connectivity, delay initial version fetch
+        if not self.sys_supervisor.connectivity:
+            _LOGGER.debug("No Supervisor connectivity, delaying version fetch")
+            if not self._connectivity_listener:
+                self._connectivity_listener = self.sys_bus.register_event(
+                    BusEvent.SUPERVISOR_CONNECTIVITY_CHANGE, self._check_connectivity
+                )
+            _LOGGER.info("No Supervisor connectivity, delaying version fetch")
+            return
+
         with suppress(UpdaterError):
             await self.fetch_data()
 
@@ -80,7 +93,45 @@ class Updater(FileConfiguration, CoreSysAttributes):
     @property
     def version_hassos(self) -> AwesomeVersion | None:
         """Return latest version of HassOS."""
-        return self._data.get(ATTR_HASSOS)
+        upgrade_map = self.upgrade_map_hassos
+        unrestricted = self.version_hassos_unrestricted
+
+        # If no upgrade map exists, fall back to unrestricted version
+        if not upgrade_map:
+            return unrestricted
+
+        # If we have no unrestricted version or no current OS version, return unrestricted
+        if (
+            not unrestricted
+            or not self.sys_os.version
+            or self.sys_os.version.major is None
+        ):
+            return unrestricted
+
+        current_major = str(self.sys_os.version.major)
+        # Check if there's an upgrade path for current major version
+        if current_major in upgrade_map:
+            last_in_major = AwesomeVersion(upgrade_map[current_major])
+            # If we're not at the last version in our major, upgrade to that first
+            if self.sys_os.version != last_in_major:
+                return last_in_major
+            # If we are at the last version in our major, check for next major
+            next_major = str(int(self.sys_os.version.major) + 1)
+            if next_major in upgrade_map:
+                return AwesomeVersion(upgrade_map[next_major])
+
+        # Fall back to unrestricted version
+        return unrestricted
+
+    @property
+    def version_hassos_unrestricted(self) -> AwesomeVersion | None:
+        """Return latest version of HassOS ignoring upgrade restrictions."""
+        return self._data.get(ATTR_HASSOS_UNRESTRICTED)
+
+    @property
+    def upgrade_map_hassos(self) -> dict[str, str] | None:
+        """Return HassOS upgrade map."""
+        return self._data.get(ATTR_HASSOS_UPGRADE)
 
     @property
     def version_cli(self) -> AwesomeVersion | None:
@@ -196,10 +247,11 @@ class Updater(FileConfiguration, CoreSysAttributes):
 
     @Job(
         name="updater_fetch_data",
-        conditions=[JobCondition.INTERNET_SYSTEM],
+        conditions=[JobCondition.INTERNET_SYSTEM, JobCondition.OS_SUPPORTED],
         on_condition=UpdaterJobError,
-        limit=JobExecutionLimit.THROTTLE_WAIT,
         throttle_period=timedelta(seconds=30),
+        concurrency=JobConcurrency.QUEUE,
+        throttle=JobThrottle.THROTTLE,
     )
     async def fetch_data(self):
         """Fetch current versions from Github.
@@ -272,17 +324,10 @@ class Updater(FileConfiguration, CoreSysAttributes):
             if self.sys_os.board:
                 self._data[ATTR_OTA] = data["ota"]
                 if version := data["hassos"].get(self.sys_os.board):
+                    self._data[ATTR_HASSOS_UNRESTRICTED] = AwesomeVersion(version)
+                    # Store the upgrade map for persistent access
+                    self._data[ATTR_HASSOS_UPGRADE] = data.get("hassos-upgrade", {})
                     events.append("os")
-                    upgrade_map = data.get("hassos-upgrade", {})
-                    if last_in_major := upgrade_map.get(str(self.sys_os.version.major)):
-                        if self.sys_os.version != AwesomeVersion(last_in_major):
-                            version = last_in_major
-                        elif last_in_next_major := upgrade_map.get(
-                            str(int(self.sys_os.version.major) + 1)
-                        ):
-                            version = last_in_next_major
-
-                    self._data[ATTR_HASSOS] = AwesomeVersion(version)
                 else:
                     _LOGGER.warning(
                         "Board '%s' not found in version file. No OS updates.",

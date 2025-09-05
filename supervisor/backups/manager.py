@@ -27,7 +27,7 @@ from ..exceptions import (
     BackupJobError,
     BackupMountDownError,
 )
-from ..jobs.const import JOB_GROUP_BACKUP_MANAGER, JobCondition, JobExecutionLimit
+from ..jobs.const import JOB_GROUP_BACKUP_MANAGER, JobConcurrency, JobCondition
 from ..jobs.decorator import Job
 from ..jobs.job_group import JobGroup
 from ..mounts.mount import Mount
@@ -583,9 +583,9 @@ class BackupManager(FileConfiguration, JobGroup):
     @Job(
         name="backup_manager_full_backup",
         conditions=[JobCondition.RUNNING],
-        limit=JobExecutionLimit.GROUP_ONCE,
         on_condition=BackupJobError,
         cleanup=False,
+        concurrency=JobConcurrency.GROUP_REJECT,
     )
     async def do_backup_full(
         self,
@@ -598,6 +598,7 @@ class BackupManager(FileConfiguration, JobGroup):
         homeassistant_exclude_database: bool | None = None,
         extra: dict | None = None,
         additional_locations: list[LOCATION_TYPE] | None = None,
+        validation_complete: asyncio.Event | None = None,
     ) -> Backup | None:
         """Create a full backup."""
         await self._check_location(location)
@@ -613,6 +614,10 @@ class BackupManager(FileConfiguration, JobGroup):
         new_backup = self._create_backup(
             name, filename, BackupType.FULL, password, compressed, location, extra
         )
+
+        # If being run in the background, notify caller that validation has completed
+        if validation_complete:
+            validation_complete.set()
 
         _LOGGER.info("Creating new full backup with slug %s", new_backup.slug)
         backup = await self._do_backup(
@@ -630,9 +635,9 @@ class BackupManager(FileConfiguration, JobGroup):
     @Job(
         name="backup_manager_partial_backup",
         conditions=[JobCondition.RUNNING],
-        limit=JobExecutionLimit.GROUP_ONCE,
         on_condition=BackupJobError,
         cleanup=False,
+        concurrency=JobConcurrency.GROUP_REJECT,
     )
     async def do_backup_partial(
         self,
@@ -648,6 +653,7 @@ class BackupManager(FileConfiguration, JobGroup):
         homeassistant_exclude_database: bool | None = None,
         extra: dict | None = None,
         additional_locations: list[LOCATION_TYPE] | None = None,
+        validation_complete: asyncio.Event | None = None,
     ) -> Backup | None:
         """Create a partial backup."""
         await self._check_location(location)
@@ -683,6 +689,10 @@ class BackupManager(FileConfiguration, JobGroup):
                 addon_list.append(cast(Addon, addon))
                 continue
             _LOGGER.warning("Add-on %s not found/installed", addon_slug)
+
+        # If being run in the background, notify caller that validation has completed
+        if validation_complete:
+            validation_complete.set()
 
         backup = await self._do_backup(
             new_backup,
@@ -810,15 +820,17 @@ class BackupManager(FileConfiguration, JobGroup):
             JobCondition.INTERNET_SYSTEM,
             JobCondition.RUNNING,
         ],
-        limit=JobExecutionLimit.GROUP_ONCE,
         on_condition=BackupJobError,
         cleanup=False,
+        concurrency=JobConcurrency.GROUP_REJECT,
     )
     async def do_restore_full(
         self,
         backup: Backup,
+        *,
         password: str | None = None,
         location: str | None | type[DEFAULT] = DEFAULT,
+        validation_complete: asyncio.Event | None = None,
     ) -> bool:
         """Restore a backup."""
         # Add backup ID to job
@@ -837,6 +849,10 @@ class BackupManager(FileConfiguration, JobGroup):
                 f"can't restore on {self.sys_supervisor.version}. Must update supervisor first.",
                 _LOGGER.error,
             )
+
+        # If being run in the background, notify caller that validation has completed
+        if validation_complete:
+            validation_complete.set()
 
         _LOGGER.info("Full-Restore %s start", backup.slug)
         await self.sys_core.set_state(CoreState.FREEZE)
@@ -869,18 +885,20 @@ class BackupManager(FileConfiguration, JobGroup):
             JobCondition.INTERNET_SYSTEM,
             JobCondition.RUNNING,
         ],
-        limit=JobExecutionLimit.GROUP_ONCE,
         on_condition=BackupJobError,
         cleanup=False,
+        concurrency=JobConcurrency.GROUP_REJECT,
     )
     async def do_restore_partial(
         self,
         backup: Backup,
+        *,
         homeassistant: bool = False,
         addons: list[str] | None = None,
         folders: list[str] | None = None,
         password: str | None = None,
         location: str | None | type[DEFAULT] = DEFAULT,
+        validation_complete: asyncio.Event | None = None,
     ) -> bool:
         """Restore a backup."""
         # Add backup ID to job
@@ -908,6 +926,10 @@ class BackupManager(FileConfiguration, JobGroup):
                 _LOGGER.error,
             )
 
+        # If being run in the background, notify caller that validation has completed
+        if validation_complete:
+            validation_complete.set()
+
         _LOGGER.info("Partial-Restore %s start", backup.slug)
         await self.sys_core.set_state(CoreState.FREEZE)
 
@@ -930,8 +952,8 @@ class BackupManager(FileConfiguration, JobGroup):
     @Job(
         name="backup_manager_freeze_all",
         conditions=[JobCondition.RUNNING],
-        limit=JobExecutionLimit.GROUP_ONCE,
         on_condition=BackupJobError,
+        concurrency=JobConcurrency.GROUP_REJECT,
     )
     async def freeze_all(self, timeout: float = DEFAULT_FREEZE_TIMEOUT) -> None:
         """Freeze system to prepare for an external backup such as an image snapshot."""
@@ -999,9 +1021,9 @@ class BackupManager(FileConfiguration, JobGroup):
     @Job(
         name="backup_manager_signal_thaw",
         conditions=[JobCondition.FROZEN],
-        limit=JobExecutionLimit.GROUP_ONCE,
         on_condition=BackupJobError,
         internal=True,
+        concurrency=JobConcurrency.GROUP_REJECT,
     )
     async def thaw_all(self) -> None:
         """Signal thaw task to begin unfreezing the system."""

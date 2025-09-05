@@ -88,6 +88,8 @@ async def test_api_network_interface_info(api_client: TestClient, interface_id: 
     ]
     assert result["data"]["ipv6"]["ready"] is True
     assert result["data"]["interface"] == TEST_INTERFACE_ETH_NAME
+    assert result["data"]["mdns"] == "announce"
+    assert result["data"]["llmnr"] == "announce"
 
 
 async def test_api_network_interface_info_default(api_client: TestClient):
@@ -109,6 +111,8 @@ async def test_api_network_interface_info_default(api_client: TestClient):
     ]
     assert result["data"]["ipv6"]["ready"] is True
     assert result["data"]["interface"] == TEST_INTERFACE_ETH_NAME
+    assert result["data"]["mdns"] == "announce"
+    assert result["data"]["llmnr"] == "announce"
 
 
 @pytest.mark.parametrize(
@@ -278,6 +282,33 @@ async def test_api_network_interface_update_wifi_error(api_client: TestClient):
     )
 
 
+async def test_api_network_interface_update_mdns(
+    api_client: TestClient,
+    coresys: CoreSys,
+    network_manager_service: NetworkManagerService,
+    connection_settings_service: ConnectionSettingsService,
+):
+    """Test network manager API update with mDNS/LLMNR mode."""
+    network_manager_service.CheckConnectivity.calls.clear()
+    connection_settings_service.Update.calls.clear()
+
+    resp = await api_client.post(
+        f"/network/interface/{TEST_INTERFACE_ETH_NAME}/update",
+        json={
+            "mdns": "resolve",
+            "llmnr": "off",
+        },
+    )
+    result = await resp.json()
+    assert result["result"] == "ok"
+    assert len(connection_settings_service.Update.calls) == 1
+    settings = connection_settings_service.Update.calls[0][0]
+
+    assert "connection" in settings
+    assert settings["connection"]["mdns"] == Variant("i", 1)
+    assert settings["connection"]["llmnr"] == Variant("i", 0)
+
+
 async def test_api_network_interface_update_remove(api_client: TestClient):
     """Test network manager api."""
     resp = await api_client.post(
@@ -380,7 +411,7 @@ async def test_api_network_vlan(
     settings_service.AddConnection.calls.clear()
     resp = await api_client.post(
         f"/network/interface/{TEST_INTERFACE_ETH_NAME}/vlan/1",
-        json={"ipv4": {"method": "auto"}},
+        json={"ipv4": {"method": "auto"}, "llmnr": "off"},
     )
     result = await resp.json()
     assert result["result"] == "ok"
@@ -389,10 +420,10 @@ async def test_api_network_vlan(
     connection = settings_service.AddConnection.calls[0][0]
     assert "uuid" in connection["connection"]
     assert connection["connection"] == {
-        "id": Variant("s", "Supervisor .1"),
+        "id": Variant("s", "Supervisor eth0.1"),
         "type": Variant("s", "vlan"),
-        "llmnr": Variant("i", 2),
-        "mdns": Variant("i", 2),
+        "mdns": Variant("i", -1),  # Default mode
+        "llmnr": Variant("i", 0),
         "autoconnect": Variant("b", True),
         "uuid": connection["connection"]["uuid"],
     }
@@ -402,6 +433,16 @@ async def test_api_network_vlan(
         "id": Variant("u", 1),
         "parent": Variant("s", "0c23631e-2118-355c-bbb0-8943229cb0d6"),
     }
+
+    # Check if trying to recreate an existing VLAN raises an exception
+    result = await resp.json()
+    resp = await api_client.post(
+        f"/network/interface/{TEST_INTERFACE_ETH_NAME}/vlan/10",
+        json={"ipv4": {"method": "auto"}},
+    )
+    result = await resp.json()
+    assert result["result"] == "error"
+    assert len(settings_service.AddConnection.calls) == 1
 
 
 @pytest.mark.parametrize(

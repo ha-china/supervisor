@@ -1,7 +1,9 @@
 """Init file for Supervisor util for RESTful API."""
 
+import asyncio
+from collections.abc import Callable
 import json
-from typing import Any
+from typing import Any, cast
 
 from aiohttp import web
 from aiohttp.hdrs import AUTHORIZATION
@@ -14,8 +16,11 @@ from ..const import (
     HEADER_TOKEN,
     HEADER_TOKEN_OLD,
     JSON_DATA,
+    JSON_ERROR_KEY,
+    JSON_EXTRA_FIELDS,
     JSON_JOB_ID,
     JSON_MESSAGE,
+    JSON_MESSAGE_TEMPLATE,
     JSON_RESULT,
     REQUEST_FROM,
     RESULT_ERROR,
@@ -23,6 +28,7 @@ from ..const import (
 )
 from ..coresys import CoreSys, CoreSysAttributes
 from ..exceptions import APIError, BackupFileNotFoundError, DockerAPIError, HassioError
+from ..jobs import JobSchedulerOptions, SupervisorJob
 from ..utils import check_exception_chain, get_message_from_exception_chain
 from ..utils.json import json_dumps, json_loads as json_loads_util
 from ..utils.log_format import format_message
@@ -133,10 +139,11 @@ def api_process_raw(content, *, error_type=None):
 
 
 def api_return_error(
-    error: Exception | None = None,
+    error: HassioError | None = None,
     message: str | None = None,
     error_type: str | None = None,
     status: int = 400,
+    *,
     job_id: str | None = None,
 ) -> web.Response:
     """Return an API error message."""
@@ -155,12 +162,18 @@ def api_return_error(
                 body=message.encode(), content_type=error_type, status=status
             )
         case _:
-            result = {
+            result: dict[str, Any] = {
                 JSON_RESULT: RESULT_ERROR,
                 JSON_MESSAGE: message,
             }
             if job_id:
                 result[JSON_JOB_ID] = job_id
+            if error and error.error_key:
+                result[JSON_ERROR_KEY] = error.error_key
+            if error and error.message_template:
+                result[JSON_MESSAGE_TEMPLATE] = error.message_template
+            if error and error.extra_fields:
+                result[JSON_EXTRA_FIELDS] = error.extra_fields
 
     return web.json_response(
         result,
@@ -198,3 +211,47 @@ async def api_validate(
         data_validated[origin_value] = data[origin_value]
 
     return data_validated
+
+
+async def background_task(
+    coresys_obj: CoreSysAttributes,
+    task_method: Callable,
+    *args,
+    **kwargs,
+) -> tuple[asyncio.Task, str]:
+    """Start task in background and return task and job ID.
+
+    Args:
+        coresys_obj: Instance that accesses coresys data using CoreSysAttributes
+        task_method: The method to execute in the background. Must include a keyword arg 'validation_complete' of type asyncio.Event. Should set it after any initial validation has completed
+        *args: Arguments to pass to task_method
+        **kwargs: Keyword arguments to pass to task_method
+
+    Returns:
+        Tuple of (task, job_id)
+
+    """
+    event = asyncio.Event()
+    job, task = cast(
+        tuple[SupervisorJob, asyncio.Task],
+        coresys_obj.sys_jobs.schedule_job(
+            task_method,
+            JobSchedulerOptions(),
+            *args,
+            validation_complete=event,
+            **kwargs,
+        ),
+    )
+
+    # Wait for provided event before returning
+    # If the task fails validation it should raise before getting there
+    event_task = coresys_obj.sys_create_task(event.wait())
+    _, pending = await asyncio.wait(
+        (task, event_task),
+        return_when=asyncio.FIRST_COMPLETED,
+    )
+    # It seems task returned early (error or something), make sure to cancel
+    # the event task to avoid "Task was destroyed but it is pending!" errors.
+    if event_task in pending:
+        event_task.cancel()
+    return (task, job.uuid)

@@ -150,6 +150,8 @@ class Core(CoreSysAttributes):
             self.sys_dbus.load(),
             # Load Host
             self.sys_host.load(),
+            # Load HassOS
+            self.sys_os.load(),
             # Adjust timezone / time settings
             self._adjust_system_datetime(),
             # Load mounts
@@ -164,8 +166,6 @@ class Core(CoreSysAttributes):
             self.sys_homeassistant.load(),
             # Load CPU/Arch
             self.sys_arch.load(),
-            # Load HassOS
-            self.sys_os.load(),
             # Load Stores
             self.sys_store.load(),
             # Load Add-ons
@@ -196,29 +196,19 @@ class Core(CoreSysAttributes):
                 self.sys_resolution.add_unhealthy_reason(UnhealthyReason.SETUP)
                 await async_capture_exception(err)
 
-        # Set OS Agent diagnostics if needed
-        if (
-            self.sys_config.diagnostics is not None
-            and self.sys_dbus.agent.diagnostics != self.sys_config.diagnostics
-            and not self.sys_dev
-            and self.supported
-        ):
-            try:
-                await self.sys_dbus.agent.set_diagnostics(self.sys_config.diagnostics)
-            except Exception as err:  # pylint: disable=broad-except
-                _LOGGER.warning(
-                    "Could not set diagnostics to %s due to %s",
-                    self.sys_config.diagnostics,
-                    err,
-                )
-                await async_capture_exception(err)
-
-        # Evaluate the system
-        await self.sys_resolution.evaluate.evaluate_system()
-
     async def start(self) -> None:
         """Start Supervisor orchestration."""
         await self.set_state(CoreState.STARTUP)
+
+        # Set OS Agent diagnostics if needed
+        if (
+            self.sys_dbus.agent.is_connected
+            and self.sys_config.diagnostics is not None
+            and self.sys_dbus.agent.diagnostics != self.sys_config.diagnostics
+            and self.supported
+        ):
+            _LOGGER.debug("Set OS Agent diagnostics to %s", self.sys_config.diagnostics)
+            await self.sys_dbus.agent.set_diagnostics(self.sys_config.diagnostics)
 
         # Check if system is healthy
         if not self.supported:
@@ -230,6 +220,9 @@ class Core(CoreSysAttributes):
 
         # Mark booted partition as healthy
         await self.sys_os.mark_healthy()
+
+        # Refresh update information
+        await self.sys_updater.reload()
 
         # On release channel, try update itself if auto update enabled
         if self.sys_supervisor.need_update and self.sys_updater.auto_update:
@@ -301,7 +294,6 @@ class Core(CoreSysAttributes):
 
             # Upate Host/Deivce information
             self.sys_create_task(self.sys_host.reload())
-            self.sys_create_task(self.sys_updater.reload())
             self.sys_create_task(self.sys_resolution.healthcheck())
 
             await self.set_state(CoreState.RUNNING)
@@ -392,6 +384,19 @@ class Core(CoreSysAttributes):
 
     async def _adjust_system_datetime(self) -> None:
         """Adjust system time/date on startup."""
+        # Ensure host system timezone matches supervisor timezone configuration
+        if (
+            self.sys_config.timezone
+            and self.sys_host.info.timezone != self.sys_config.timezone
+            and self.sys_dbus.timedate.is_connected
+        ):
+            _LOGGER.info(
+                "Timezone in Supervisor config '%s' differs from host '%s'",
+                self.sys_config.timezone,
+                self.sys_host.info.timezone,
+            )
+            await self.sys_host.control.set_timezone(self.sys_config.timezone)
+
         # If no timezone is detect or set
         # If we are not connected or time sync
         if (
@@ -413,7 +418,9 @@ class Core(CoreSysAttributes):
             _LOGGER.warning("Can't adjust Time/Date settings: %s", err)
             return
 
-        await self.sys_config.set_timezone(self.sys_config.timezone or data.timezone)
+        timezone = self.sys_config.timezone or data.timezone
+        await self.sys_config.set_timezone(timezone)
+        await self.sys_host.control.set_timezone(timezone)
 
         # Calculate if system time is out of sync
         delta = data.dt_utc - utcnow()

@@ -168,3 +168,15 @@ def version_is_new_enough(
 ) -> bool:
     """Return True if the given version is new enough."""
     return version >= want_version
+
+
+def directory_missing_or_empty(path: Path) -> bool:
+    """Return true if path is not a directory or is empty.
+
+    Must be run in executor.
+    """
+    if not path.is_dir():
+        return True
+
+    # Efficiently check if directory is empty
+    return next(os.scandir(path), None) is None
