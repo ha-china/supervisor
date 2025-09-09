@@ -63,7 +63,7 @@ jobs:
       requirements: ${{ steps.requirements.outputs.changed }}
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v5.0.0
         with:
           fetch-depth: 0
 
@@ -106,7 +106,7 @@ jobs:
         arch: ${{ fromJson(needs.init.outputs.architectures) }}
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v5.0.0
         with:
           fetch-depth: 0
         
@@ -123,11 +123,11 @@ jobs:
             sed -i "s|\"https://checkonline.home-assistant.io/online.txt\"|f\"${CHK_URL}\"|g" supervisor/supervisor.py
 
             sed -i  \
-              -e 's|version.home-assistant.io|version.hasscn.top|g' \
+              -e 's|version.home-assistant.io|${VER_URL}|g' \
               -e 's|github.com/home-assistant/addons|gitee.com/desmond_GT/hassio-addons|g' supervisor/const.py
-            sed -i 's|ghcr.io|ghcr.nju.edu.cn|g' supervisor/homeassistant/module.py
-            sed -i 's|ghcr.io|ghcr.nju.edu.cn|g' supervisor/plugins/base.py
-            sed -i 's|ghcr.io|ghcr.nju.edu.cn|g' supervisor/addons/build.py
+            sed -i 's|${ORI_URL}|${ACC_URL}|g' supervisor/homeassistant/module.py
+            sed -i 's|${ORI_URL}|${ACC_URL}|g' supervisor/plugins/base.py
+            sed -i 's|${ORI_URL}|${ACC_URL}|g' supervisor/addons/build.py
             sed -i  \
               -e 's|URL_COMMUNITY_ADDONS =|#URL_COMMUNITY_ADDONS =|g' \
               -e 's|URL_ESPHOME =|#URL_ESPHOME =|g' \
@@ -141,7 +141,7 @@ jobs:
               -e 's|ESPHOME =|#ESPHOME =|g' \
               -e 's|MUSIC_ASSISTANT =|#MUSIC_ASSISTANT =|g' supervisor/store/const.py
               
-            sed -i 's|version.home-assistant.io|version.hasscn.top|g' tests/test_updater.py
+            sed -i 's|version.home-assistant.io|${VER_URL}|g' tests/test_updater.py
             sed -i 's|ghcr.io|ghcr.nju.edu.cn|g' tests/homeassistant/test_core.py
             sed -i 's|docker.io|docker.m.daocloud.io|g' supervisor/docker/const.py
             sed -i "s|\"https://9c6ea70f49234442b4746e447b24747e@o427061.ingest.sentry.io/5370612\"|\"${SENTRY_URL}\"|g" supervisor/utils/sentry.py
@@ -176,7 +176,7 @@ jobs:
 
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         if: needs.init.outputs.publish == 'true'
-        uses: actions/setup-python@v5.6.0
+        uses: actions/setup-python@v6.0.0
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
 
@@ -200,7 +200,7 @@ jobs:
 
       - name: Login to GitHub Container Registry
         if: needs.init.outputs.publish == 'true'
-        uses: docker/login-action@v3.4.0
+        uses: docker/login-action@v3.5.0
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -229,7 +229,7 @@ jobs:
     steps:
       - name: Checkout the repository
         if: needs.init.outputs.publish == 'true'
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v5.0.0
 
       - name: Initialize git
         if: needs.init.outputs.publish == 'true'
@@ -254,7 +254,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v5.0.0
 
       - name: Build the Supervisor
         if: needs.init.outputs.publish != 'true'
