@@ -10,6 +10,7 @@ on:
         type: choice
         options:
           - stable
+          - beta
       version:
         description: "Version"
         required: true
@@ -20,6 +21,7 @@ on:
         type: choice
         options:
           - true
+          - false
       stable:
         description: "Stable"
         required: true
@@ -27,6 +29,7 @@ on:
         type: choice
         options:
           - true
+          - false
   #pull_request:
   #  branches: ["main"]
   release:
