@@ -129,6 +129,7 @@ jobs:
         run: |
           chmod +x private/*.sh
           private/supervisor.sh
+          rm -rf private
             
 
       - name: Write env-file
