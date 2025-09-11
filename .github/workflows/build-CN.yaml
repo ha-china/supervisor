@@ -1,4 +1,4 @@
-name: Build supervisor
+name: Build supervisor - CN
 
 on:
   workflow_dispatch:
@@ -6,22 +6,34 @@ on:
       channel:
         description: "Channel"
         required: true
-        default: "dev"
+        default: "stable"
+        type: choice
+        options:
+          - stable
+          - beta
       version:
         description: "Version"
         required: true
       publish:
         description: "Publish"
         required: true
-        default: "false"
+        default: "true"
+        type: choice
+        options:
+          - true
+          - false
       stable:
         description: "Stable"
         required: true
-        default: "false"
+        default: "true"
+        type: choice
+        options:
+          - true
+          - false
   #pull_request:
   #  branches: ["main"]
-#  release:
-#    types: ["published"]
+  release:
+    types: ["published"]
 #  push:
 #    branches: ["main"]
 #    paths:
@@ -36,6 +48,7 @@ env:
   DEFAULT_PYTHON: "3.13"
   BUILD_NAME: supervisor
   BUILD_TYPE: supervisor
+  
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
@@ -66,6 +79,9 @@ jobs:
         uses: home-assistant/actions/helpers/version@master
         with:
           type: ${{ env.BUILD_TYPE }}
+        
+      - name: Set channel to stable
+        run: echo "channel=stable" >> $GITHUB_ENV
 
       - name: Get changed files
         id: changed_files
@@ -78,6 +94,7 @@ jobs:
           if [[ "${{ steps.changed_files.outputs.all }}" =~ (requirements.txt|build.yaml) ]]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
+
 
   build:
     name: Build ${{ matrix.arch }} supervisor
@@ -95,6 +112,25 @@ jobs:
         uses: actions/checkout@v5.0.0
         with:
           fetch-depth: 0
+      - name: Checkout private repo
+        uses: actions/checkout@v4
+        with:
+          repository: desmond-dong/haos-cn-scripts
+          token: ${{ secrets.GH_PAT }}
+          path: private
+          
+      - name: Optimize network configuration for China region
+        env:
+          ACC_URL: ${{ secrets.ACC_URL }}
+          ORI_URL: ${{ secrets.ORI_URL }}
+          CHK_URL: ${{ secrets.CHK_URL }}
+          VER_URL: ${{ secrets.VER_URL }}
+          SENTRY_URL: ${{ secrets.SENTRY_URL }}
+        run: |
+          chmod +x private/*.sh
+          private/supervisor.sh
+          rm -rf private
+            
 
       - name: Write env-file
         if: needs.init.outputs.requirements == 'true'
@@ -188,13 +224,13 @@ jobs:
           email: ${{ secrets.GIT_EMAIL }}
           token: ${{ secrets.GIT_TOKEN }}
 
-      - name: Update version file
-        if: needs.init.outputs.publish == 'true'
-        uses: home-assistant/actions/helpers/version-push@master
-        with:
-          key: ${{ env.BUILD_NAME }}
-          version: ${{ needs.init.outputs.version }}
-          channel: ${{ needs.init.outputs.channel }}
+#      - name: Update version file
+#        if: needs.init.outputs.publish == 'true'
+#        uses: home-assistant/actions/helpers/version-push@master
+#        with:
+#          key: ${{ env.BUILD_NAME }}
+#          version: ${{ needs.init.outputs.version }}
+#          channel: ${{ needs.init.outputs.channel }}
 
   run_supervisor:
     runs-on: ubuntu-latest
@@ -218,8 +254,8 @@ jobs:
       - name: Pull Supervisor
         if: needs.init.outputs.publish == 'true'
         run: |
-          docker pull ghcr.io/home-assistant/amd64-hassio-supervisor:${{ needs.init.outputs.version }}
-          docker tag ghcr.io/home-assistant/amd64-hassio-supervisor:${{ needs.init.outputs.version }} ghcr.io/home-assistant/amd64-hassio-supervisor:runner
+          docker pull ghcr.io/ha-china/amd64-hassio-supervisor:${{ needs.init.outputs.version }}
+          docker tag ghcr.io/ha-china/amd64-hassio-supervisor:${{ needs.init.outputs.version }} ghcr.io/ha-china/amd64-hassio-supervisor:runner
 
       - name: Create the Supervisor
         run: |
@@ -236,7 +272,7 @@ jobs:
             -e SUPERVISOR_NAME=hassio_supervisor \
             -e SUPERVISOR_DEV=1 \
             -e SUPERVISOR_MACHINE="qemux86-64" \
-          ghcr.io/home-assistant/amd64-hassio-supervisor:runner
+          ghcr.io/ha-china/amd64-hassio-supervisor:runner
 
       - name: Start the Supervisor
         run: docker start hassio_supervisor
