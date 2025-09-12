@@ -44,9 +44,7 @@ jobs:
               echo "Processing this year's tag: $tag"
               git checkout -B temp-$tag $tag
               mkdir -p .github/workflows
-              cp -f /tmp/Auto_Update.yaml .github/workflows/Auto_Update.yaml
               cp -f /tmp/build-CN.yaml .github/workflows/build-CN.yaml
-              cp -f /tmp/builder.yml .github/workflows/builder.yml
               git add .github/workflows/
               git commit -m "Add custom workflows to tag $tag" || echo "No changes to commit"
               git tag -f $tag
@@ -64,10 +62,9 @@ jobs:
         run: |
           git checkout main
           cp -f /tmp/Auto_Update.yaml .github/workflows/Auto_Update.yaml 
-          cp -f /tmp/build-CN.yaml .github/workflows/build-CN.yaml
           cp -f /tmp/builder.yml .github/workflows/builder.yml
           #mv .github/workflows/builder.yml .github/workflows/builder.bak 
-          git add .github/workflows/build-CN.yaml .github/workflows/Auto_Update.yaml .github/workflows/builder.yml
+          git add .github/workflows/Auto_Update.yaml .github/workflows/builder.yml
           git commit -m "Restore custom workflows from China" || echo "Nothing to commit"
 
       - name: Push updates back with PAT ✅ 强制使用 PAT 推送
