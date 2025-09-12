@@ -38,27 +38,20 @@ jobs:
         run: |
           git remote add upstream https://github.com/home-assistant/supervisor.git
           git fetch upstream
-          for branch in $(git branch -r | grep upstream/ | grep -v HEAD | sed 's|upstream/||'); do
-            git checkout -B $branch upstream/$branch
-            mkdir -p .github/workflows
-            cp -f /tmp/Auto_Update.yaml .github/workflows/Auto_Update.yaml
-            cp -f /tmp/build-CN.yaml .github/workflows/build-CN.yaml
-            cp -f /tmp/builder.yml .github/workflows/builder.yml
-            git add .github/workflows/
-            git commit -m "Restore custom workflows from China" || echo "Nothing to commit"
-            git push origin $branch --force
-          done
+
           for tag in $(git tag); do
-            echo "Processing tag $tag"
-            git checkout -B temp-$tag $tag
-            mkdir -p .github/workflows
-            cp -f /tmp/Auto_Update.yaml .github/workflows/Auto_Update.yaml
-            cp -f /tmp/build-CN.yaml .github/workflows/build-CN.yaml
-            cp -f /tmp/builder.yml .github/workflows/builder.yml
-            git add .github/workflows/
-            git commit -m "Add custom workflows to tag $tag" || echo "No changes to commit"
-            git tag -f $tag
-            git push origin $tag --force
+            if [ "${tag:0:4}" = "$current_year" ]; then
+              echo "Processing this year's tag: $tag"
+              git checkout -B temp-$tag $tag
+              mkdir -p .github/workflows
+              cp -f /tmp/Auto_Update.yaml .github/workflows/Auto_Update.yaml
+              cp -f /tmp/build-CN.yaml .github/workflows/build-CN.yaml
+              cp -f /tmp/builder.yml .github/workflows/builder.yml
+              git add .github/workflows/
+              git commit -m "Add custom workflows to tag $tag" || echo "No changes to commit"
+              git tag -f $tag
+              git push origin $tag --force
+            fi
           done
 
       - name: Merge upstream/main into your main
