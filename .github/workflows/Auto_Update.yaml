@@ -38,7 +38,10 @@ jobs:
         run: |
           git remote add upstream https://github.com/home-assistant/supervisor.git
           git fetch upstream
-
+          for branch in $(git branch -r | grep upstream/ | grep -v HEAD | sed 's|upstream/||'); do
+            git checkout -B $branch upstream/$branch
+            git push origin $branch --force
+          done
           for tag in $(git tag); do
             if [ "${tag:0:4}" = "$current_year" ]; then
               echo "Processing this year's tag: $tag"
