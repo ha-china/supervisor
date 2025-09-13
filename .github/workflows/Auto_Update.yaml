@@ -28,7 +28,7 @@ jobs:
           echo "Last version: $last_ver"
           if [ "$latest_ver" = "$last_ver" ]; then
             echo "Versions are the same, skip workflow."
-            exit 0
+            exit 1
           fi
 
 
