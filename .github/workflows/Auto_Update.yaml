@@ -1,0 +1,92 @@
+name: Sync Fork with Upstream
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+  
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout your fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check Supervisor version difference
+        id: version_check
+        run: |
+          latest_ver=$(curl -s https://version.home-assistant.io/stable.json | jq -r '.supervisor')
+          last_ver=$(curl -s "https://${{ secrets.VER_URL }}/stable.json" | jq -r '.supervisor')
+          echo "Latest version: $latest_ver"
+          echo "Last version: $last_ver"
+          if [ "$latest_ver" = "$last_ver" ]; then
+            echo "Versions are the same, skip workflow."
+            exit 0
+          fi
+
+
+      - name: Set up Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout China
+          cp .github/workflows/Auto_Update.yaml /tmp/
+          cp .github/workflows/build-CN.yaml /tmp/
+          cp .github/workflows/builder.yml /tmp/
+
+      - name: Set GitHub PAT remote ✅ 显式设置
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          git remote set-url origin https://${GH_PAT}@github.com/ha-china/supervisor.git
+
+      - name: Sync all branches and tags
+        run: |
+          git remote add upstream https://github.com/home-assistant/supervisor.git
+          git fetch upstream
+          for branch in $(git branch -r | grep upstream/ | grep -v HEAD | sed 's|upstream/||'); do
+            git checkout -B $branch upstream/$branch
+            git push origin $branch --force
+          done
+          for tag in $(git tag); do
+            if [ "${tag:0:4}" = "$current_year" ]; then
+              echo "Processing this year's tag: $tag"
+              git checkout -B temp-$tag $tag
+              mkdir -p .github/workflows
+              cp -f /tmp/build-CN.yaml .github/workflows/build-CN.yaml
+              git add .github/workflows/
+              git commit -m "Add custom workflows to tag $tag" || echo "No changes to commit"
+              git tag -f $tag
+              git push origin $tag --force
+            fi
+          done
+
+      - name: Merge upstream/main into your main
+        run: |
+          git checkout main
+          git merge --ff-only upstream/main || echo "Already up to date"
+
+
+      - name: Copy custom workflows from China
+        run: |
+          git checkout main
+          cp -f /tmp/Auto_Update.yaml .github/workflows/Auto_Update.yaml 
+          cp -f /tmp/builder.yml .github/workflows/builder.yml
+          #mv .github/workflows/builder.yml .github/workflows/builder.bak 
+          git add .github/workflows/Auto_Update.yaml .github/workflows/builder.yml
+          git commit -m "Restore custom workflows from China" || echo "Nothing to commit"
+
+      - name: Push updates back with PAT ✅ 强制使用 PAT 推送
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          git remote set-url origin https://${GH_PAT}@github.com/ha-china/supervisor.git
+          git push origin main --force
+          git push origin --tags
