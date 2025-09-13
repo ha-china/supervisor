@@ -30,6 +30,7 @@ jobs:
             echo "Versions are the same, skip workflow."
             exit 1
           fi
+          continue-on-error: true
 
 
       - name: Set up Git
