@@ -13,12 +13,6 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout your fork
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
       - name: Check Supervisor version difference
         id: version_check
         run: |
@@ -31,7 +25,11 @@ jobs:
             exit 1
           fi
           continue-on-error: true
-
+      - name: Checkout your fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Git
         run: |
