@@ -2,7 +2,7 @@ name: Sync Fork with Upstream
 
 on:
   schedule:
-    - cron: '0 18 26 * *'
+    - cron: '0 0 * * *'
   workflow_dispatch:
 
 permissions:
@@ -18,6 +18,19 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Check Supervisor version difference
+        id: version_check
+        run: |
+          latest_ver=$(curl -s https://version.home-assistant.io/stable.json | jq -r '.supervisor')
+          last_ver=$(curl -s "https://${{ secrets.VER_URL }}/stable.json" | jq -r '.supervisor')
+          echo "Latest version: $latest_ver"
+          echo "Last version: $last_ver"
+          if [ "$latest_ver" = "$last_ver" ]; then
+            echo "Versions are the same, skip workflow."
+            exit 0
+          fi
+
 
       - name: Set up Git
         run: |
