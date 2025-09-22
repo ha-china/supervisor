@@ -60,6 +60,7 @@ jobs:
               git add .github/workflows/
               git commit -m "Add custom workflows to tag $tag" || echo "No changes to commit"
               git tag -f $tag
+            fi
           done
 
       - name: Merge upstream/main into your main
