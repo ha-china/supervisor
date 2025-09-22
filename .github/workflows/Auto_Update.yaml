@@ -16,7 +16,7 @@ jobs:
       - name: Check Supervisor version difference
         id: version_check
         run: |
-          latest_ver=$(curl -s https://version.home-assistant.io/stable.json | jq -r '.supervisor')
+          latest_ver=$(curl -s https://api.github.com/repos/home-assistant/supervisor/releases/latest | jq -r '.tag_name')
           last_ver=$(curl -s "https://${{ secrets.VER_URL }}/stable.json" | jq -r '.supervisor')
           echo "Latest version: $latest_ver"
           echo "Last version: $last_ver"
