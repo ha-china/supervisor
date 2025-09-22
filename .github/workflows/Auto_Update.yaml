@@ -54,19 +54,15 @@ jobs:
             git checkout -B $branch upstream/$branch
             git push origin $branch --force
           done
-          for tag in $(git tag); do
-            
-            if [ "${tag:0:4}" = "$current_year" ]; then
-              echo "Processing tag $tag"
-              git checkout -B temp-$tag $tag
-              mkdir -p .github/workflows
-              cp -f /tmp/build-CN.yaml .github/workflows/build-CN.yaml
-              git add .github/workflows/
-              git commit -m "Add custom workflows to tag $tag" || echo "No changes to commit"
-              git tag -f $tag
-              git push origin $tag --force
-            fi
-          done
+          echo "Processing tag $latest_ver"
+          git checkout -B temp-$tag $latest_ver
+          mkdir -p .github/workflows
+          cp -f /tmp/build-CN.yaml .github/workflows/build-CN.yaml
+          git add .github/workflows/
+          git commit -m "Add custom workflows to tag $latest_ver" || echo "No changes to commit"
+          git tag -f $latest_ver
+          git push origin $latest_ver --force
+
 
 
 
