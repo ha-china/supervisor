@@ -9,7 +9,7 @@ FILE_CONFIG_RESOLUTION = Path(SUPERVISOR_DATA, "resolution.json")
 
 SCHEDULED_HEALTHCHECK = 3600
 
-MINIMUM_FREE_SPACE_THRESHOLD = 1
+MINIMUM_FREE_SPACE_THRESHOLD = 2
 MINIMUM_FULL_BACKUPS = 2
 
 DNS_CHECK_HOST = "_checkdns.home-assistant.io"
@@ -44,6 +44,7 @@ class UnsupportedReason(StrEnum):
     DNS_SERVER = "dns_server"
     DOCKER_CONFIGURATION = "docker_configuration"
     DOCKER_VERSION = "docker_version"
+    HOME_ASSISTANT_CORE_VERSION = "home_assistant_core_version"
     JOB_CONDITIONS = "job_conditions"
     LXC = "lxc"
     NETWORK_MANAGER = "network_manager"
