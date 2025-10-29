@@ -9,13 +9,14 @@ jobs:
   stale:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/stale@3a9db7e6a41a89f618792c92c0e97cc736e1b13f # v10.0.0
+      - uses: actions/stale@5f858e3efba33a5ca4407a664cc011ad407f2008 # v10.1.0
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           days-before-stale: 30
           days-before-close: 7
           stale-issue-label: "stale"
           exempt-issue-labels: "no-stale,Help%20wanted,help-wanted,pinned,rfc,security"
+          only-issue-types: "bug"
           stale-issue-message: >
             There hasn't been any activity on this issue recently. Due to the
             high number of incoming GitHub notifications, we have to clean some
