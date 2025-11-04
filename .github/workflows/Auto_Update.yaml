@@ -21,8 +21,9 @@ jobs:
           echo "Latest version: $latest_ver"
           echo "Last version: $last_ver"
           echo "latest_ver=$latest_ver" >> $GITHUB_ENV
-          if [ "$latest_ver" = "$last_ver" ]; then
-            echo "Versions are the same, skip workflow."
+          # 如果是定时任务（schedule）则判断版本是否一样，一样则退出；手工 workflow_dispatch 时，哪怕版本一样也不退出
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$latest_ver" = "$last_ver" ]; then
+            echo "Versions are the same, skip workflow (scheduled run)."
             exit 1
           fi
           
