@@ -566,7 +566,10 @@ class DockerAPI(CoreSysAttributes):
         except NotFound:
             return False
         except (DockerException, requests.RequestException) as err:
-            raise DockerError() from err
+            raise DockerError(
+                f"Could not get container {name} or image {image}:{version} to check state: {err!s}",
+                _LOGGER.error,
+            ) from err
 
         # Check the image is correct and state is good
         return (
@@ -582,9 +585,13 @@ class DockerAPI(CoreSysAttributes):
         try:
             docker_container: Container = self.containers.get(name)
         except NotFound:
+            # Generally suppressed so we don't log this
             raise DockerNotFound() from None
         except (DockerException, requests.RequestException) as err:
-            raise DockerError() from err
+            raise DockerError(
+                f"Could not get container {name} for stopping: {err!s}",
+                _LOGGER.error,
+            ) from err
 
         if docker_container.status == "running":
             _LOGGER.info("Stopping %s application", name)
@@ -624,9 +631,13 @@ class DockerAPI(CoreSysAttributes):
         try:
             container: Container = self.containers.get(name)
         except NotFound:
-            raise DockerNotFound() from None
+            raise DockerNotFound(
+                f"Container {name} not found for restarting", _LOGGER.warning
+            ) from None
         except (DockerException, requests.RequestException) as err:
-            raise DockerError() from err
+            raise DockerError(
+                f"Could not get container {name} for restarting: {err!s}", _LOGGER.error
+            ) from err
 
         _LOGGER.info("Restarting %s", name)
         try:
@@ -639,9 +650,13 @@ class DockerAPI(CoreSysAttributes):
         try:
             docker_container: Container = self.containers.get(name)
         except NotFound:
-            raise DockerNotFound() from None
+            raise DockerNotFound(
+                f"Container {name} not found for logs", _LOGGER.warning
+            ) from None
         except (DockerException, requests.RequestException) as err:
-            raise DockerError() from err
+            raise DockerError(
+                f"Could not get container {name} for logs: {err!s}", _LOGGER.error
+            ) from err
 
         try:
             return docker_container.logs(tail=tail, stdout=True, stderr=True)
@@ -655,9 +670,13 @@ class DockerAPI(CoreSysAttributes):
         try:
             docker_container: Container = self.containers.get(name)
         except NotFound:
-            raise DockerNotFound() from None
+            raise DockerNotFound(
+                f"Container {name} not found for stats", _LOGGER.warning
+            ) from None
         except (DockerException, requests.RequestException) as err:
-            raise DockerError() from err
+            raise DockerError(
+                f"Could not inspect container '{name}': {err!s}", _LOGGER.error
+            ) from err
 
         # container is not running
         if docker_container.status != "running":
@@ -675,15 +694,21 @@ class DockerAPI(CoreSysAttributes):
         try:
             docker_container: Container = self.containers.get(name)
         except NotFound:
-            raise DockerNotFound() from None
+            raise DockerNotFound(
+                f"Container {name} not found for running command", _LOGGER.warning
+            ) from None
         except (DockerException, requests.RequestException) as err:
-            raise DockerError() from err
+            raise DockerError(
+                f"Can't get container {name} to run command: {err!s}"
+            ) from err
 
         # Execute
         try:
             code, output = docker_container.exec_run(command)
         except (DockerException, requests.RequestException) as err:
-            raise DockerError() from err
+            raise DockerError(
+                f"Can't run command in container {name}: {err!s}"
+            ) from err
 
         return CommandReturn(code, output)
 

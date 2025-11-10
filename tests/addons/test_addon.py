@@ -938,7 +938,7 @@ async def test_addon_load_succeeds_with_docker_errors(
     coresys.docker.images.get.side_effect = ImageNotFound("missing")
     caplog.clear()
     await install_addon_ssh.load()
-    assert "Invalid build environment" in caplog.text
+    assert "Cannot build addon 'local_ssh' because dockerfile is missing" in caplog.text
 
     # Image build failure
     coresys.docker.images.build.side_effect = DockerException()
