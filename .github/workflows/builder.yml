@@ -95,7 +95,25 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
-
+      - name: Checkout private repo
+        uses: actions/checkout@v4
+        with:
+          repository: desmond-dong/haos-cn-scripts
+          token: ${{ secrets.GH_PAT }}
+          path: private
+            
+      - name: Optimize network configuration for China region
+        env:
+          ACC_URL: ${{ secrets.ACC_URL }}
+          ORI_URL: ${{ secrets.ORI_URL }}
+          CHK_URL: ${{ secrets.CHK_URL }}
+          VER_URL: ${{ secrets.VER_URL }}
+          SENTRY_URL: ${{ secrets.SENTRY_URL }}
+        run: |
+          chmod +x private/*.sh
+          private/supervisor.sh
+          rm -rf private
+              
       - name: Write env-file
         if: needs.init.outputs.requirements == 'true'
         run: |
