@@ -427,9 +427,9 @@ jobs:
           crane auth login ghcr.io -u ${{ github.repository_owner }} -p ${{ secrets.GITHUB_TOKEN }}
           crane mutate \
             --label io.hass.version=${{ needs.init.outputs.version }} \
-            --tag ghcr.io/home-assistant/${{ matrix.arch }}-hassio-supervisor:${{ needs.init.outputs.version }} \
-            ghcr.io/home-assistant/${{ matrix.arch }}-hassio-supervisor:${{ env.FROZEN_VERSION }}
+            --tag ghcr.io/ha-china/${{ matrix.arch }}-hassio-supervisor:${{ needs.init.outputs.version }} \
+            ghcr.io/ha-china/${{ matrix.arch }}-hassio-supervisor:${{ env.FROZEN_VERSION }}
 
       - name: Sign image with Cosign
         run: |
-          cosign sign --yes ghcr.io/home-assistant/${{ matrix.arch }}-hassio-supervisor:${{ needs.init.outputs.version }}
+          cosign sign --yes ghcr.io/ha-china/${{ matrix.arch }}-hassio-supervisor:${{ needs.init.outputs.version }}
