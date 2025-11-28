@@ -49,7 +49,7 @@ from ..exceptions import (
 )
 from ..utils.common import FileConfiguration
 from ..validate import SCHEMA_DOCKER_CONFIG
-from .const import LABEL_MANAGED
+from .const import DOCKER_HUB, IMAGE_WITH_HOST, LABEL_MANAGED
 from .monitor import DockerMonitor
 from .network import DockerNetwork
 
@@ -111,10 +111,15 @@ class PullProgressDetail:
     """Progress detail information for pull.
 
     Documentation lacking but both of these seem to be in bytes when populated.
+
+    Containerd-snapshot update - When leveraging this new feature, this information
+    becomes useless to us while extracting. It simply tells elapsed time using
+    current and units.
     """
 
     current: int | None = None
     total: int | None = None
+    units: str | None = None
 
     @classmethod
     def from_pull_log_dict(cls, value: dict[str, int]) -> PullProgressDetail:
@@ -201,6 +206,27 @@ class DockerConfig(FileConfiguration):
     def registries(self) -> dict[str, Any]:
         """Return credentials for docker registries."""
         return self._data.get(ATTR_REGISTRIES, {})
+
+    def get_registry_for_image(self, image: str) -> str | None:
+        """Return the registry name if credentials are available for the image.
+
+        Matches the image against configured registries and returns the registry
+        name if found, or None if no matching credentials are configured.
+        """
+        if not self.registries:
+            return None
+
+        # Check if image uses a custom registry (e.g., ghcr.io/org/image)
+        matcher = IMAGE_WITH_HOST.match(image)
+        if matcher:
+            registry = matcher.group(1)
+            if registry in self.registries:
+                return registry
+        # If no registry prefix, check for Docker Hub credentials
+        elif DOCKER_HUB in self.registries:
+            return DOCKER_HUB
+
+        return None
 
 
 class DockerAPI(CoreSysAttributes):
@@ -432,6 +458,7 @@ class DockerAPI(CoreSysAttributes):
         repository: str,
         tag: str = "latest",
         platform: str | None = None,
+        auth: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Pull the specified image and return it.
 
@@ -441,7 +468,7 @@ class DockerAPI(CoreSysAttributes):
         on the bus so listeners can use that to update status for users.
         """
         async for e in self.images.pull(
-            repository, tag=tag, platform=platform, stream=True
+            repository, tag=tag, platform=platform, auth=auth, stream=True
         ):
             entry = PullLogEntry.from_pull_log_dict(job_id, e)
             if entry.error:
