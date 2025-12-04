@@ -82,13 +82,10 @@ jobs:
         uses: home-assistant/actions/helpers/version@master
         with:
           type: ${{ env.BUILD_TYPE }}
-        
-      - name: Set channel to stable
-        run: echo "channel=stable" >> $GITHUB_ENV
 
       - name: Get changed files
         id: changed_files
-        if: steps.version.outputs.publish == 'false'
+        if: github.event_name != 'release'
         uses: masesgroup/retrieve-changed-files@491e80760c0e28d36ca6240a27b1ccb8e1402c13 # v3.0.0
 
       - name: Check if requirements files changed
@@ -164,9 +161,6 @@ jobs:
         if: needs.init.outputs.build_wheels == 'true' && needs.init.outputs.publish == 'true'
         uses: home-assistant/wheels@e5742a69d69f0e274e2689c998900c7d19652c21 # 2025.12.0
         with:
-          abi: cp313
-          tag: musllinux_1_2
-          arch: ${{ matrix.arch }}
           wheels-key: ${{ secrets.WHEELS_KEY }}
           abi: ${{ env.WHEELS_ABI }}
           tag: ${{ env.WHEELS_TAG }}
@@ -191,6 +185,13 @@ jobs:
           skip-binary: ${{ env.WHEELS_SKIP_BINARY }}
           env-file: true
           requirements: "requirements.txt"
+      - name: Upload local wheels artifact
+        if: needs.init.outputs.build_wheels == 'true' && needs.init.outputs.publish == 'false'
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: wheels-${{ matrix.arch }}
+          path: wheels
+          retention-days: 1
 
       - name: Set version
         if: needs.init.outputs.publish == 'true'
