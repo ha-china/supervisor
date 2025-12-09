@@ -3,6 +3,10 @@ name: Build supervisor - CN
 on:
   workflow_dispatch:
     inputs:
+      type:
+        description: 'Type of build'
+        required: true
+        default: 'supervisor'
       channel:
         description: "Channel"
         required: true
@@ -66,7 +70,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       channel: ${{ steps.version.outputs.channel }}
       publish: ${{ steps.version.outputs.publish }}
-      build_wheels: ${{ steps.requirements.outputs.build_wheels }}
+      build_wheels: false
     steps:
       - name: Checkout the repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
