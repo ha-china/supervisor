@@ -19,11 +19,11 @@ on:
         required: true
         default: "false"
   pull_request:
-    branches: ["main"]
+    branches: ["master"]
   release:
     types: ["published"]
   push:
-    branches: ["main"]
+    branches: ["master"]
     paths:
       - "rootfs/**"
       - "supervisor/**"
