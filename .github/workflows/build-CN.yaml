@@ -71,6 +71,7 @@ jobs:
       channel: ${{ steps.version.outputs.channel }}
       publish: ${{ steps.version.outputs.publish }}
       build_wheels: false
+      requirements: ${{ steps.requirements.outputs.changed }}
     steps:
       - name: Checkout the repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -103,6 +104,8 @@ jobs:
           else
             echo "build_wheels=false" >> "$GITHUB_OUTPUT"
           fi
+          if [[ "${{ steps.changed_files.outputs.all }}" =~ (requirements.txt|build.yaml) ]]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build ${{ matrix.arch }} supervisor
