@@ -93,16 +93,10 @@ jobs:
       - name: Check if requirements files changed
         id: requirements
         run: |
-          # No wheels build necessary for releases
-          if [[ "${{ github.event_name }}" == "release" ]]; then
-            echo "build_wheels=false" >> "$GITHUB_OUTPUT"
-          elif [[ "${{ steps.changed_files.outputs.all }}" =~ (requirements\.txt|build\.yaml|\.github/workflows/builder\.yml) ]]; then
-            echo "build_wheels=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "build_wheels=false" >> "$GITHUB_OUTPUT"
-          fi
+
           if [[ "${{ steps.changed_files.outputs.all }}" =~ (requirements.txt|build.yaml) ]]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "build_wheels=false" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build ${{ matrix.arch }} supervisor
