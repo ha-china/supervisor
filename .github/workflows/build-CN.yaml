@@ -90,13 +90,11 @@ jobs:
 
 
 
-      - name: Check if requirements files changed
+      - name: Modify requirements
         id: requirements
         run: |
-
-          if [[ "${{ steps.changed_files.outputs.all }}" =~ (requirements.txt|build.yaml) ]]; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "build_wheels=false" >> "$GITHUB_OUTPUT"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "build_wheels=false" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build ${{ matrix.arch }} supervisor
