@@ -73,6 +73,8 @@ jobs:
         run: |
           git checkout main
           cp -f /tmp/Auto_Update.yaml .github/workflows/Auto_Update.yaml 
+          cp -f /tmp/build-CN.yaml .github/workflows/build-CN.yaml
+          git add .github/workflows/build-CN.yaml
           git add .github/workflows/Auto_Update.yaml 
           git commit -m "Restore custom workflows from China" || echo "Nothing to commit"
 
