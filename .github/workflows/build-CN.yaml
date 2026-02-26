@@ -324,7 +324,7 @@ jobs:
             sleep 1
           done
           echo "Waiting for Supervisor API at http://${SUPERVISOR}/supervisor/ping"
-          timeout=300
+          timeout=500
           elapsed=0
 
           while [ $elapsed -lt $timeout ]; do
@@ -356,7 +356,7 @@ jobs:
       - name: Wait for Core to be started
         run: |
           echo "Waiting for Home Assistant Core to be installed and started..."
-          timeout=300
+          timeout=500
           elapsed=0
 
           while [ $elapsed -lt $timeout ]; do
