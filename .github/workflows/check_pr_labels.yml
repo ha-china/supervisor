@@ -1,19 +1,111 @@
 name: Check PR
 
+# yamllint disable-line rule:truthy
 on:
   pull_request:
     branches: ["main"]
-    types: [labeled, unlabeled, synchronize]
+    types: [opened, edited, labeled, unlabeled, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
 
 jobs:
+  sync-type-labels:
+    name: Sync type labels from PR body
+    runs-on: ubuntu-latest
+    outputs:
+      labels: ${{ steps.sync.outputs.labels }}
+    steps:
+      - id: sync
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const body = pr.body || "";
+
+            function isTypeChecked(text, keySubstring) {
+              for (const line of text.split("\n")) {
+                if (!line.includes(keySubstring)) continue;
+                const m = line.match(/^\s*-\s*\[\s*([ xX])\s*\]\s*/);
+                if (m) return m[1].toLowerCase() === "x";
+              }
+              return false;
+            }
+
+            const typeMappings = [
+              { key: "Dependency upgrade", label: "dependencies" },
+              {
+                key: "Bugfix (non-breaking change which fixes an issue)",
+                label: "bugfix",
+              },
+              {
+                key: "New feature (which adds functionality to the supervisor)",
+                label: "new-feature",
+              },
+              {
+                key: "Breaking change (fix/feature causing existing functionality to break)",
+                label: "breaking-change",
+              },
+              {
+                key: "Code quality improvements to existing code or addition of tests",
+                label: "ci",
+              },
+            ];
+
+            const originalLabels = new Set(pr.labels.map((l) => l.name));
+            const desiredLabels = new Set(originalLabels);
+
+            for (const { key, label } of typeMappings) {
+              if (isTypeChecked(body, key)) {
+                desiredLabels.add(label);
+              } else {
+                desiredLabels.delete(label);
+              }
+            }
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const prNumber = pr.number;
+
+            for (const { label } of typeMappings) {
+              const wanted = desiredLabels.has(label);
+              const had = originalLabels.has(label);
+              if (wanted === had) continue;
+              try {
+                if (wanted) {
+                  await github.rest.issues.addLabels({
+                    owner,
+                    repo,
+                    issue_number: prNumber,
+                    labels: [label],
+                  });
+                } else {
+                  await github.rest.issues.removeLabel({
+                    owner,
+                    repo,
+                    issue_number: prNumber,
+                    name: label,
+                  });
+                }
+              } catch (e) {
+                core.warning(`Label API (${label}): ${e.message}`);
+              }
+            }
+
+            const labelsJson = JSON.stringify([...desiredLabels].sort());
+            core.setOutput("labels", labelsJson);
+
   init:
     name: Check labels
+    needs: sync-type-labels
     runs-on: ubuntu-latest
     steps:
       - name: Check labels
+        env:
+          LABELS_JSON: ${{ needs.sync-type-labels.outputs.labels }}
         run: |
-          labels=$(jq -r '.pull_request.labels[] | .name' ${{github.event_path }})
-          echo "$labels"
-          if [ "$labels" == "cla-signed" ]; then
+          echo "$LABELS_JSON" | jq -r '.[]'
+          if [ "$(echo "$LABELS_JSON" | jq -c .)" = '["cla-signed"]' ]; then
             exit 1
           fi
