@@ -15,6 +15,7 @@ from multidict import MultiMapping
 
 from ..const import SOCKET_CORE
 from ..coresys import CoreSys, CoreSysAttributes
+from ..docker.const import ENV_CORE_API_SOCKET
 from ..exceptions import HomeAssistantAPIError, HomeAssistantAuthError
 from ..utils import version_is_new_enough
 from .const import LANDINGPAGE
@@ -51,14 +52,35 @@ class HomeAssistantAPI(CoreSysAttributes):
         self._logged_transport: bool = False
 
     @property
-    def use_unix_socket(self) -> bool:
-        """Return True if Core supports Unix socket communication."""
+    def supports_unix_socket(self) -> bool:
+        """Return True if the installed Core version supports Unix socket communication.
+
+        Used to decide whether to configure the env var when starting Core.
+        """
         return (
             self.sys_homeassistant.version is not None
             and self.sys_homeassistant.version != LANDINGPAGE
             and version_is_new_enough(
                 self.sys_homeassistant.version, CORE_UNIX_SOCKET_MIN_VERSION
             )
+        )
+
+    @property
+    def use_unix_socket(self) -> bool:
+        """Return True if the running Core container is configured for Unix socket.
+
+        Checks both version support and that the container was actually started
+        with the SUPERVISOR_CORE_API_SOCKET env var. This prevents failures
+        during Supervisor upgrades where Core is still running with a container
+        started by the old Supervisor.
+        """
+        if not self.supports_unix_socket:
+            return False
+        meta_config = self.sys_homeassistant.core.instance.meta_config
+        if not meta_config or "Env" not in meta_config:
+            return False
+        return any(
+            env.startswith(f"{ENV_CORE_API_SOCKET}=") for env in meta_config["Env"]
         )
 
     @property

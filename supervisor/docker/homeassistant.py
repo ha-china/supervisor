@@ -184,7 +184,7 @@ class DockerHomeAssistant(DockerInterface):
         }
         if restore_job_id:
             environment[ENV_RESTORE_JOB_ID] = restore_job_id
-        if self.sys_homeassistant.api.use_unix_socket:
+        if self.sys_homeassistant.api.supports_unix_socket:
             environment[ENV_CORE_API_SOCKET] = "/run/supervisor/core.sock"
         if self.sys_homeassistant.duplicate_log_file:
             environment[ENV_DUPLICATE_LOG_FILE] = "1"
