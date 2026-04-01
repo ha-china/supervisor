@@ -684,6 +684,13 @@ class DockerAddon(DockerInterface):
         # Check if the build environment is valid, raises if not
         await build_env.is_valid()
 
+        if build_env.has_build_file:
+            _LOGGER.warning(
+                "Add-on %s uses build.yaml which is deprecated. "
+                "Move build parameters into the Dockerfile directly.",
+                self.addon.slug,
+            )
+
         _LOGGER.info("Starting build for %s:%s", self.image, version)
         if build_env.squash:
             _LOGGER.warning(
