@@ -331,7 +331,7 @@ class AddonManager(CoreSysAttributes):
             )
         if not force and not addon.need_build:
             raise AddonNotSupportedError(
-                "Can't rebuild a image based app", _LOGGER.error
+                "Can't rebuild an image-based app", _LOGGER.error
             )
 
         return await addon.rebuild()
@@ -354,11 +354,11 @@ class AddonManager(CoreSysAttributes):
         self.sys_jobs.current.reference = slug
 
         if slug not in self.local:
-            _LOGGER.debug("App %s is not local available for restore", slug)
+            _LOGGER.debug("App %s is not locally available for restore", slug)
             addon = Addon(self.coresys, slug)
             had_ingress: bool | None = False
         else:
-            _LOGGER.debug("App %s is local available for restore", slug)
+            _LOGGER.debug("App %s is locally available for restore", slug)
             addon = self.local[slug]
             had_ingress = addon.ingress_panel
 

@@ -216,7 +216,7 @@ def _warn_addon_config(config: dict[str, Any]):
         config.get(ATTR_BACKUP_POST) or config.get(ATTR_BACKUP_PRE)
     ):
         _LOGGER.warning(
-            "An app which only supports COLD backups trying to use post/pre commands. Please report this to the maintainer of %s",
+            "An app that only supports COLD backups is trying to use pre/post commands. Please report this to the maintainer of %s",
             name,
         )
 
@@ -286,7 +286,7 @@ def _migrate_addon_config(protocol=False):
         if ATTR_DEVICES in config and any(":" in line for line in config[ATTR_DEVICES]):
             if protocol:
                 _LOGGER.warning(
-                    "App config 'devices' use a deprecated format, the new format uses a list of paths only. Please report this to the maintainer of %s",
+                    "App config 'devices' uses a deprecated format instead of a list of paths only. Please report this to the maintainer of %s",
                     name,
                 )
             config[ATTR_DEVICES] = [line.split(":")[0] for line in config[ATTR_DEVICES]]
@@ -295,7 +295,7 @@ def _migrate_addon_config(protocol=False):
         if ATTR_TMPFS in config and not isinstance(config[ATTR_TMPFS], bool):
             if protocol:
                 _LOGGER.warning(
-                    "App config 'tmpfs' use a deprecated format, new it's only a boolean. Please report this to the maintainer of %s",
+                    "App config 'tmpfs' uses a deprecated format instead of just a boolean. Please report this to the maintainer of %s",
                     name,
                 )
             config[ATTR_TMPFS] = True
