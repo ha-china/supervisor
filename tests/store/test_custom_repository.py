@@ -246,7 +246,7 @@ async def test_remove_used_repository(
 
     with pytest.raises(
         StoreError,
-        match="Can't remove 'https://github.com/awesome-developer/awesome-repo'. It's used by installed add-ons",
+        match="Can't remove 'https://github.com/awesome-developer/awesome-repo'. It's used by installed apps",
     ):
         if use_update:
             await store_manager.update_repositories(set())

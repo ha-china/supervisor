@@ -32,9 +32,9 @@ async def test_api_discovery_forbidden(
     assert result["result"] == "error"
     assert (
         result["message"]
-        == "Add-ons must list services they provide via discovery in their config!"
+        == "Apps must list services they provide via discovery in their config!"
     )
-    assert "Please report this to the maintainer of the add-on" in caplog.text
+    assert "Please report this to the maintainer of the app" in caplog.text
 
 
 @pytest.mark.parametrize(

@@ -47,9 +47,7 @@ async def test_api_store(
     assert result["data"]["addons"][-1]["slug"] == store_addon.slug
     assert result["data"]["repositories"][-1]["slug"] == test_repository.slug
 
-    assert (
-        f"Add-on {store_addon.slug} not supported on this platform" not in caplog.text
-    )
+    assert f"App {store_addon.slug} not supported on this platform" not in caplog.text
 
 
 @pytest.mark.asyncio
@@ -198,7 +196,7 @@ async def test_api_store_repair_repository_git_error(
     }
     assert (
         result["message"]
-        == f"An unknown error occurred with addon repository {test_repository.slug}. Check Supervisor logs for details"
+        == f"An unknown error occurred with app repository {test_repository.slug}. Check Supervisor logs for details"
     )
 
 
@@ -294,7 +292,7 @@ async def test_api_store_addons_no_changelog(
     resp = await api_client.get(f"/{resource}/{store_addon.slug}/changelog")
     assert resp.status == 200
     result = await resp.text()
-    assert result == "No changelog found for add-on test_store_addon!"
+    assert result == "No changelog found for app test_store_addon!"
 
 
 @pytest.mark.parametrize("resource", ["store/addons", "addons"])
@@ -322,7 +320,7 @@ async def test_api_detached_addon_changelog(
     resp = await api_client.get(f"/{resource}/{install_addon_ssh.slug}/changelog")
     assert resp.status == 200
     result = await resp.text()
-    assert result == "Addon local_ssh does not exist in the store"
+    assert result == "App local_ssh does not exist in the store"
 
 
 @pytest.mark.parametrize("resource", ["store/addons", "addons"])
@@ -338,7 +336,7 @@ async def test_api_store_addons_no_documentation(
     resp = await api_client.get(f"/{resource}/{store_addon.slug}/documentation")
     assert resp.status == 200
     result = await resp.text()
-    assert result == "No documentation found for add-on test_store_addon!"
+    assert result == "No documentation found for app test_store_addon!"
 
 
 @pytest.mark.parametrize("resource", ["store/addons", "addons"])
@@ -366,7 +364,7 @@ async def test_api_detached_addon_documentation(
     resp = await api_client.get(f"/{resource}/{install_addon_ssh.slug}/documentation")
     assert resp.status == 200
     result = await resp.text()
-    assert result == "Addon local_ssh does not exist in the store"
+    assert result == "App local_ssh does not exist in the store"
 
 
 @pytest.mark.parametrize(
@@ -396,11 +394,11 @@ async def test_store_addon_not_found(
     assert resp.status == 404
     if json_expected:
         body = await resp.json()
-        assert body["message"] == "Addon bad does not exist in the store"
+        assert body["message"] == "App bad does not exist in the store"
         assert body["error_key"] == "store_addon_not_found_error"
         assert body["extra_fields"] == {"addon": "bad"}
     else:
-        assert await resp.text() == "Addon bad does not exist in the store"
+        assert await resp.text() == "App bad does not exist in the store"
 
 
 @pytest.mark.parametrize(
@@ -418,7 +416,7 @@ async def test_store_addon_not_installed(api_client: TestClient, method: str, ur
     resp = await api_client.request(method, url)
     assert resp.status == 400
     body = await resp.json()
-    assert body["message"] == "Addon local_ssh is not installed"
+    assert body["message"] == "App local_ssh is not installed"
 
 
 @pytest.mark.parametrize(
@@ -508,7 +506,7 @@ async def test_background_addon_install_fails_fast(
     )
     assert resp.status == 400
     body = await resp.json()
-    assert body["message"] == "Add-on local_ssh is already installed"
+    assert body["message"] == "App local_ssh is already installed"
 
 
 @pytest.mark.parametrize(
@@ -572,7 +570,7 @@ async def test_background_addon_update_fails_fast(
     )
     assert resp.status == 400
     body = await resp.json()
-    assert body["message"] == "No update available for add-on local_ssh"
+    assert body["message"] == "No update available for app local_ssh"
 
 
 async def test_api_store_addons_addon_availability_success(
@@ -640,7 +638,7 @@ async def test_api_store_addons_addon_availability_arch_not_supported(
         }
         assert (
             result["message"]
-            == f"Add-on test_arch_addon not supported on this platform, supported architectures: {architectures}"
+            == f"App test_arch_addon not supported on this platform, supported architectures: {architectures}"
         )
 
 
@@ -703,7 +701,7 @@ async def test_api_store_addons_addon_availability_machine_not_supported(
         }
         assert (
             result["message"]
-            == f"Add-on test_machine_addon not supported on this machine, supported machine types: {machine_types}"
+            == f"App test_machine_addon not supported on this machine, supported machine types: {machine_types}"
         )
 
 
@@ -763,7 +761,7 @@ async def test_api_store_addons_addon_availability_homeassistant_version_too_old
         }
         assert (
             result["message"]
-            == "Add-on test_version_addon not supported on this system, requires Home Assistant version 2023.1.1 or greater"
+            == "App test_version_addon not supported on this system, requires Home Assistant version 2023.1.1 or greater"
         )
 
 

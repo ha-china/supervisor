@@ -190,13 +190,13 @@ def _warn_addon_config(config: dict[str, Any]):
     """Warn about miss configs."""
     name = config.get(ATTR_NAME)
     if not name:
-        raise vol.Invalid("Invalid Add-on config!")
+        raise vol.Invalid("Invalid App config!")
 
     if ATTR_ADVANCED in config:
         # Deprecated since Supervisor 2026.03.0; this field is ignored and the
         # warning can be removed once that version is the minimum supported.
         _LOGGER.warning(
-            "Add-on '%s' uses deprecated 'advanced' field in config. "
+            "App '%s' uses deprecated 'advanced' field in config. "
             "This field is ignored by the Supervisor. Please report this to the maintainer.",
             name,
         )
@@ -208,7 +208,7 @@ def _warn_addon_config(config: dict[str, Any]):
         or config.get(ATTR_GPIO)
     ):
         _LOGGER.warning(
-            "Add-on have full device access, and selective device access in the configuration. Please report this to the maintainer of %s",
+            "App has full device access, and selective device access in the configuration. Please report this to the maintainer of %s",
             name,
         )
 
@@ -216,7 +216,7 @@ def _warn_addon_config(config: dict[str, Any]):
         config.get(ATTR_BACKUP_POST) or config.get(ATTR_BACKUP_PRE)
     ):
         _LOGGER.warning(
-            "Add-on which only support COLD backups trying to use post/pre commands. Please report this to the maintainer of %s",
+            "An app which only supports COLD backups trying to use post/pre commands. Please report this to the maintainer of %s",
             name,
         )
 
@@ -224,7 +224,7 @@ def _warn_addon_config(config: dict[str, Any]):
         arch for arch in config.get(ATTR_ARCH, []) if arch in ARCH_DEPRECATED
     ]:
         _LOGGER.warning(
-            "Add-on config 'arch' uses deprecated values %s. Please report this to the maintainer of %s",
+            "App config 'arch' uses deprecated values %s. Please report this to the maintainer of %s",
             deprecated_arches,
             name,
         )
@@ -235,14 +235,14 @@ def _warn_addon_config(config: dict[str, Any]):
         if machine.lstrip("!") in MACHINE_DEPRECATED
     ]:
         _LOGGER.warning(
-            "Add-on config 'machine' uses deprecated values %s. Please report this to the maintainer of %s",
+            "App config 'machine' uses deprecated values %s. Please report this to the maintainer of %s",
             deprecated_machines,
             name,
         )
 
     if ATTR_CODENOTARY in config:
         _LOGGER.warning(
-            "Add-on '%s' uses deprecated 'codenotary' field in config. This field is no longer used and will be ignored. Please report this to the maintainer.",
+            "App '%s' uses deprecated 'codenotary' field in config. This field is no longer used and will be ignored. Please report this to the maintainer.",
             name,
         )
 
@@ -254,17 +254,17 @@ def _migrate_addon_config(protocol=False):
 
     def _migrate(config: dict[str, Any]):
         if not isinstance(config, dict):
-            raise vol.Invalid("Add-on config must be a dictionary!")
+            raise vol.Invalid("App config must be a dictionary!")
         name = config.get(ATTR_NAME)
         if not name:
-            raise vol.Invalid("Invalid Add-on config!")
+            raise vol.Invalid("Invalid App config!")
 
         # Startup 2018-03-30
         if config.get(ATTR_STARTUP) in ("before", "after"):
             value = config[ATTR_STARTUP]
             if protocol:
                 _LOGGER.warning(
-                    "Add-on config 'startup' with '%s' is deprecated. Please report this to the maintainer of %s",
+                    "App config 'startup' with '%s' is deprecated. Please report this to the maintainer of %s",
                     value,
                     name,
                 )
@@ -277,7 +277,7 @@ def _migrate_addon_config(protocol=False):
         if "auto_uart" in config:
             if protocol:
                 _LOGGER.warning(
-                    "Add-on config 'auto_uart' is deprecated, use 'uart'. Please report this to the maintainer of %s",
+                    "App config 'auto_uart' is deprecated, use 'uart'. Please report this to the maintainer of %s",
                     name,
                 )
             config[ATTR_UART] = config.pop("auto_uart")
@@ -286,7 +286,7 @@ def _migrate_addon_config(protocol=False):
         if ATTR_DEVICES in config and any(":" in line for line in config[ATTR_DEVICES]):
             if protocol:
                 _LOGGER.warning(
-                    "Add-on config 'devices' use a deprecated format, the new format uses a list of paths only. Please report this to the maintainer of %s",
+                    "App config 'devices' use a deprecated format, the new format uses a list of paths only. Please report this to the maintainer of %s",
                     name,
                 )
             config[ATTR_DEVICES] = [line.split(":")[0] for line in config[ATTR_DEVICES]]
@@ -295,7 +295,7 @@ def _migrate_addon_config(protocol=False):
         if ATTR_TMPFS in config and not isinstance(config[ATTR_TMPFS], bool):
             if protocol:
                 _LOGGER.warning(
-                    "Add-on config 'tmpfs' use a deprecated format, new it's only a boolean. Please report this to the maintainer of %s",
+                    "App config 'tmpfs' use a deprecated format, new it's only a boolean. Please report this to the maintainer of %s",
                     name,
                 )
             config[ATTR_TMPFS] = True
@@ -311,7 +311,7 @@ def _migrate_addon_config(protocol=False):
                 new_entry = entry.replace("snapshot", "backup")
                 config[new_entry] = config.pop(entry)
                 _LOGGER.warning(
-                    "Add-on config '%s' is deprecated, '%s' should be used instead. Please report this to the maintainer of %s",
+                    "App config '%s' is deprecated, '%s' should be used instead. Please report this to the maintainer of %s",
                     entry,
                     new_entry,
                     name,
@@ -324,7 +324,7 @@ def _migrate_addon_config(protocol=False):
                 # Validate that dict entries have required 'type' field
                 if ATTR_TYPE not in entry:
                     _LOGGER.warning(
-                        "Add-on config has invalid map entry missing 'type' field: %s. Skipping invalid entry for %s",
+                        "App config has invalid map entry missing 'type' field: %s. Skipping invalid entry for %s",
                         entry,
                         name,
                     )
@@ -334,7 +334,7 @@ def _migrate_addon_config(protocol=False):
                 result = RE_VOLUME.match(entry)
                 if not result:
                     _LOGGER.warning(
-                        "Add-on config has invalid map entry: %s. Skipping invalid entry for %s",
+                        "App config has invalid map entry: %s. Skipping invalid entry for %s",
                         entry,
                         name,
                     )
@@ -358,7 +358,7 @@ def _migrate_addon_config(protocol=False):
                 for volume in volumes
             ):
                 _LOGGER.warning(
-                    "Add-on config using incompatible map options, '%s' and '%s' are ignored if '%s' is included. Please report this to the maintainer of %s",
+                    "App config using incompatible map options, '%s' and '%s' are ignored if '%s' is included. Please report this to the maintainer of %s",
                     MappingType.ADDON_CONFIG,
                     MappingType.HOMEASSISTANT_CONFIG,
                     MappingType.CONFIG,
@@ -366,7 +366,7 @@ def _migrate_addon_config(protocol=False):
                 )
             else:
                 _LOGGER.debug(
-                    "Add-on config using deprecated map option '%s' instead of '%s'. Please report this to the maintainer of %s",
+                    "App config using deprecated map option '%s' instead of '%s'. Please report this to the maintainer of %s",
                     MappingType.CONFIG,
                     MappingType.HOMEASSISTANT_CONFIG,
                     name,

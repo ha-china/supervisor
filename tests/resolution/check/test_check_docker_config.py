@@ -193,7 +193,7 @@ async def test_addon_volume_mount_not_flagged(
         if issue.context == ContextType.ADDON and issue.reference == "local_ssh"
     ]
     assert len(addon_issues) == 0, (
-        "Add-on should not be flagged for VOLUME mounts not in config"
+        "App should not be flagged for VOLUME mounts not in config"
     )
 
     # No system issue should be created either if no containers have issues
@@ -258,7 +258,7 @@ async def test_addon_configured_mount_still_flagged(
         if issue.context == ContextType.ADDON and issue.reference == "local_ssh"
     ]
     assert len(addon_issues) == 1, (
-        "Add-on should be flagged for configured mounts with wrong propagation"
+        "App should be flagged for configured mounts with wrong propagation"
     )
 
 
@@ -317,7 +317,7 @@ async def test_addon_custom_target_path_flagged(
         if issue.context == ContextType.ADDON and issue.reference == "local_ssh"
     ]
     assert len(addon_issues) == 1, (
-        "Add-on should be flagged for configured mounts with custom paths and wrong propagation"
+        "App should be flagged for configured mounts with custom paths and wrong propagation"
     )
 
 

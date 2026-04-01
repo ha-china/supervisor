@@ -609,7 +609,7 @@ class Backup(JobGroup):
         # Ensure it is still installed and get current data before proceeding
         if not (curr_addon := self.sys_addons.get_local_only(slug)):
             _LOGGER.warning(
-                "Skipping backup of add-on %s because it has been uninstalled",
+                "Skipping backup of app %s because it has been uninstalled",
                 slug,
             )
             return None
@@ -697,7 +697,7 @@ class Backup(JobGroup):
             try:
                 start_task = await self._addon_restore(slug)
             except Exception as err:  # pylint: disable=broad-except
-                _LOGGER.warning("Can't restore Add-on %s: %s", slug, err)
+                _LOGGER.warning("Can't restore App %s: %s", slug, err)
                 success = False
             else:
                 if start_task:
@@ -719,7 +719,7 @@ class Backup(JobGroup):
                 await self.sys_addons.uninstall(addon.slug)
             except AddonsError as err:
                 self.sys_jobs.current.capture_error(err)
-                _LOGGER.warning("Can't uninstall Add-on %s: %s", addon.slug, err)
+                _LOGGER.warning("Can't uninstall App %s: %s", addon.slug, err)
                 success = False
 
         return success

@@ -210,7 +210,7 @@ def test_warn_legacy_arch_values(caplog: pytest.LogCaptureFixture):
 
     vd.SCHEMA_ADDON_CONFIG(config)
 
-    assert "Add-on config 'arch' uses deprecated values" in caplog.text
+    assert "App config 'arch' uses deprecated values" in caplog.text
 
 
 def test_warn_legacy_machine_values(caplog: pytest.LogCaptureFixture):
@@ -220,7 +220,7 @@ def test_warn_legacy_machine_values(caplog: pytest.LogCaptureFixture):
 
     vd.SCHEMA_ADDON_CONFIG(config)
 
-    assert "Add-on config 'machine' uses deprecated values" in caplog.text
+    assert "App config 'machine' uses deprecated values" in caplog.text
 
 
 def test_warn_advanced_deprecated(caplog: pytest.LogCaptureFixture):

@@ -406,7 +406,7 @@ async def test_start_timeout(
     ):
         await start_task
 
-    assert "Timeout while waiting for addon Terminal & SSH to start" in caplog.text
+    assert "Timeout while waiting for app Terminal & SSH to start" in caplog.text
 
 
 @pytest.mark.usefixtures("tmp_supervisor_data", "path_extern")
@@ -1021,7 +1021,7 @@ async def test_addon_load_succeeds_with_docker_errors(
     )
     caplog.clear()
     await install_addon_ssh.load()
-    assert "Cannot build addon 'local_ssh' because dockerfile is missing" in caplog.text
+    assert "Cannot build app 'local_ssh' because dockerfile is missing" in caplog.text
 
     # Image build failure
     caplog.clear()

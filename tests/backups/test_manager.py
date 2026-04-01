@@ -2219,6 +2219,6 @@ async def test_backup_addon_skips_uninstalled(
     assert "local_example" not in coresys.addons.local
     assert not backup.addons
     assert (
-        "Skipping backup of add-on local_example because it has been uninstalled"
+        "Skipping backup of app local_example because it has been uninstalled"
         in caplog.text
     )

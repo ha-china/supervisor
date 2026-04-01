@@ -117,4 +117,4 @@ async def test_fixup_no_addon(coresys: CoreSys, caplog: pytest.LogCaptureFixture
 
     assert not coresys.resolution.issues
     assert not coresys.resolution.suggestions
-    assert "Cannot restart addon local_ssh as it does not exist" in caplog.text
+    assert "Cannot restart app local_ssh as it does not exist" in caplog.text

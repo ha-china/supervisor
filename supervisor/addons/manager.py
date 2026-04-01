@@ -97,7 +97,7 @@ class AddonManager(CoreSysAttributes):
             tasks.append(addon.load())
 
         # Run initial tasks
-        _LOGGER.info("Found %d installed add-ons", len(self.data.system))
+        _LOGGER.info("Found %d installed apps", len(self.data.system))
         if tasks:
             await asyncio.gather(*tasks)
 
@@ -116,7 +116,7 @@ class AddonManager(CoreSysAttributes):
                 in self.sys_resolution.unhealthy
             ):
                 _LOGGER.warning(
-                    "Skipping boot of add-on %s because gateway firewall"
+                    "Skipping boot of app %s because gateway firewall"
                     " rules are not active",
                     addon.slug,
                 )
@@ -124,7 +124,7 @@ class AddonManager(CoreSysAttributes):
             tasks.append(addon)
 
         # Evaluate add-ons which need to be started
-        _LOGGER.info("Phase '%s' starting %d add-ons", stage, len(tasks))
+        _LOGGER.info("Phase '%s' starting %d apps", stage, len(tasks))
         if not tasks:
             return
 
@@ -148,7 +148,7 @@ class AddonManager(CoreSysAttributes):
             else:
                 continue
 
-            _LOGGER.warning("Can't start Add-on %s", addon.slug)
+            _LOGGER.warning("Can't start App %s", addon.slug)
 
         # Ignore exceptions from waiting for addon startup, addon errors handled elsewhere
         await asyncio.gather(*wait_boot, return_exceptions=True)
@@ -175,7 +175,7 @@ class AddonManager(CoreSysAttributes):
             tasks.append(addon)
 
         # Evaluate add-ons which need to be stopped
-        _LOGGER.info("Phase '%s' stopping %d add-ons", stage, len(tasks))
+        _LOGGER.info("Phase '%s' stopping %d apps", stage, len(tasks))
         if not tasks:
             return
 
@@ -185,7 +185,7 @@ class AddonManager(CoreSysAttributes):
             try:
                 await addon.stop()
             except Exception as err:  # pylint: disable=broad-except
-                _LOGGER.warning("Can't stop Add-on %s: %s", addon.slug, err)
+                _LOGGER.warning("Can't stop App %s: %s", addon.slug, err)
                 await async_capture_exception(err)
 
     @Job(
@@ -204,11 +204,11 @@ class AddonManager(CoreSysAttributes):
         self.sys_jobs.current.reference = slug
 
         if slug in self.local:
-            raise AddonsError(f"Add-on {slug} is already installed", _LOGGER.warning)
+            raise AddonsError(f"App {slug} is already installed", _LOGGER.warning)
         store = self.store.get(slug)
 
         if not store:
-            raise AddonsError(f"Add-on {slug} does not exist", _LOGGER.error)
+            raise AddonsError(f"App {slug} does not exist", _LOGGER.error)
 
         store.validate_availability()
 
@@ -218,13 +218,13 @@ class AddonManager(CoreSysAttributes):
 
         await Addon(self.coresys, slug).install()
 
-        _LOGGER.info("Add-on '%s' successfully installed", slug)
+        _LOGGER.info("App '%s' successfully installed", slug)
 
     @Job(name="addon_manager_uninstall")
     async def uninstall(self, slug: str, *, remove_config: bool = False) -> None:
         """Remove an add-on."""
         if slug not in self.local:
-            _LOGGER.warning("Add-on %s is not installed", slug)
+            _LOGGER.warning("App %s is not installed", slug)
             return
 
         shared_image = any(
@@ -237,7 +237,7 @@ class AddonManager(CoreSysAttributes):
             remove_config=remove_config, remove_image=not shared_image
         )
 
-        _LOGGER.info("Add-on '%s' successfully removed", slug)
+        _LOGGER.info("App '%s' successfully removed", slug)
 
     @Job(
         name="addon_manager_update",
@@ -266,17 +266,17 @@ class AddonManager(CoreSysAttributes):
         self.sys_jobs.current.reference = slug
 
         if slug not in self.local:
-            raise AddonsError(f"Add-on {slug} is not installed", _LOGGER.error)
+            raise AddonsError(f"App {slug} is not installed", _LOGGER.error)
         addon = self.local[slug]
 
         if addon.is_detached:
             raise AddonsError(
-                f"Add-on {slug} is not available inside store", _LOGGER.error
+                f"App {slug} is not available inside store", _LOGGER.error
             )
         store = self.store[slug]
 
         if addon.version == store.version:
-            raise AddonsError(f"No update available for add-on {slug}", _LOGGER.warning)
+            raise AddonsError(f"No update available for app {slug}", _LOGGER.warning)
 
         # Check if available, Maybe something have changed
         store.validate_availability()
@@ -294,7 +294,7 @@ class AddonManager(CoreSysAttributes):
 
         task = await addon.update()
 
-        _LOGGER.info("Add-on '%s' successfully updated", slug)
+        _LOGGER.info("App '%s' successfully updated", slug)
         return task
 
     @Job(
@@ -315,12 +315,12 @@ class AddonManager(CoreSysAttributes):
         self.sys_jobs.current.reference = slug
 
         if slug not in self.local:
-            raise AddonsError(f"Add-on {slug} is not installed", _LOGGER.error)
+            raise AddonsError(f"App {slug} is not installed", _LOGGER.error)
         addon = self.local[slug]
 
         if addon.is_detached:
             raise AddonsError(
-                f"Add-on {slug} is not available inside store", _LOGGER.error
+                f"App {slug} is not available inside store", _LOGGER.error
             )
         store = self.store[slug]
 
@@ -331,7 +331,7 @@ class AddonManager(CoreSysAttributes):
             )
         if not force and not addon.need_build:
             raise AddonNotSupportedError(
-                "Can't rebuild a image based add-on", _LOGGER.error
+                "Can't rebuild a image based app", _LOGGER.error
             )
 
         return await addon.rebuild()
@@ -354,11 +354,11 @@ class AddonManager(CoreSysAttributes):
         self.sys_jobs.current.reference = slug
 
         if slug not in self.local:
-            _LOGGER.debug("Add-on %s is not local available for restore", slug)
+            _LOGGER.debug("App %s is not local available for restore", slug)
             addon = Addon(self.coresys, slug)
             had_ingress: bool | None = False
         else:
-            _LOGGER.debug("Add-on %s is local available for restore", slug)
+            _LOGGER.debug("App %s is local available for restore", slug)
             addon = self.local[slug]
             had_ingress = addon.ingress_panel
 
@@ -366,7 +366,7 @@ class AddonManager(CoreSysAttributes):
 
         # Check if new
         if slug not in self.local:
-            _LOGGER.info("Detect new Add-on after restore %s", slug)
+            _LOGGER.info("Detect new App after restore %s", slug)
             self.local[slug] = addon
 
         # Update ingress
@@ -390,12 +390,12 @@ class AddonManager(CoreSysAttributes):
                 continue
             needs_repair.append(addon)
 
-        _LOGGER.info("Found %d add-ons to repair", len(needs_repair))
+        _LOGGER.info("Found %d apps to repair", len(needs_repair))
         if not needs_repair:
             return
 
         for addon in needs_repair:
-            _LOGGER.info("Repairing for add-on: %s", addon.slug)
+            _LOGGER.info("Repairing for app: %s", addon.slug)
             with suppress(DockerError, KeyError):
                 # Need pull a image again
                 if not addon.need_build:
@@ -423,7 +423,7 @@ class AddonManager(CoreSysAttributes):
                 if not await addon.instance.is_running():
                     continue
             except DockerError as err:
-                _LOGGER.warning("Add-on %s is corrupt: %s", addon.slug, err)
+                _LOGGER.warning("App %s is corrupt: %s", addon.slug, err)
                 self.sys_resolution.create_issue(
                     IssueType.CORRUPT_DOCKER,
                     ContextType.ADDON,

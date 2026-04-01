@@ -259,7 +259,7 @@ class Addon(AddonModel):
             # Ensure we are using correct image for this system
             await self.instance.check_image(self.version, default_image, self.arch)
         except DockerError:
-            _LOGGER.info("No %s addon Docker image %s found", self.slug, self.image)
+            _LOGGER.info("No %s app Docker image %s found", self.slug, self.image)
             with suppress(DockerError, AddonNotSupportedError):
                 await self.instance.install(self.version, default_image, arch=self.arch)
 
@@ -567,7 +567,7 @@ class Addon(AddonModel):
 
         port = self.data[ATTR_INGRESS_PORT]
         if port == 0:
-            raise RuntimeError(f"No port set for add-on {self.slug}")
+            raise RuntimeError(f"No port set for app {self.slug}")
         return port
 
     @property
@@ -748,10 +748,10 @@ class Addon(AddonModel):
                 validation_error=humanize_error(self.options, ex),
             ) from None
         except ConfigurationFileError as err:
-            _LOGGER.error("Add-on %s can't write options", self.slug)
+            _LOGGER.error("App %s can't write options", self.slug)
             raise AddonUnknownError(addon=self.slug) from err
 
-        _LOGGER.debug("Add-on %s write options: %s", self.slug, options)
+        _LOGGER.debug("App %s write options: %s", self.slug, options)
 
     @Job(
         name="addon_unload",
@@ -771,7 +771,7 @@ class Addon(AddonModel):
 
         def remove_data_dir():
             if self.path_data.is_dir():
-                _LOGGER.info("Removing add-on data folder %s", self.path_data)
+                _LOGGER.info("Removing app data folder %s", self.path_data)
                 remove_data(self.path_data)
 
         await self.sys_run_in_executor(remove_data_dir)
@@ -801,7 +801,7 @@ class Addon(AddonModel):
         def setup_data():
             if not self.path_data.is_dir():
                 _LOGGER.info(
-                    "Creating Home Assistant add-on data folder %s", self.path_data
+                    "Creating Home Assistant app data folder %s", self.path_data
                 )
                 self.path_data.mkdir()
 
@@ -819,14 +819,14 @@ class Addon(AddonModel):
             await self.sys_addons.data.uninstall(self)
             raise
         except DockerBuildError as err:
-            _LOGGER.error("Could not build image for addon %s: %s", self.slug, err)
+            _LOGGER.error("Could not build image for app %s: %s", self.slug, err)
             await self.sys_addons.data.uninstall(self)
             raise AddonBuildFailedUnknownError(addon=self.slug) from err
         except DockerRegistryAuthError:
             await self.sys_addons.data.uninstall(self)
             raise
         except DockerError as err:
-            _LOGGER.error("Could not pull image to update addon %s: %s", self.slug, err)
+            _LOGGER.error("Could not pull image to update app %s: %s", self.slug, err)
             await self.sys_addons.data.uninstall(self)
             raise AddonUnknownError(addon=self.slug) from err
 
@@ -852,7 +852,7 @@ class Addon(AddonModel):
         try:
             await self.instance.remove(remove_image=remove_image)
         except DockerError as err:
-            _LOGGER.error("Could not remove image for addon %s: %s", self.slug, err)
+            _LOGGER.error("Could not remove image for app %s: %s", self.slug, err)
             raise AddonUnknownError(addon=self.slug) from err
 
         self.state = AddonState.UNKNOWN
@@ -927,12 +927,12 @@ class Addon(AddonModel):
         try:
             await self.instance.update(store.version, store.image, arch=self.arch)
         except DockerBuildError as err:
-            _LOGGER.error("Could not build image for addon %s: %s", self.slug, err)
+            _LOGGER.error("Could not build image for app %s: %s", self.slug, err)
             raise AddonBuildFailedUnknownError(addon=self.slug) from err
         except DockerRegistryAuthError:
             raise
         except DockerError as err:
-            _LOGGER.error("Could not pull image to update addon %s: %s", self.slug, err)
+            _LOGGER.error("Could not pull image to update app %s: %s", self.slug, err)
             raise AddonUnknownError(addon=self.slug) from err
 
         # Stop the addon if running
@@ -940,7 +940,7 @@ class Addon(AddonModel):
             await self.stop()
 
         try:
-            _LOGGER.info("Add-on '%s' successfully updated", self.slug)
+            _LOGGER.info("App '%s' successfully updated", self.slug)
             await self.sys_addons.data.update(store)
             await self._check_ingress_port()
 
@@ -983,19 +983,19 @@ class Addon(AddonModel):
             try:
                 await self.instance.remove()
             except DockerError as err:
-                _LOGGER.error("Could not remove image for addon %s: %s", self.slug, err)
+                _LOGGER.error("Could not remove image for app %s: %s", self.slug, err)
                 raise AddonUnknownError(addon=self.slug) from err
 
             try:
                 await self.instance.install(self.version)
             except DockerBuildError as err:
-                _LOGGER.error("Could not build image for addon %s: %s", self.slug, err)
+                _LOGGER.error("Could not build image for app %s: %s", self.slug, err)
                 raise AddonBuildFailedUnknownError(addon=self.slug) from err
             except DockerRegistryAuthError:
                 raise
             except DockerError as err:
                 _LOGGER.error(
-                    "Could not pull image to update addon %s: %s", self.slug, err
+                    "Could not pull image to update app %s: %s", self.slug, err
                 )
                 raise AddonUnknownError(addon=self.slug) from err
 
@@ -1008,7 +1008,7 @@ class Addon(AddonModel):
             if self.with_ingress:
                 await self.sys_ingress.reload()
 
-            _LOGGER.info("Add-on '%s' successfully rebuilt", self.slug)
+            _LOGGER.info("App '%s' successfully rebuilt", self.slug)
 
         finally:
             # restore state
@@ -1035,12 +1035,10 @@ class Addon(AddonModel):
             await self.sys_run_in_executor(write_pulse_config)
         except OSError as err:
             self.sys_resolution.check_oserror(err)
-            _LOGGER.error(
-                "Add-on %s can't write pulse/client.config: %s", self.slug, err
-            )
+            _LOGGER.error("App %s can't write pulse/client.config: %s", self.slug, err)
         else:
             _LOGGER.debug(
-                "Add-on %s write pulse/client.config: %s", self.slug, self.path_pulse
+                "App %s write pulse/client.config: %s", self.slug, self.path_pulse
             )
 
     async def install_apparmor(self) -> None:
@@ -1106,7 +1104,7 @@ class Addon(AddonModel):
         try:
             new_schema(options)
         except vol.Invalid:
-            _LOGGER.warning("Add-on %s new schema is not compatible", self.slug)
+            _LOGGER.warning("App %s new schema is not compatible", self.slug)
             return False
         return True
 
@@ -1116,12 +1114,12 @@ class Addon(AddonModel):
             await asyncio.wait_for(self._startup_event.wait(), STARTUP_TIMEOUT)
         except TimeoutError:
             _LOGGER.warning(
-                "Timeout while waiting for addon %s to start, took more than %s seconds",
+                "Timeout while waiting for app %s to start, took more than %s seconds",
                 self.name,
                 STARTUP_TIMEOUT,
             )
         except asyncio.CancelledError as err:
-            _LOGGER.info("Wait for addon startup task cancelled due to: %s", err)
+            _LOGGER.info("Wait for app startup task cancelled due to: %s", err)
         finally:
             if self._wait_for_startup_task is asyncio.current_task():
                 self._wait_for_startup_task = None
@@ -1162,7 +1160,7 @@ class Addon(AddonModel):
                 return
 
             _LOGGER.info(
-                "Creating Home Assistant add-on config folder %s", self.path_config
+                "Creating Home Assistant app config folder %s", self.path_config
             )
             self.path_config.mkdir()
 
@@ -1180,7 +1178,7 @@ class Addon(AddonModel):
                 port=cast(dict[str, Any], err.extra_fields)["port"],
             ) from err
         except DockerError as err:
-            _LOGGER.error("Could not start container for addon %s: %s", self.slug, err)
+            _LOGGER.error("Could not start container for app %s: %s", self.slug, err)
             self.state = AddonState.ERROR
             raise AddonUnknownError(addon=self.slug) from err
 
@@ -1198,7 +1196,7 @@ class Addon(AddonModel):
         try:
             await self.instance.stop()
         except DockerError as err:
-            _LOGGER.error("Could not stop container for addon %s: %s", self.slug, err)
+            _LOGGER.error("Could not stop container for app %s: %s", self.slug, err)
             self.state = AddonState.ERROR
             raise AddonUnknownError(addon=self.slug) from err
 
@@ -1232,7 +1230,7 @@ class Addon(AddonModel):
             return await self.instance.stats()
         except DockerError as err:
             _LOGGER.error(
-                "Could not get stats of container for addon %s: %s", self.slug, err
+                "Could not get stats of container for app %s: %s", self.slug, err
             )
             raise AddonUnknownError(addon=self.slug) from err
 
@@ -1253,7 +1251,7 @@ class Addon(AddonModel):
             await self.instance.write_stdin(data)
         except DockerError as err:
             _LOGGER.error(
-                "Could not write stdin to container for addon %s: %s", self.slug, err
+                "Could not write stdin to container for app %s: %s", self.slug, err
             )
             raise AddonUnknownError(addon=self.slug) from err
 
@@ -1288,7 +1286,7 @@ class Addon(AddonModel):
             return False
 
         if self.backup_mode == AddonBackupMode.COLD:
-            _LOGGER.info("Shutdown add-on %s for cold backup", self.slug)
+            _LOGGER.info("Shutdown app %s for cold backup", self.slug)
             await self.stop()
 
         elif self.backup_pre is not None:
@@ -1308,7 +1306,7 @@ class Addon(AddonModel):
         for cold backup. Else nothing is returned.
         """
         if self.backup_mode is AddonBackupMode.COLD:
-            _LOGGER.info("Starting add-on %s again", self.slug)
+            _LOGGER.info("Starting app %s again", self.slug)
             return await self.start()
 
         if self.backup_post is not None:
@@ -1417,7 +1415,7 @@ class Addon(AddonModel):
             TemporaryDirectory, dir=self.sys_config.path_tmp
         )
         temp_path = Path(temp_dir.name)
-        _LOGGER.info("Building backup for add-on %s", self.slug)
+        _LOGGER.info("Building backup for app %s", self.slug)
         try:
             # store local image
             if self.need_build:
@@ -1433,12 +1431,12 @@ class Addon(AddonModel):
                     temp_path=temp_path,
                 )
             )
-            _LOGGER.info("Finish backup for addon %s", self.slug)
+            _LOGGER.info("Finish backup for app %s", self.slug)
         except DockerError as err:
-            _LOGGER.error("Can't export image for addon %s: %s", self.slug, err)
+            _LOGGER.error("Can't export image for app %s: %s", self.slug, err)
             raise BackupRestoreUnknownError() from err
         except (tarfile.TarError, OSError, AddFileError) as err:
-            _LOGGER.error("Can't write backup tarfile for addon %s: %s", self.slug, err)
+            _LOGGER.error("Can't write backup tarfile for app %s: %s", self.slug, err)
             raise BackupRestoreUnknownError() from err
         finally:
             await self.sys_run_in_executor(temp_dir.cleanup)
@@ -1507,7 +1505,7 @@ class Addon(AddonModel):
             self._validate_availability(data[ATTR_SYSTEM], logger=_LOGGER.error)
 
             # Restore local add-on information
-            _LOGGER.info("Restore config for addon %s", self.slug)
+            _LOGGER.info("Restore config for app %s", self.slug)
             restore_image = self._image(data[ATTR_SYSTEM])
             await self.sys_addons.data.restore(
                 self.slug, data[ATTR_USER], data[ATTR_SYSTEM], restore_image
@@ -1521,7 +1519,7 @@ class Addon(AddonModel):
                 # Check version / restore image
                 version = data[ATTR_VERSION]
                 if not await self.instance.exists():
-                    _LOGGER.info("Restore/Install of image for addon %s", self.slug)
+                    _LOGGER.info("Restore/Install of image for app %s", self.slug)
 
                     image_file = Path(tmp.name, "image.tar")
                     if image_file.is_file():
@@ -1534,7 +1532,7 @@ class Addon(AddonModel):
                             )
                             await self.instance.cleanup()
                 elif self.instance.version != version or self.legacy:
-                    _LOGGER.info("Restore/Update of image for addon %s", self.slug)
+                    _LOGGER.info("Restore/Update of image for app %s", self.slug)
                     with suppress(DockerError):
                         await self.instance.update(version, restore_image, self.arch)
                 await self._check_ingress_port()
@@ -1542,7 +1540,7 @@ class Addon(AddonModel):
                 # Restore data and config
                 def _restore_data():
                     """Restore data and config."""
-                    _LOGGER.info("Restoring data and config for addon %s", self.slug)
+                    _LOGGER.info("Restoring data and config for app %s", self.slug)
                     if self.path_data.is_dir():
                         remove_data(self.path_data)
                     if self.path_config.is_dir():
@@ -1577,7 +1575,7 @@ class Addon(AddonModel):
                         )
                     except HostAppArmorError as err:
                         _LOGGER.error(
-                            "Can't restore AppArmor profile for add-on %s: %s",
+                            "Can't restore AppArmor profile for app %s: %s",
                             self.slug,
                             err,
                         )
@@ -1593,7 +1591,7 @@ class Addon(AddonModel):
                     wait_for_start = await self.start()
         finally:
             await self.sys_run_in_executor(tmp.cleanup)
-        _LOGGER.info("Finished restore for add-on %s", self.slug)
+        _LOGGER.info("Finished restore for app %s", self.slug)
         return wait_for_start
 
     @Job(
@@ -1609,7 +1607,7 @@ class Addon(AddonModel):
         while await self.instance.current_state() == state:
             if not self.in_progress:
                 _LOGGER.warning(
-                    "Watchdog found addon %s is %s, restarting...",
+                    "Watchdog found app %s is %s, restarting...",
                     self.name,
                     state,
                 )
@@ -1625,14 +1623,14 @@ class Addon(AddonModel):
                         await (await self.restart())
                 except AddonsError as err:
                     attempts = attempts + 1
-                    _LOGGER.error("Watchdog restart of addon %s failed!", self.name)
+                    _LOGGER.error("Watchdog restart of app %s failed!", self.name)
                     await async_capture_exception(err)
                 else:
                     break
 
             if attempts >= WATCHDOG_MAX_ATTEMPTS:
                 _LOGGER.critical(
-                    "Watchdog cannot restart addon %s, failed all %s attempts",
+                    "Watchdog cannot restart app %s, failed all %s attempts",
                     self.name,
                     attempts,
                 )
@@ -1641,7 +1639,7 @@ class Addon(AddonModel):
             # Exponential backoff to spread retries over the throttle window
             delay = WATCHDOG_RETRY_SECONDS * (1 << max(attempts - 1, 0))
             _LOGGER.debug(
-                "Watchdog will retry addon %s in %s seconds (attempt %s)",
+                "Watchdog will retry app %s in %s seconds (attempt %s)",
                 self.name,
                 delay,
                 attempts + 1,

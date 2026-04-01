@@ -108,7 +108,7 @@ class APIStore(CoreSysAttributes):
             raise StoreAddonNotFoundError(addon=addon_slug)
 
         if installed and not addon.is_installed:
-            raise APIError(f"Addon {addon_slug} is not installed")
+            raise APIError(f"App {addon_slug} is not installed")
 
         if not installed and addon.is_installed:
             addon = cast(Addon, addon)
@@ -247,7 +247,7 @@ class APIStore(CoreSysAttributes):
         """Update add-on."""
         addon = self._extract_addon(request, installed=True)
         if addon == request.get(REQUEST_FROM):
-            raise APIForbidden(f"Add-on {addon.slug} can't update itself!")
+            raise APIForbidden(f"App {addon.slug} can't update itself!")
 
         body = await api_validate(SCHEMA_UPDATE, request)
         background = body[ATTR_BACKGROUND]
@@ -282,7 +282,7 @@ class APIStore(CoreSysAttributes):
         """Return icon from add-on."""
         addon = self._extract_addon(request)
         if not addon.with_icon:
-            raise APIError(f"No icon found for add-on {addon.slug}!")
+            raise APIError(f"No icon found for app {addon.slug}!")
 
         return await self.sys_run_in_executor(_read_static_binary_file, addon.path_icon)
 
@@ -291,7 +291,7 @@ class APIStore(CoreSysAttributes):
         """Return logo from add-on."""
         addon = self._extract_addon(request)
         if not addon.with_logo:
-            raise APIError(f"No logo found for add-on {addon.slug}!")
+            raise APIError(f"No logo found for app {addon.slug}!")
 
         return await self.sys_run_in_executor(_read_static_binary_file, addon.path_logo)
 
@@ -305,7 +305,7 @@ class APIStore(CoreSysAttributes):
             return str(err)
 
         if not addon.with_changelog:
-            return f"No changelog found for add-on {addon.slug}!"
+            return f"No changelog found for app {addon.slug}!"
 
         return await self.sys_run_in_executor(
             _read_static_text_file, addon.path_changelog
@@ -321,7 +321,7 @@ class APIStore(CoreSysAttributes):
             return str(err)
 
         if not addon.with_documentation:
-            return f"No documentation found for add-on {addon.slug}!"
+            return f"No documentation found for app {addon.slug}!"
 
         return await self.sys_run_in_executor(
             _read_static_text_file, addon.path_documentation

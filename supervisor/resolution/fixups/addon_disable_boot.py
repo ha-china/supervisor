@@ -24,7 +24,7 @@ class FixupAddonDisableBoot(FixupBase):
             return
 
         if not (addon := self.sys_addons.get_local_only(reference)):
-            _LOGGER.info("Cannot change addon %s as it does not exist", reference)
+            _LOGGER.info("Cannot change app %s as it does not exist", reference)
             return
 
         # Disable boot on addon

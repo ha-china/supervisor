@@ -284,7 +284,7 @@ async def test_load(coresys: CoreSys, caplog: pytest.LogCaptureFixture):
         attach.assert_called_once_with(version=AwesomeVersion("9.2.1"))
         write_hosts.assert_called_once()
 
-    assert "Found 1 installed add-ons" in caplog.text
+    assert "Found 1 installed apps" in caplog.text
 
 
 @pytest.mark.usefixtures("tmp_supervisor_data", "path_extern")

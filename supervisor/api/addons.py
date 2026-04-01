@@ -173,9 +173,9 @@ class APIAddons(CoreSysAttributes):
 
         addon = self.sys_addons.get(addon_slug)
         if not addon:
-            raise APINotFound(f"Addon {addon_slug} does not exist")
+            raise APINotFound(f"App {addon_slug} does not exist")
         if not isinstance(addon, Addon) or not addon.is_installed:
-            raise APIAddonNotInstalled("Addon is not installed")
+            raise APIAddonNotInstalled("App is not installed")
 
         return addon
 
@@ -389,7 +389,7 @@ class APIAddons(CoreSysAttributes):
             if data["pwned"] is None:
                 data["message"] = "Error happening on pwned secrets check!"
             else:
-                data["message"] = "Add-on uses pwned secrets!"
+                data["message"] = "App uses pwned secrets!"
 
         return data
 
@@ -398,7 +398,7 @@ class APIAddons(CoreSysAttributes):
         """Validate user options for add-on."""
         slug: str = request.match_info["addon"]
         if slug != "self":
-            raise APIForbidden("This can be only read by the Add-on itself!")
+            raise APIForbidden("This can be only read by the app itself!")
         addon = self.get_addon_for_request(request)
 
         # Lookup/reload secrets
@@ -406,7 +406,7 @@ class APIAddons(CoreSysAttributes):
         try:
             return addon.schema.validate(addon.options)
         except vol.Invalid:
-            raise APIError("Invalid configuration data for the add-on") from None
+            raise APIError("Invalid configuration data for the app") from None
 
     @api_process
     async def security(self, request: web.Request) -> None:

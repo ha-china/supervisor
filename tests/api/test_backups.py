@@ -1527,8 +1527,8 @@ async def test_pre_post_backup_command_error(
     assert job.done is True
     assert job.errors[0].type_ == AddonPrePostBackupCommandReturnedError
     assert job.errors[0].message == (
-        "Pre-/Post backup command for add-on local_example returned error code: "
-        "1. Please report this to the addon developer. Enable debug "
+        "Pre-/Post backup command for app local_example returned error code: "
+        "1. Please report this to the app developer. Enable debug "
         "logging to capture complete command output using ha supervisor options --logging debug"
     )
     assert job.errors[0].error_key == "addon_pre_post_backup_command_returned_error"

@@ -132,20 +132,20 @@ def initialize_system(coresys: CoreSys) -> None:
     # Supervisor addon data folder
     if not config.path_addons_data.is_dir():
         _LOGGER.debug(
-            "Creating Supervisor Add-on data folder at '%s'", config.path_addons_data
+            "Creating Supervisor app data folder at '%s'", config.path_addons_data
         )
         config.path_addons_data.mkdir(parents=True)
 
     if not config.path_addons_local.is_dir():
         _LOGGER.debug(
-            "Creating Supervisor Add-on local repository folder at '%s'",
+            "Creating Supervisor app local repository folder at '%s'",
             config.path_addons_local,
         )
         config.path_addons_local.mkdir(parents=True)
 
     if not config.path_addons_git.is_dir():
         _LOGGER.debug(
-            "Creating Supervisor Add-on git repositories folder at '%s'",
+            "Creating Supervisor app git repositories folder at '%s'",
             config.path_addons_git,
         )
         config.path_addons_git.mkdir(parents=True)
@@ -221,7 +221,7 @@ def initialize_system(coresys: CoreSys) -> None:
     # Addon Configs folder
     if not config.path_addon_configs.is_dir():
         _LOGGER.debug(
-            "Creating Supervisor add-on configs folder at '%s'",
+            "Creating Supervisor app configs folder at '%s'",
             config.path_addon_configs,
         )
         config.path_addon_configs.mkdir()

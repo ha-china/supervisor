@@ -681,7 +681,7 @@ class BackupManager(FileConfiguration, JobGroup):
             if addon and addon.is_installed:
                 addon_list.append(cast(Addon, addon))
                 continue
-            _LOGGER.warning("Add-on %s not found/installed", addon_slug)
+            _LOGGER.warning("App %s not found/installed", addon_slug)
 
         # If being run in the background, notify caller that validation has completed
         if validation_complete:

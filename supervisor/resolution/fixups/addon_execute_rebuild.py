@@ -26,7 +26,7 @@ class FixupAddonExecuteRebuild(FixupBase):
         addon = self.sys_addons.get_local_only(reference)
         if not addon:
             _LOGGER.info(
-                "Cannot rebuild addon %s as it is not installed, dismissing suggestion",
+                "Cannot rebuild app %s as it is not installed, dismissing suggestion",
                 reference,
             )
             return
@@ -34,12 +34,12 @@ class FixupAddonExecuteRebuild(FixupBase):
         state = await addon.instance.current_state()
         if state == ContainerState.UNKNOWN:
             _LOGGER.info(
-                "Container for addon %s does not exist, it will be rebuilt when started next",
+                "Container for app %s does not exist, it will be rebuilt when started next",
                 reference,
             )
         elif state == ContainerState.STOPPED:
             _LOGGER.info(
-                "Addon %s is stopped, removing its container so it rebuilds when started next",
+                "App %s is stopped, removing its container so it rebuilds when started next",
                 reference,
             )
             await addon.stop()

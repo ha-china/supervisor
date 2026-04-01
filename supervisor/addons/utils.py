@@ -102,4 +102,4 @@ def remove_data(folder: Path) -> None:
     else:
         return
 
-    _LOGGER.error("Can't remove Add-on Data: %s", error_msg)
+    _LOGGER.error("Can't remove App Data: %s", error_msg)

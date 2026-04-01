@@ -25,7 +25,7 @@ class FixupAddonExecuteStart(FixupBase):
             return
 
         if not (addon := self.sys_addons.get_local_only(reference)):
-            _LOGGER.info("Cannot start addon %s as it does not exist", reference)
+            _LOGGER.info("Cannot start app %s as it does not exist", reference)
             return
 
         # Start addon
@@ -38,7 +38,7 @@ class FixupAddonExecuteStart(FixupBase):
         # Wait for addon start. If it ends up in error or unknown state it's not fixed
         await start_task
         if addon.state in {AddonState.ERROR, AddonState.UNKNOWN}:
-            _LOGGER.error("Addon %s could not start successfully", reference)
+            _LOGGER.error("App %s could not start successfully", reference)
             raise ResolutionFixupError()
 
     @property

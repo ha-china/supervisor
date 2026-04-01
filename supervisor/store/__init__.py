@@ -186,7 +186,7 @@ class StoreManager(CoreSysAttributes, FileConfiguration):
         else:
             if not await repository.validate():
                 if issue_on_error:
-                    _LOGGER.error("%s is not a valid add-on repository", url)
+                    _LOGGER.error("%s is not a valid app repository", url)
                     self.sys_resolution.create_issue(
                         IssueType.CORRUPT_REPOSITORY,
                         ContextType.STORE,
@@ -196,7 +196,7 @@ class StoreManager(CoreSysAttributes, FileConfiguration):
                 else:
                     await repository.remove()
                     raise StoreInvalidAddonRepo(
-                        f"{url} is not a valid add-on repository", logger=_LOGGER.error
+                        f"{url} is not a valid app repository", logger=_LOGGER.error
                     )
 
         # Add Repository to list
@@ -221,7 +221,7 @@ class StoreManager(CoreSysAttributes, FileConfiguration):
 
         if repository.slug in (addon.repository for addon in self.sys_addons.installed):
             raise StoreError(
-                f"Can't remove '{repository.source}'. It's used by installed add-ons",
+                f"Can't remove '{repository.source}'. It's used by installed apps",
                 logger=_LOGGER.error,
             )
         await self.repositories.pop(repository.slug).remove()
@@ -296,7 +296,7 @@ class StoreManager(CoreSysAttributes, FileConfiguration):
         del_addons = set(self.sys_addons.store) - all_addons
 
         _LOGGER.info(
-            "Loading add-ons from store: %d all - %d new - %d remove",
+            "Loading apps from store: %d all - %d new - %d remove",
             len(all_addons),
             len(add_addons),
             len(del_addons),

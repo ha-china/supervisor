@@ -56,7 +56,7 @@ class GitRepo(CoreSysAttributes):
         # Load repository
         async with self.lock:
             try:
-                _LOGGER.info("Loading add-on %s repository", self.path)
+                _LOGGER.info("Loading app %s repository", self.path)
                 self.repo = await self.sys_run_in_executor(git.Repo, str(self.path))
 
             except (
@@ -71,7 +71,7 @@ class GitRepo(CoreSysAttributes):
         # Fix possible corruption
         async with self.lock:
             try:
-                _LOGGER.debug("Integrity check add-on %s repository", self.path)
+                _LOGGER.debug("Integrity check app %s repository", self.path)
                 await self.sys_run_in_executor(self.repo.git.execute, ["git", "fsck"])
             except git.CommandError as err:
                 _LOGGER.error("Integrity check on %s failed: %s.", self.path, err)
@@ -135,7 +135,7 @@ class GitRepo(CoreSysAttributes):
         }
 
         try:
-            _LOGGER.info("Cloning add-on %s repository from %s", path, self.url)
+            _LOGGER.info("Cloning app %s repository from %s", path, self.url)
             self.repo = await self.sys_run_in_executor(
                 ft.partial(
                     git.Repo.clone_from,
@@ -169,7 +169,7 @@ class GitRepo(CoreSysAttributes):
             return False
 
         async with self.lock:
-            _LOGGER.info("Update add-on %s repository from %s", self.path, self.url)
+            _LOGGER.info("Update app %s repository from %s", self.path, self.url)
 
             try:
                 git_cmd = git.Git()
@@ -239,12 +239,12 @@ class GitRepo(CoreSysAttributes):
         """Remove a repository."""
         if self.lock.locked():
             _LOGGER.warning(
-                "Cannot remove add-on repository %s, there is already a task in progress",
+                "Cannot remove app repository %s, there is already a task in progress",
                 self.url,
             )
             return
 
-        _LOGGER.info("Removing custom add-on repository %s", self.url)
+        _LOGGER.info("Removing custom app repository %s", self.url)
 
         def _remove_git_dir(path: Path) -> None:
             if not path.is_dir():

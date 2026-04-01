@@ -87,7 +87,7 @@ async def test_api_addon_logs_not_installed(api_client: TestClient):
     assert resp.status == 404
     assert resp.content_type == "text/plain"
     content = await resp.text()
-    assert content == "Addon hic_sunt_leones does not exist"
+    assert content == "App hic_sunt_leones does not exist"
 
 
 @pytest.mark.usefixtures("docker_logs", "install_addon_ssh")
@@ -308,7 +308,7 @@ async def test_api_addon_rebuild_force(
 
     assert resp.status == 400
     result = await resp.json()
-    assert "Can't rebuild a image based add-on" in result["message"]
+    assert "Can't rebuild a image based app" in result["message"]
 
     # Reset state for next test
     state_changes.clear()
@@ -458,7 +458,7 @@ async def test_addon_options_boot_mode_manual_only_invalid(
     body = await resp.json()
     assert (
         body["message"]
-        == "Addon local_example boot option is set to manual_only so it cannot be changed"
+        == "App local_example boot option is set to manual_only so it cannot be changed"
     )
     assert body["error_key"] == "addon_boot_config_cannot_change_error"
     assert body["extra_fields"] == {
@@ -502,7 +502,7 @@ async def test_addon_not_found(
     """Test addon not found error."""
     resp = await api_client.request(method, url)
     assert resp.status == 404
-    assert await get_message(resp, json_expected) == "Addon bad does not exist"
+    assert await get_message(resp, json_expected) == "App bad does not exist"
 
 
 @pytest.mark.parametrize(
@@ -532,7 +532,7 @@ async def test_addon_not_installed(
     """Test addon not installed error."""
     resp = await api_client.request(method, url)
     assert resp.status == 400
-    assert await get_message(resp, json_expected) == "Addon is not installed"
+    assert await get_message(resp, json_expected) == "App is not installed"
 
 
 async def test_addon_set_options(api_client: TestClient, install_addon_example: Addon):
@@ -575,7 +575,7 @@ async def test_addon_set_options_error(api_client: TestClient):
     body = await resp.json()
     assert (
         body["message"]
-        == "Add-on local_example has invalid options: not a valid value. Got {'message': True}"
+        == "App local_example has invalid options: not a valid value. Got {'message': True}"
     )
     assert body["error_key"] == "addon_configuration_invalid_error"
     assert body["extra_fields"] == {
@@ -599,13 +599,13 @@ async def test_addon_start_options_error(
         body = await resp.json()
         assert (
             body["message"]
-            == "An unknown error occurred with addon local_example. Check Supervisor logs for details"
+            == "An unknown error occurred with app local_example. Check Supervisor logs for details"
         )
         assert body["error_key"] == "addon_unknown_error"
         assert body["extra_fields"] == {
             "addon": "local_example",
         }
-        assert "Add-on local_example can't write options" in caplog.text
+        assert "App local_example can't write options" in caplog.text
 
     # Simulate an update with a breaking change for options schema creating failure on start
     caplog.clear()
@@ -615,7 +615,7 @@ async def test_addon_start_options_error(
     body = await resp.json()
     assert (
         body["message"]
-        == "Add-on local_example has invalid options: expected boolean. Got {'message': 'hello'}"
+        == "App local_example has invalid options: expected boolean. Got {'message': 'hello'}"
     )
     assert body["error_key"] == "addon_configuration_invalid_error"
     assert body["extra_fields"] == {
@@ -623,7 +623,7 @@ async def test_addon_start_options_error(
         "validation_error": "expected boolean. Got {'message': 'hello'}",
     }
     assert (
-        "Add-on local_example has invalid options: expected boolean. Got {'message': 'hello'}"
+        "App local_example has invalid options: expected boolean. Got {'message': 'hello'}"
         in caplog.text
     )
 
@@ -639,7 +639,7 @@ async def test_addon_not_running_error(
 
     assert resp.status == 400
     body = await resp.json()
-    assert body["message"] == "Add-on local_example is not running"
+    assert body["message"] == "App local_example is not running"
     assert body["error_key"] == "addon_not_running_error"
     assert body["extra_fields"] == {"addon": "local_example"}
 
@@ -650,7 +650,7 @@ async def test_addon_write_stdin_not_supported_error(api_client: TestClient):
     resp = await api_client.post("/addons/local_example/stdin")
     assert resp.status == 400
     body = await resp.json()
-    assert body["message"] == "Add-on local_example does not support writing to stdin"
+    assert body["message"] == "App local_example does not support writing to stdin"
     assert body["error_key"] == "addon_not_supported_write_stdin_error"
     assert body["extra_fields"] == {"addon": "local_example"}
 
@@ -681,7 +681,7 @@ async def test_addon_rebuild_fails_error(api_client: TestClient, coresys: CoreSy
     body = await resp.json()
     assert (
         body["message"]
-        == "An unknown error occurred while trying to build the image for addon local_ssh. Check Supervisor logs for details"
+        == "An unknown error occurred while trying to build the image for app local_ssh. Check Supervisor logs for details"
     )
     assert body["error_key"] == "addon_build_failed_unknown_error"
     assert body["extra_fields"] == {

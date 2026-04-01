@@ -173,7 +173,7 @@ class DockerAddon(DockerInterface):
             # Check access
             if not self.sys_hardware.policy.allowed_for_access(device):
                 _LOGGER.error(
-                    "Add-on %s try to access to blocked device %s!",
+                    "App %s try to access to blocked device %s!",
                     self.addon.name,
                     device.name,
                 )
@@ -184,7 +184,7 @@ class DockerAddon(DockerInterface):
         for device in self.addon.devices:
             if not self.sys_hardware.policy.allowed_for_access(device):
                 _LOGGER.error(
-                    "Add-on %s try to access to blocked device %s!",
+                    "App %s try to access to blocked device %s!",
                     self.addon.name,
                     device.name,
                 )
@@ -611,9 +611,7 @@ class DockerAddon(DockerInterface):
             )
             raise
 
-        _LOGGER.info(
-            "Starting Docker add-on %s with version %s", self.image, self.version
-        )
+        _LOGGER.info("Starting Docker app %s with version %s", self.image, self.version)
 
         # Write data to DNS server
         try:

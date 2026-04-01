@@ -83,7 +83,7 @@ async def test_backup_error_addon(
     backup.new("test", "2023-07-21T21:05:00.000000+00:00", BackupType.FULL)
 
     install_addon_ssh.backup = MagicMock(
-        side_effect=(err := AddonsError("Fake add-on backup error"))
+        side_effect=(err := AddonsError("Fake app backup error"))
     )
 
     async with backup.create():

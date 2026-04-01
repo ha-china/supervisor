@@ -24,11 +24,11 @@ class FixupAddonExecuteRemove(FixupBase):
             return
 
         if not (addon := self.sys_addons.get_local_only(reference)):
-            _LOGGER.info("Addon %s already removed", reference)
+            _LOGGER.info("App %s already removed", reference)
             return
 
         # Remove addon
-        _LOGGER.info("Remove addon: %s", reference)
+        _LOGGER.info("Remove app: %s", reference)
         try:
             await addon.uninstall(remove_config=False)
         except AddonsError as err:

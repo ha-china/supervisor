@@ -121,7 +121,7 @@ class Tasks(CoreSysAttributes):
                 continue
             if not addon.auto_update_available:
                 _LOGGER.debug(
-                    "Not updating add-on %s from %s to %s as that would cross a known breaking version",
+                    "Not updating app %s from %s to %s as that would cross a known breaking version",
                     addon.slug,
                     addon.version,
                     addon.latest_version,
@@ -130,7 +130,7 @@ class Tasks(CoreSysAttributes):
             # Delay auto-updates for a day in case of issues
             if utcnow() < addon.latest_version_timestamp + timedelta(days=1):
                 _LOGGER.debug(
-                    "Not updating add-on %s from %s to %s as the latest version is less than a day old",
+                    "Not updating app %s from %s to %s as the latest version is less than a day old",
                     addon.slug,
                     addon.version,
                     addon.latest_version,
@@ -138,11 +138,11 @@ class Tasks(CoreSysAttributes):
                 continue
             if not addon.test_update_schema():
                 _LOGGER.warning(
-                    "Add-on %s will be ignored, schema tests failed", addon.slug
+                    "App %s will be ignored, schema tests failed", addon.slug
                 )
                 continue
 
-            _LOGGER.info("Add-on auto update process %s", addon.slug)
+            _LOGGER.info("App auto update process %s", addon.slug)
             # Call Home Assistant Core to update add-on to make sure that backups
             # get created through the Home Assistant Core API (categorized correctly).
             # Ultimately auto updates should be handled by Home Assistant Core itself
@@ -153,14 +153,14 @@ class Tasks(CoreSysAttributes):
                 "backup": True,
             }
             _LOGGER.debug(
-                "Sending update add-on WebSocket command to Home Assistant Core: %s",
+                "Sending update app WebSocket command to Home Assistant Core: %s",
                 message,
             )
             try:
                 await self.sys_homeassistant.websocket.async_send_command(message)
             except HomeAssistantWSError as err:
                 _LOGGER.warning(
-                    "Could not send add-on update command to Home Assistant Core: %s",
+                    "Could not send app update command to Home Assistant Core: %s",
                     err,
                 )
 

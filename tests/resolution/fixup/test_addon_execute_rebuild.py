@@ -78,7 +78,7 @@ async def test_fixup_stopped_core(
     (await docker.containers.get("addon_local_ssh")).delete.assert_called_once_with(
         force=True, v=True
     )
-    assert "Addon local_ssh is stopped" in caplog.text
+    assert "App local_ssh is stopped" in caplog.text
 
 
 @pytest.mark.usefixtures("install_addon_ssh")
@@ -108,7 +108,7 @@ async def test_fixup_unknown_core(
 
     assert not coresys.resolution.issues
     assert not coresys.resolution.suggestions
-    assert "Container for addon local_ssh does not exist" in caplog.text
+    assert "Container for app local_ssh does not exist" in caplog.text
 
 
 async def test_fixup_addon_removed(coresys: CoreSys, caplog: pytest.LogCaptureFixture):
@@ -123,4 +123,4 @@ async def test_fixup_addon_removed(coresys: CoreSys, caplog: pytest.LogCaptureFi
         suggestions=[SuggestionType.EXECUTE_REBUILD],
     )
     await addon_execute_rebuild()
-    assert "Cannot rebuild addon local_ssh as it is not installed" in caplog.text
+    assert "Cannot rebuild app local_ssh as it is not installed" in caplog.text

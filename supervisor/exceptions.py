@@ -357,7 +357,7 @@ class AddonConfigurationInvalidError(AddonConfigurationError, APIError):
     """Raise if invalid configuration provided for addon."""
 
     error_key = "addon_configuration_invalid_error"
-    message_template = "Add-on {addon} has invalid options: {validation_error}"
+    message_template = "App {addon} has invalid options: {validation_error}"
 
     def __init__(
         self,
@@ -376,7 +376,7 @@ class AddonBootConfigCannotChangeError(AddonsError, APIError):
 
     error_key = "addon_boot_config_cannot_change_error"
     message_template = (
-        "Addon {addon} boot option is set to {boot_config} so it cannot be changed"
+        "App {addon} boot option is set to {boot_config} so it cannot be changed"
     )
 
     def __init__(
@@ -391,7 +391,7 @@ class AddonNotRunningError(AddonsError, APIError):
     """Raise when an addon is not running."""
 
     error_key = "addon_not_running_error"
-    message_template = "Add-on {addon} is not running"
+    message_template = "App {addon} is not running"
 
     def __init__(
         self, logger: Callable[..., None] | None = None, *, addon: str
@@ -405,7 +405,7 @@ class AddonPortConflict(AddonsError, APIError):
     """Raise if addon cannot start due to a port conflict."""
 
     error_key = "addon_port_conflict"
-    message_template = "Cannot start addon {name} because port {port} is already in use"
+    message_template = "Cannot start app {name} because port {port} is already in use"
 
     def __init__(
         self, logger: Callable[..., None] | None = None, *, name: str, port: int
@@ -423,7 +423,7 @@ class AddonNotSupportedArchitectureError(AddonNotSupportedError):
     """Addon does not support system due to architecture."""
 
     error_key = "addon_not_supported_architecture_error"
-    message_template = "Add-on {slug} not supported on this platform, supported architectures: {architectures}"
+    message_template = "App {slug} not supported on this platform, supported architectures: {architectures}"
 
     def __init__(
         self,
@@ -441,7 +441,7 @@ class AddonNotSupportedMachineTypeError(AddonNotSupportedError):
     """Addon does not support system due to machine type."""
 
     error_key = "addon_not_supported_machine_type_error"
-    message_template = "Add-on {slug} not supported on this machine, supported machine types: {machine_types}"
+    message_template = "App {slug} not supported on this machine, supported machine types: {machine_types}"
 
     def __init__(
         self,
@@ -459,7 +459,7 @@ class AddonNotSupportedHomeAssistantVersionError(AddonNotSupportedError):
     """Addon does not support system due to Home Assistant version."""
 
     error_key = "addon_not_supported_home_assistant_version_error"
-    message_template = "Add-on {slug} not supported on this system, requires Home Assistant version {version} or greater"
+    message_template = "App {slug} not supported on this system, requires Home Assistant version {version} or greater"
 
     def __init__(
         self,
@@ -477,7 +477,7 @@ class AddonNotSupportedWriteStdinError(AddonNotSupportedError, APIError):
     """Addon does not support writing to stdin."""
 
     error_key = "addon_not_supported_write_stdin_error"
-    message_template = "Add-on {addon} does not support writing to stdin"
+    message_template = "App {addon} does not support writing to stdin"
 
     def __init__(
         self, logger: Callable[..., None] | None = None, *, addon: str
@@ -492,9 +492,9 @@ class AddonBuildDockerfileMissingError(AddonNotSupportedError, APIError):
 
     error_key = "addon_build_dockerfile_missing_error"
     message_template = (
-        "Cannot build addon '{addon}' because dockerfile is missing. A repair "
+        "Cannot build app '{addon}' because dockerfile is missing. A repair "
         "using '{repair_command}' will fix this if the cause is data "
-        "corruption. Otherwise please report this to the addon developer."
+        "corruption. Otherwise please report this to the app developer."
     )
 
     def __init__(
@@ -510,7 +510,7 @@ class AddonBuildArchitectureNotSupportedError(AddonNotSupportedError, APIError):
 
     error_key = "addon_build_architecture_not_supported_error"
     message_template = (
-        "Cannot build addon '{addon}' because its supported architectures "
+        "Cannot build app '{addon}' because its supported architectures "
         "({addon_arches}) do not match the system supported architectures ({system_arches})"
     )
 
@@ -535,7 +535,7 @@ class AddonUnknownError(AddonsError, APIUnknownSupervisorError):
     """Raise when unknown error occurs taking an action for an addon."""
 
     error_key = "addon_unknown_error"
-    message_template = "An unknown error occurred with addon {addon}"
+    message_template = "An unknown error occurred with app {addon}"
 
     def __init__(
         self, logger: Callable[..., None] | None = None, *, addon: str
@@ -550,7 +550,7 @@ class AddonBuildFailedUnknownError(AddonsError, APIUnknownSupervisorError):
 
     error_key = "addon_build_failed_unknown_error"
     message_template = (
-        "An unknown error occurred while trying to build the image for addon {addon}"
+        "An unknown error occurred while trying to build the image for app {addon}"
     )
 
     def __init__(
@@ -1032,7 +1032,7 @@ class StoreAddonNotFoundError(StoreError, APINotFound):
     """Raise if a requested addon is not in the store."""
 
     error_key = "store_addon_not_found_error"
-    message_template = "Addon {addon} does not exist in the store"
+    message_template = "App {addon} does not exist in the store"
 
     def __init__(
         self, logger: Callable[..., None] | None = None, *, addon: str
@@ -1066,7 +1066,7 @@ class StoreRepositoryUnknownError(StoreError, APIUnknownSupervisorError):
     """Raise when unknown error occurs taking an action for a store repository."""
 
     error_key = "store_repository_unknown_error"
-    message_template = "An unknown error occurred with addon repository {repo}"
+    message_template = "An unknown error occurred with app repository {repo}"
 
     def __init__(self, logger: Callable[..., None] | None = None, *, repo: str) -> None:
         """Initialize exception."""
@@ -1118,7 +1118,7 @@ class AddonBackupMetadataInvalidError(BackupError, APIError):
 
     error_key = "addon_backup_metadata_invalid_error"
     message_template = (
-        "Metadata file for add-on {addon} in backup is invalid: {validation_error}"
+        "Metadata file for app {addon} in backup is invalid: {validation_error}"
     )
 
     def __init__(
@@ -1138,8 +1138,8 @@ class AddonPrePostBackupCommandReturnedError(BackupError, APIError):
 
     error_key = "addon_pre_post_backup_command_returned_error"
     message_template = (
-        "Pre-/Post backup command for add-on {addon} returned error code: "
-        "{exit_code}. Please report this to the addon developer. Enable debug "
+        "Pre-/Post backup command for app {addon} returned error code: "
+        "{exit_code}. Please report this to the app developer. Enable debug "
         "logging to capture complete command output using {debug_logging_command}"
     )
 

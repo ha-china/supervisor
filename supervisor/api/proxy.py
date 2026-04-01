@@ -249,7 +249,7 @@ class APIProxy(CoreSysAttributes):
                     logger.debug(
                         "Received WebSocket message type %r from %s.",
                         msg.type,
-                        "add-on" if type(source) is web.WebSocketResponse else "Core",
+                        "app" if type(source) is web.WebSocketResponse else "Core",
                     )
                     await target.close()
                 case WSMsgType.CLOSING:

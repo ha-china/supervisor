@@ -128,19 +128,19 @@ async def test_reload_fails_if_out_of_date(coresys: CoreSys):
     [
         (
             {"arch": ["aarch64"]},
-            "Add-on local_ssh not supported on this platform, supported architectures: aarch64",
+            "App local_ssh not supported on this platform, supported architectures: aarch64",
         ),
         (
             {"machine": ["odroid-n2"]},
-            "Add-on local_ssh not supported on this machine, supported machine types: odroid-n2",
+            "App local_ssh not supported on this machine, supported machine types: odroid-n2",
         ),
         (
             {"machine": ["!qemux86-64"]},
-            "Add-on local_ssh not supported on this machine, supported machine types: !qemux86-64",
+            "App local_ssh not supported on this machine, supported machine types: !qemux86-64",
         ),
         (
             {"homeassistant": AwesomeVersion("2023.1.1")},
-            "Add-on local_ssh not supported on this system, requires Home Assistant version 2023.1.1 or greater",
+            "App local_ssh not supported on this system, requires Home Assistant version 2023.1.1 or greater",
         ),
     ],
 )
@@ -187,19 +187,19 @@ async def test_update_unavailable_addon(
     [
         (
             {"arch": ["aarch64"]},
-            "Add-on local_ssh not supported on this platform, supported architectures: aarch64",
+            "App local_ssh not supported on this platform, supported architectures: aarch64",
         ),
         (
             {"machine": ["odroid-n2"]},
-            "Add-on local_ssh not supported on this machine, supported machine types: odroid-n2",
+            "App local_ssh not supported on this machine, supported machine types: odroid-n2",
         ),
         (
             {"machine": ["!qemux86-64"]},
-            "Add-on local_ssh not supported on this machine, supported machine types: !qemux86-64",
+            "App local_ssh not supported on this machine, supported machine types: !qemux86-64",
         ),
         (
             {"homeassistant": AwesomeVersion("2023.1.1")},
-            "Add-on local_ssh not supported on this system, requires Home Assistant version 2023.1.1 or greater",
+            "App local_ssh not supported on this system, requires Home Assistant version 2023.1.1 or greater",
         ),
     ],
 )

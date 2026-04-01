@@ -81,12 +81,12 @@ class APIDiscovery(CoreSysAttributes):
         # Access?
         if body[ATTR_SERVICE] not in addon.discovery:
             _LOGGER.error(
-                "Add-on %s attempted to send discovery for service %s which is not listed in its config. Please report this to the maintainer of the add-on",
+                "App %s attempted to send discovery for service %s which is not listed in its config. Please report this to the maintainer of the app",
                 addon.name,
                 service,
             )
             raise APIForbidden(
-                "Add-ons must list services they provide via discovery in their config!"
+                "Apps must list services they provide via discovery in their config!"
             )
 
         # Process discovery message

@@ -31,18 +31,18 @@ class FixupAddonExecuteRepair(FixupBase):
         addon = self.sys_addons.get_local_only(reference)
         if not addon:
             _LOGGER.info(
-                "Cannot repair addon %s as it is not installed, dismissing suggestion",
+                "Cannot repair app %s as it is not installed, dismissing suggestion",
                 reference,
             )
             return
 
         if await addon.instance.exists():
             _LOGGER.info(
-                "Addon %s does not need repair, dismissing suggestion", reference
+                "App %s does not need repair, dismissing suggestion", reference
             )
             return
 
-        _LOGGER.info("Installing image for addon %s", reference)
+        _LOGGER.info("Installing image for app %s", reference)
         self.attempts += 1
         await addon.instance.install(addon.version)
 
