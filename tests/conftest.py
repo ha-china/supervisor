@@ -560,7 +560,7 @@ async def coresys(
     coresys_obj.homeassistant.api.get_api_state = AsyncMock(
         return_value=APIState("RUNNING", False)
     )
-    coresys_obj.homeassistant._websocket._client = AsyncMock(
+    coresys_obj.homeassistant._websocket.client = AsyncMock(
         ha_version=AwesomeVersion("2021.2.4")
     )
 
@@ -580,7 +580,7 @@ async def ha_ws_client(coresys: CoreSys) -> AsyncMock:
     # Set Supervisor Core state to RUNNING, otherwise WS events won't be delivered
     await coresys.core.set_state(CoreState.RUNNING)
     await asyncio.sleep(0)
-    client = coresys.homeassistant.websocket._client
+    client = coresys.homeassistant.websocket.client
     client.async_send_command.reset_mock()
     return client
 

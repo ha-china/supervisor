@@ -13,13 +13,18 @@ from aiohttp import hdrs
 from awesomeversion import AwesomeVersion
 from multidict import MultiMapping
 
+from ..const import SOCKET_CORE
 from ..coresys import CoreSys, CoreSysAttributes
 from ..exceptions import HomeAssistantAPIError, HomeAssistantAuthError
 from ..utils import version_is_new_enough
 from .const import LANDINGPAGE
+from .websocket import WSClient
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
+CORE_UNIX_SOCKET_MIN_VERSION: AwesomeVersion = AwesomeVersion(
+    "2026.4.0.dev202603250907"
+)
 GET_CORE_STATE_MIN_VERSION: AwesomeVersion = AwesomeVersion("2023.8.0.dev20230720")
 
 
@@ -39,11 +44,67 @@ class HomeAssistantAPI(CoreSysAttributes):
         self.coresys: CoreSys = coresys
 
         # We don't persist access tokens. Instead we fetch new ones when needed
-        self.access_token: str | None = None
+        self._access_token: str | None = None
         self._access_token_expires: datetime | None = None
         self._token_lock: asyncio.Lock = asyncio.Lock()
+        self._unix_session: aiohttp.ClientSession | None = None
+        self._logged_transport: bool = False
 
-    async def ensure_access_token(self) -> None:
+    @property
+    def use_unix_socket(self) -> bool:
+        """Return True if Core supports Unix socket communication."""
+        return (
+            self.sys_homeassistant.version is not None
+            and self.sys_homeassistant.version != LANDINGPAGE
+            and version_is_new_enough(
+                self.sys_homeassistant.version, CORE_UNIX_SOCKET_MIN_VERSION
+            )
+        )
+
+    @property
+    def session(self) -> aiohttp.ClientSession:
+        """Return session for Core communication.
+
+        Uses a Unix socket session when the installed Core version supports it,
+        otherwise falls back to the default TCP websession.
+
+        Raises HomeAssistantAPIError if Unix socket is expected but missing.
+        """
+        if not self.use_unix_socket:
+            return self.sys_websession
+
+        if not SOCKET_CORE.exists():
+            raise HomeAssistantAPIError(
+                f"Core Unix socket {SOCKET_CORE} does not exist", _LOGGER.error
+            )
+
+        if self._unix_session is None or self._unix_session.closed:
+            self._unix_session = aiohttp.ClientSession(
+                connector=aiohttp.UnixConnector(path=str(SOCKET_CORE))
+            )
+        return self._unix_session
+
+    @property
+    def api_url(self) -> str:
+        """Return API base url for internal Supervisor to Core communication."""
+        if self.use_unix_socket:
+            return "http://localhost"
+        return self.sys_homeassistant.api_url
+
+    @property
+    def ws_url(self) -> str:
+        """Return WebSocket url for internal Supervisor to Core communication."""
+        if self.use_unix_socket:
+            return "ws://localhost/api/websocket"
+        return self.sys_homeassistant.ws_url
+
+    async def close(self) -> None:
+        """Close the Unix socket session."""
+        if self._unix_session and not self._unix_session.closed:
+            await self._unix_session.close()
+            self._unix_session = None
+
+    async def _ensure_access_token(self) -> None:
         """Ensure there is a valid access token.
 
         Raises:
@@ -55,7 +116,7 @@ class HomeAssistantAPI(CoreSysAttributes):
         # Fast path check without lock (avoid unnecessary locking
         # for the majority of calls).
         if (
-            self.access_token
+            self._access_token
             and self._access_token_expires
             and self._access_token_expires > datetime.now(tz=UTC)
         ):
@@ -64,7 +125,7 @@ class HomeAssistantAPI(CoreSysAttributes):
         async with self._token_lock:
             # Double-check after acquiring lock (avoid race condition)
             if (
-                self.access_token
+                self._access_token
                 and self._access_token_expires
                 and self._access_token_expires > datetime.now(tz=UTC)
             ):
@@ -86,10 +147,46 @@ class HomeAssistantAPI(CoreSysAttributes):
 
                 _LOGGER.info("Updated Home Assistant API token")
                 tokens = await resp.json()
-                self.access_token = tokens["access_token"]
+                self._access_token = tokens["access_token"]
                 self._access_token_expires = datetime.now(tz=UTC) + timedelta(
                     seconds=tokens["expires_in"]
                 )
+
+    async def connect_websocket(
+        self, *, max_msg_size: int = 4 * 1024 * 1024
+    ) -> WSClient:
+        """Connect a WebSocket to Core, handling auth as appropriate.
+
+        For Unix socket connections, no authentication is needed.
+        For TCP connections, handles token management with one retry
+        on auth failure.
+
+        Raises:
+            HomeAssistantAPIError: On connection or auth failure.
+
+        """
+        if self.use_unix_socket:
+            return await WSClient.connect(
+                self.session, self.ws_url, max_msg_size=max_msg_size
+            )
+
+        for attempt in (1, 2):
+            try:
+                await self._ensure_access_token()
+                assert self._access_token
+                return await WSClient.connect_with_auth(
+                    self.session,
+                    self.ws_url,
+                    self._access_token,
+                    max_msg_size=max_msg_size,
+                )
+            except HomeAssistantAPIError:
+                if attempt == 2:
+                    raise
+                self._access_token = None
+
+        # Unreachable, but satisfies type checker
+        raise HomeAssistantAPIError("Failed to connect WebSocket")
 
     @asynccontextmanager
     async def make_request(
@@ -133,7 +230,7 @@ class HomeAssistantAPI(CoreSysAttributes):
                 network errors, timeouts, or connection failures
 
         """
-        url = f"{self.sys_homeassistant.api_url}/{path}"
+        url = f"{self.api_url}/{path}"
         headers = headers or {}
         client_timeout = aiohttp.ClientTimeout(total=timeout)
 
@@ -141,11 +238,26 @@ class HomeAssistantAPI(CoreSysAttributes):
         if content_type is not None:
             headers[hdrs.CONTENT_TYPE] = content_type
 
+        use_unix = self.use_unix_socket
+
+        if not self._logged_transport:
+            if use_unix:
+                _LOGGER.info(
+                    "Setting up Core communication via Unix socket %s", SOCKET_CORE
+                )
+            else:
+                _LOGGER.info(
+                    "Setting up Core communication via TCP %s",
+                    self.sys_homeassistant.api_url,
+                )
+            self._logged_transport = True
+
         for _ in (1, 2):
             try:
-                await self.ensure_access_token()
-                headers[hdrs.AUTHORIZATION] = f"Bearer {self.access_token}"
-                async with self.sys_websession.request(
+                if not use_unix:
+                    await self._ensure_access_token()
+                    headers[hdrs.AUTHORIZATION] = f"Bearer {self._access_token}"
+                async with self.session.request(
                     method,
                     url,
                     data=data,
@@ -155,9 +267,9 @@ class HomeAssistantAPI(CoreSysAttributes):
                     params=params,
                     ssl=False,
                 ) as resp:
-                    # Access token expired
-                    if resp.status == 401:
-                        self.access_token = None
+                    # Access token expired (only relevant for TCP)
+                    if resp.status == 401 and not use_unix:
+                        self._access_token = None
                         continue
                     yield resp
                     return
