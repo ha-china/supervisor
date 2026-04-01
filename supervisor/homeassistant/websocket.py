@@ -165,14 +165,18 @@ class WSClient:
         and sends auth_ok immediately.
         """
         client = await cls._ws_connect(session, url, max_msg_size=max_msg_size)
-        first_message = await client.receive_json()
+        try:
+            first_message = await client.receive_json()
 
-        if first_message[ATTR_TYPE] != "auth_ok":
-            raise HomeAssistantAPIError(
-                f"Expected auth_ok on Unix socket, got {first_message[ATTR_TYPE]}"
-            )
+            if first_message[ATTR_TYPE] != "auth_ok":
+                raise HomeAssistantAPIError(
+                    f"Expected auth_ok on Unix socket, got {first_message[ATTR_TYPE]}"
+                )
 
-        return cls(AwesomeVersion(first_message["ha_version"]), client)
+            return cls(AwesomeVersion(first_message["ha_version"]), client)
+        except Exception:
+            await client.close()
+            raise
 
     @classmethod
     async def connect_with_auth(
@@ -189,19 +193,28 @@ class WSClient:
         The auth_required message also carries ha_version.
         """
         client = await cls._ws_connect(session, url, max_msg_size=max_msg_size)
-        # auth_required message also carries ha_version
-        first_message = await client.receive_json()
+        try:
+            # auth_required message also carries ha_version
+            first_message = await client.receive_json()
 
-        await client.send_json(
-            {ATTR_TYPE: WSType.AUTH, ATTR_ACCESS_TOKEN: token}, dumps=json_dumps
-        )
+            if first_message[ATTR_TYPE] != "auth_required":
+                raise HomeAssistantAPIError(
+                    f"Expected auth_required, got {first_message[ATTR_TYPE]}"
+                )
 
-        auth_ok_message = await client.receive_json()
+            await client.send_json(
+                {ATTR_TYPE: WSType.AUTH, ATTR_ACCESS_TOKEN: token}, dumps=json_dumps
+            )
 
-        if auth_ok_message[ATTR_TYPE] != "auth_ok":
-            raise HomeAssistantAPIError("AUTH NOT OK")
+            auth_ok_message = await client.receive_json()
 
-        return cls(AwesomeVersion(first_message["ha_version"]), client)
+            if auth_ok_message[ATTR_TYPE] != "auth_ok":
+                raise HomeAssistantAPIError("AUTH NOT OK")
+
+            return cls(AwesomeVersion(first_message["ha_version"]), client)
+        except Exception:
+            await client.close()
+            raise
 
 
 class HomeAssistantWebSocket(CoreSysAttributes):
