@@ -686,7 +686,7 @@ class DockerAddon(DockerInterface):
 
         if build_env.has_build_file:
             _LOGGER.warning(
-                "Add-on %s uses build.yaml which is deprecated. "
+                "App %s uses build.yaml which is deprecated. "
                 "Move build parameters into the Dockerfile directly.",
                 self.addon.slug,
             )
