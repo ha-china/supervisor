@@ -148,7 +148,7 @@ class AddonManager(CoreSysAttributes):
             else:
                 continue
 
-            _LOGGER.warning("Can't start App %s", addon.slug)
+            _LOGGER.warning("Can't start app %s", addon.slug)
 
         # Ignore exceptions from waiting for addon startup, addon errors handled elsewhere
         await asyncio.gather(*wait_boot, return_exceptions=True)
@@ -185,7 +185,7 @@ class AddonManager(CoreSysAttributes):
             try:
                 await addon.stop()
             except Exception as err:  # pylint: disable=broad-except
-                _LOGGER.warning("Can't stop App %s: %s", addon.slug, err)
+                _LOGGER.warning("Can't stop app %s: %s", addon.slug, err)
                 await async_capture_exception(err)
 
     @Job(
@@ -366,7 +366,7 @@ class AddonManager(CoreSysAttributes):
 
         # Check if new
         if slug not in self.local:
-            _LOGGER.info("Detect new App after restore %s", slug)
+            _LOGGER.info("Detected new app after restore: %s", slug)
             self.local[slug] = addon
 
         # Update ingress

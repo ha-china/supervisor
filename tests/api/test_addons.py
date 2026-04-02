@@ -308,7 +308,7 @@ async def test_api_addon_rebuild_force(
 
     assert resp.status == 400
     result = await resp.json()
-    assert "Can't rebuild a image based app" in result["message"]
+    assert "Can't rebuild an image-based app" in result["message"]
 
     # Reset state for next test
     state_changes.clear()

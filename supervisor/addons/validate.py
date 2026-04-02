@@ -190,7 +190,7 @@ def _warn_addon_config(config: dict[str, Any]):
     """Warn about miss configs."""
     name = config.get(ATTR_NAME)
     if not name:
-        raise vol.Invalid("Invalid App config!")
+        raise vol.Invalid("Invalid app config!")
 
     if ATTR_ADVANCED in config:
         # Deprecated since Supervisor 2026.03.0; this field is ignored and the
@@ -257,7 +257,7 @@ def _migrate_addon_config(protocol=False):
             raise vol.Invalid("App config must be a dictionary!")
         name = config.get(ATTR_NAME)
         if not name:
-            raise vol.Invalid("Invalid App config!")
+            raise vol.Invalid("Invalid app config!")
 
         # Startup 2018-03-30
         if config.get(ATTR_STARTUP) in ("before", "after"):
