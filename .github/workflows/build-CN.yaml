@@ -41,21 +41,20 @@ on:
   push:
     branches: ["main"]
     paths:
+      - ".github/workflows/builder.yml"
       - "rootfs/**"
       - "supervisor/**"
-      - build.yaml
       - Dockerfile
       - requirements.txt
       - setup.py
 
 env:
-  DEFAULT_PYTHON: "3.13"
+  DEFAULT_PYTHON: "3.14.3"
   COSIGN_VERSION: "v2.5.3"
-  CRANE_VERSION: "v0.20.7"
-  CRANE_SHA256: "8ef3564d264e6b5ca93f7b7f5652704c4dd29d33935aff6947dd5adefd05953e"
   BUILD_NAME: supervisor
   BUILD_TYPE: supervisor
-  
+  IMAGE_NAME: hassio-supervisor
+  ARCHITECTURES: '["amd64", "aarch64"]'
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
@@ -66,21 +65,16 @@ jobs:
     name: Initialize build
     runs-on: ubuntu-latest
     outputs:
-      architectures: ${{ steps.info.outputs.architectures }}
       version: ${{ steps.version.outputs.version }}
       channel: ${{ steps.version.outputs.channel }}
       publish: ${{ steps.version.outputs.publish }}
-      build_wheels: false
-      requirements: ${{ steps.requirements.outputs.changed }}
+      build_wheels: ${{ steps.requirements.outputs.build_wheels }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - name: Checkout the repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
-
-      - name: Get information
-        id: info
-        uses: home-assistant/actions/helpers/info@master
 
       - name: Get version
         id: version
@@ -88,31 +82,45 @@ jobs:
         with:
           type: ${{ env.BUILD_TYPE }}
 
+      - name: Get changed files
+        id: changed_files
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        uses: masesgroup/retrieve-changed-files@45a8b3b496d2d6037cbd553e8a3450989b9384a2 # v4.0.0
 
-
-      - name: Modify requirements
+      - name: Check if requirements files changed
         id: requirements
         run: |
-          echo "changed=true" >> "$GITHUB_OUTPUT"
-          echo "build_wheels=false" >> "$GITHUB_OUTPUT"
+          # No wheels build necessary for releases
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "build_wheels=false" >> "$GITHUB_OUTPUT"
+          # Always build wheels for manual dispatches
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "build_wheels=true" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ steps.changed_files.outputs.all }}" =~ (requirements\.txt|\.github/workflows/builder\.yml) ]]; then
+            echo "build_wheels=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "build_wheels=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Get build matrix
+        id: matrix
+        uses: home-assistant/builder/actions/prepare-multi-arch-matrix@62a1597b84b3461abad9816d9cd92862a2b542c3 # 2026.03.2
+        with:
+          architectures: ${{ env.ARCHITECTURES }}
+          image-name: ${{ env.IMAGE_NAME }}
 
   build:
     name: Build ${{ matrix.arch }} supervisor
     needs: init
-    runs-on: ${{ matrix.runs-on }}
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
       id-token: write
       packages: write
     strategy:
-      matrix:
-        arch: ${{ fromJson(needs.init.outputs.architectures) }}
-        include:
-          - runs-on: ubuntu-24.04
-          - runs-on: ubuntu-24.04-arm
-            arch: aarch64
+      matrix: ${{ fromJSON(needs.init.outputs.matrix) }}
     env:
-      WHEELS_ABI: cp313
+      WHEELS_ABI: cp314
       WHEELS_TAG: musllinux_1_2
       WHEELS_APK_DEPS: "libffi-dev;openssl-dev;yaml-dev"
       WHEELS_SKIP_BINARY: aiohttp
@@ -185,11 +193,6 @@ jobs:
           path: wheels
           retention-days: 1
 
-      - name: Set version
-        if: needs.init.outputs.publish == 'true'
-        uses: home-assistant/actions/helpers/version@master
-        with:
-          type: ${{ env.BUILD_TYPE }}
 
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         if: needs.init.outputs.publish == 'true'
@@ -199,7 +202,7 @@ jobs:
 
       - name: Install Cosign
         if: needs.init.outputs.publish == 'true'
-        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
+        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
         with:
           cosign-release: ${{ env.COSIGN_VERSION }}
 
@@ -215,53 +218,40 @@ jobs:
         run: |
           cosign sign-blob --yes rootfs/supervisor.sha256 --bundle rootfs/supervisor.sha256.sig
 
-      - name: Login to GitHub Container Registry
-        if: needs.init.outputs.publish == 'true'
-        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set build arguments
-        if: needs.init.outputs.publish == 'false'
-        run: echo "BUILD_ARGS=--test" >> $GITHUB_ENV
-
       - name: Build supervisor
-        uses: home-assistant/builder@2026.02.1
+        uses: home-assistant/builder/actions/build-image@62a1597b84b3461abad9816d9cd92862a2b542c3 # 2026.03.2
         with:
-          image: ${{ matrix.arch }}
-          args: |
-            $BUILD_ARGS \
-            --${{ matrix.arch }} \
-            --target /data \
-            --cosign \
-            --generic ${{ needs.init.outputs.version }}
+          arch: ${{ matrix.arch }}
+          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
+          cosign-base-identity: 'https://github.com/home-assistant/docker-base/.*'
+          cosign-base-verify: ghcr.io/home-assistant/base-python:3.14-alpine3.22
+          image: ${{ matrix.image }}
+          image-tags: |
+            ${{ needs.init.outputs.version }}
+            latest
+          push: ${{ needs.init.outputs.publish == 'true' }}
+          version: ${{ needs.init.outputs.version }}
 
-  version:
-    name: Update version
-    needs: ["init", "run_supervisor", "retag_deprecated"]
+  manifest:
+    name: Publish multi-arch manifest
+    needs: ["init", "build"]
+    if: needs.init.outputs.publish == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      packages: write
     steps:
-      - name: Checkout the repository
-        if: needs.init.outputs.publish == 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Initialize git
-        if: needs.init.outputs.publish == 'true'
-        uses: home-assistant/actions/helpers/git-init@master
+      - name: Publish multi-arch manifest
+        uses: home-assistant/builder/actions/publish-multi-arch-manifest@62a1597b84b3461abad9816d9cd92862a2b542c3 # 2026.03.2
         with:
-          name: ${{ secrets.GIT_NAME }}
-          email: ${{ secrets.GIT_EMAIL }}
-          token: ${{ secrets.GIT_TOKEN }}
+          architectures: ${{ env.ARCHITECTURES }}
+          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
+          image-name: ${{ env.IMAGE_NAME }}
+          image-tags: |
+            ${{ needs.init.outputs.version }}
+            latest
 
-#      - name: Update version file
-#        if: needs.init.outputs.publish == 'true'
-#        uses: home-assistant/actions/helpers/version-push@master
-#        with:
-#          key: ${{ env.BUILD_NAME }}
-#          version: ${{ needs.init.outputs.version }}
-#          channel: ${{ needs.init.outputs.channel }}
+
 
   run_supervisor:
     runs-on: ubuntu-latest
@@ -281,13 +271,14 @@ jobs:
 
       - name: Build the Supervisor
         if: needs.init.outputs.publish != 'true'
-        uses: home-assistant/builder@2026.02.1
+        uses: home-assistant/builder/actions/build-image@62a1597b84b3461abad9816d9cd92862a2b542c3 # 2026.03.2
         with:
-          args: |
-            --test \
-            --amd64 \
-            --target /data \
-            --generic runner
+          arch: amd64
+          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
+          image: ghcr.io/home-assistant/amd64-hassio-supervisor
+          image-tags: runner
+          load: true
+          version: ${{ needs.init.outputs.version }}
 
       - name: Pull Supervisor
         if: needs.init.outputs.publish == 'true'
@@ -472,49 +463,3 @@ jobs:
       - name: Get supervisor logs on failiure
         if: ${{ cancelled() || failure() }}
         run: docker logs hassio_supervisor
-  retag_deprecated:
-    needs: ["build", "init"]
-    name: Re-tag deprecated ${{ matrix.arch }} images
-    if: needs.init.outputs.publish == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-      packages: write
-    strategy:
-      matrix:
-        arch: ["armhf", "armv7", "i386"]
-    env:
-      # Last available release for deprecated architectures
-      FROZEN_VERSION: "2025.11.5"
-    steps:
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@ba7bc0a3fef59531c69a25acd34668d6d3fe6f22 # v4.1.0
-        with:
-          cosign-release: ${{ env.COSIGN_VERSION }}
-
-      - name: Install crane
-        run: |
-          curl -sLO https://github.com/google/go-containerregistry/releases/download/${{ env.CRANE_VERSION }}/go-containerregistry_Linux_x86_64.tar.gz
-          echo "${{ env.CRANE_SHA256 }}  go-containerregistry_Linux_x86_64.tar.gz" | sha256sum -c -
-          tar xzf go-containerregistry_Linux_x86_64.tar.gz crane
-          sudo mv crane /usr/local/bin/
-
-      - name: Re-tag deprecated image with updated version label
-        run: |
-          crane auth login ghcr.io -u ${{ github.repository_owner }} -p ${{ secrets.GITHUB_TOKEN }}
-          crane mutate \
-            --label io.hass.version=${{ needs.init.outputs.version }} \
-            --tag ghcr.io/ha-china/${{ matrix.arch }}-hassio-supervisor:${{ needs.init.outputs.version }} \
-            ghcr.io/ha-china/${{ matrix.arch }}-hassio-supervisor:${{ env.FROZEN_VERSION }}
-
-      - name: Sign image with Cosign
-        run: |
-          cosign sign --yes ghcr.io/ha-china/${{ matrix.arch }}-hassio-supervisor:${{ needs.init.outputs.version }}
