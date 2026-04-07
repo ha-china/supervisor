@@ -1113,7 +1113,7 @@ class BackupFileExistError(BackupError):
     """Raise if the backup file already exists."""
 
 
-class BackupFatalError(BackupError):
+class BackupFatalIOError(BackupError):
     """Raise on write-side I/O errors that leave the backup tar corrupt."""
 
 

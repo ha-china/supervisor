@@ -52,7 +52,7 @@ from ..coresys import CoreSys
 from ..exceptions import (
     AddonsError,
     BackupError,
-    BackupFatalError,
+    BackupFatalIOError,
     BackupFileExistError,
     BackupFileNotFoundError,
     BackupInvalidError,
@@ -605,7 +605,7 @@ class Backup(JobGroup):
         try:
             await self.sys_run_in_executor(_add_backup_json)
         except OSError as err:
-            raise BackupFatalError(
+            raise BackupFatalIOError(
                 f"Can't write backup metadata: {err!s}", _LOGGER.error
             ) from err
         except json.JSONDecodeError as err:
@@ -668,7 +668,7 @@ class Backup(JobGroup):
             try:
                 if start_task := await self._addon_save(addon):
                     start_tasks.append(start_task)
-            except BackupFatalError:
+            except BackupFatalIOError:
                 raise
             except BackupError as err:
                 self.sys_jobs.current.capture_error(err)
@@ -798,7 +798,7 @@ class Backup(JobGroup):
             if await self.sys_run_in_executor(_save):
                 self._data[ATTR_FOLDERS].append(name)
         except OSError as err:
-            raise BackupFatalError(
+            raise BackupFatalIOError(
                 f"Can't write tarfile: {err!s}", _LOGGER.error
             ) from err
         except (tarfile.TarError, AddFileError) as err:
@@ -811,7 +811,7 @@ class Backup(JobGroup):
         for folder in folder_list:
             try:
                 await self._folder_save(folder)
-            except BackupFatalError:
+            except BackupFatalIOError:
                 raise
             except BackupError as err:
                 err = BackupError(
@@ -1036,7 +1036,7 @@ class Backup(JobGroup):
         try:
             await self.sys_run_in_executor(_save)
         except OSError as err:
-            raise BackupFatalError(
+            raise BackupFatalIOError(
                 f"Can't write supervisor config tarfile: {err!s}", _LOGGER.error
             ) from err
         except tarfile.TarError as err:

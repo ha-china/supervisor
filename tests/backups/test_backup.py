@@ -17,7 +17,7 @@ from supervisor.coresys import CoreSys
 from supervisor.exceptions import (
     AddonsError,
     BackupError,
-    BackupFatalError,
+    BackupFatalIOError,
     BackupFileExistError,
     BackupFileNotFoundError,
     BackupInvalidError,
@@ -145,7 +145,7 @@ async def test_backup_oserror_folder_propagates(
     """Test that OSError during folder backup propagates out of create().
 
     Write-side OSError (e.g. ENOSPC) means the outer tar is corrupt. It is
-    wrapped as BackupFatalError which store_folders does not swallow, so it
+    wrapped as BackupFatalIOError which store_folders does not swallow, so it
     propagates out of create() and the caller deletes the incomplete backup.
     """
     backup_file = tmp_path / "my_backup.tar"
@@ -157,7 +157,7 @@ async def test_backup_oserror_folder_propagates(
             "supervisor.backups.backup.atomic_contents_add",
             MagicMock(side_effect=OSError(28, "No space left on device")),
         ),
-        pytest.raises(BackupFatalError),
+        pytest.raises(BackupFatalIOError),
     ):
         async with backup.create():
             await backup.store_folders(["media"])
@@ -166,18 +166,18 @@ async def test_backup_oserror_folder_propagates(
 async def test_backup_fatal_error_addon_propagates(
     coresys: CoreSys, install_addon_ssh: Addon, tmp_path: Path
 ):
-    """Test that BackupFatalError during add-on backup propagates out of store_addons.
+    """Test that BackupFatalIOError during add-on backup propagates out of store_addons.
 
     store_addons swallows BackupError for individual add-on failures, but
-    BackupFatalError must not be swallowed since it indicates a corrupt tar.
+    BackupFatalIOError must not be swallowed since it indicates a corrupt tar.
     """
     backup_file = tmp_path / "my_backup.tar"
     backup = Backup(coresys, backup_file, "test", None)
     backup.new("test", "2023-07-21T21:05:00.000000+00:00", BackupType.FULL)
 
-    install_addon_ssh.backup = MagicMock(side_effect=BackupFatalError("Disk full"))
+    install_addon_ssh.backup = MagicMock(side_effect=BackupFatalIOError("Disk full"))
 
-    with pytest.raises(BackupFatalError):
+    with pytest.raises(BackupFatalIOError):
         async with backup.create():
             await backup.store_addons([install_addon_ssh])
 
