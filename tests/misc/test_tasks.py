@@ -1,5 +1,6 @@
 """Test scheduled tasks."""
 
+import asyncio
 from collections.abc import AsyncGenerator
 from shutil import copy
 from unittest.mock import AsyncMock, Mock, PropertyMock, patch
@@ -242,6 +243,60 @@ async def test_update_dns_skipped_when_auto_update_disabled(
     with patch.object(PluginDns, "update") as update:
         await tasks._update_dns()
         update.assert_not_called()
+
+
+@pytest.mark.usefixtures("no_job_throttle", "supervisor_internet")
+async def test_scheduled_reload_updater_triggers_one_supervisor_update(
+    tasks: Tasks, coresys: CoreSys, mock_update_data: MockResponse
+):
+    """Test scheduled reload updater triggers exactly one supervisor update.
+
+    Regression test: previously _update_supervisor ran on a separate schedule
+    in addition to being called from _reload_updater, causing duplicate updates.
+    Now only _reload_updater triggers the supervisor auto-update.
+    """
+    coresys.hardware.disk.get_disk_free_space = lambda x: 5000
+    await coresys.core.set_state(CoreState.RUNNING)
+
+    # Make version data show a newer supervisor version
+    version_data = await mock_update_data.text()
+    mock_update_data.update_text(version_data.replace("2024.10.0", "2024.10.1"))
+
+    with (
+        patch.object(
+            Supervisor,
+            "version",
+            new=PropertyMock(return_value=AwesomeVersion("2024.10.0")),
+        ),
+        patch.object(Supervisor, "update") as update,
+    ):
+        await tasks.load()
+        update.assert_not_called()
+
+        # Advance the event loop clock by 24h+ so scheduled tasks fire.
+        # Patching loop.time makes all call_later callbacks appear due;
+        # a tiny real sleep lets _run_once re-evaluate and execute them.
+        loop = asyncio.get_event_loop()
+        original_time = loop.time
+        loop.time = lambda: original_time() + 86401
+
+        try:
+            # Busy-wait until call_later callbacks fire and create jobs
+            while not any(t.job and not t.job.done() for t in coresys.scheduler._tasks):
+                await asyncio.sleep(0)
+
+            # Wait for all scheduler-created tasks to finish
+            pending = [
+                t.job for t in coresys.scheduler._tasks if t.job and not t.job.done()
+            ]
+            await asyncio.gather(*pending)
+
+            # Verify update was triggered exactly once
+            update.assert_called_once()
+        finally:
+            loop.time = original_time
+
+    await coresys.scheduler.shutdown()
 
 
 @pytest.mark.usefixtures("tmp_supervisor_data")
