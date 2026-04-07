@@ -518,6 +518,10 @@ class BackupManager(FileConfiguration, JobGroup):
         try:
             await self.sys_core.set_state(CoreState.FREEZE)
 
+            # Any exception leaving create() means the backup is incomplete
+            # and will be discarded (file unlinked below). Individual
+            # add-on/folder errors are captured inside store_addons/
+            # store_folders and do not propagate.
             async with backup.create():
                 # HomeAssistant Folder is for v1
                 if homeassistant:

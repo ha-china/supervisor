@@ -17,6 +17,7 @@ from supervisor.coresys import CoreSys
 from supervisor.exceptions import (
     AddonsError,
     BackupError,
+    BackupFatalError,
     BackupFileExistError,
     BackupFileNotFoundError,
     BackupInvalidError,
@@ -136,6 +137,66 @@ async def test_backup_error_folder(
             ]
             assert len(child_jobs) == 1
             assert str(err) in child_jobs[0].errors[0].message
+
+
+async def test_backup_oserror_folder_propagates(
+    coresys: CoreSys, tmp_supervisor_data: Path, tmp_path: Path
+):
+    """Test that OSError during folder backup propagates out of create().
+
+    Write-side OSError (e.g. ENOSPC) means the outer tar is corrupt. It is
+    wrapped as BackupFatalError which store_folders does not swallow, so it
+    propagates out of create() and the caller deletes the incomplete backup.
+    """
+    backup_file = tmp_path / "my_backup.tar"
+    backup = Backup(coresys, backup_file, "test", None)
+    backup.new("test", "2023-07-21T21:05:00.000000+00:00", BackupType.FULL)
+
+    with (
+        patch(
+            "supervisor.backups.backup.atomic_contents_add",
+            MagicMock(side_effect=OSError(28, "No space left on device")),
+        ),
+        pytest.raises(BackupFatalError),
+    ):
+        async with backup.create():
+            await backup.store_folders(["media"])
+
+
+async def test_backup_fatal_error_addon_propagates(
+    coresys: CoreSys, install_addon_ssh: Addon, tmp_path: Path
+):
+    """Test that BackupFatalError during add-on backup propagates out of store_addons.
+
+    store_addons swallows BackupError for individual add-on failures, but
+    BackupFatalError must not be swallowed since it indicates a corrupt tar.
+    """
+    backup_file = tmp_path / "my_backup.tar"
+    backup = Backup(coresys, backup_file, "test", None)
+    backup.new("test", "2023-07-21T21:05:00.000000+00:00", BackupType.FULL)
+
+    install_addon_ssh.backup = MagicMock(side_effect=BackupFatalError("Disk full"))
+
+    with pytest.raises(BackupFatalError):
+        async with backup.create():
+            await backup.store_addons([install_addon_ssh])
+
+
+async def test_backup_oserror_close_suppressed_on_error(
+    coresys: CoreSys, tmp_path: Path
+):
+    """Test that a secondary OSError from close is suppressed on error path.
+
+    When an exception already occurred during yield, create() should not raise
+    a secondary exception from closing the tar file.
+    """
+    backup_file = tmp_path / "my_backup.tar"
+    backup = Backup(coresys, backup_file, "test", None)
+    backup.new("test", "2023-07-21T21:05:00.000000+00:00", BackupType.FULL)
+
+    with pytest.raises(ValueError, match="test error"):
+        async with backup.create():
+            raise ValueError("test error")
 
 
 async def test_consolidate_conflict_varied_encryption(

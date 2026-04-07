@@ -1113,6 +1113,10 @@ class BackupFileExistError(BackupError):
     """Raise if the backup file already exists."""
 
 
+class BackupFatalError(BackupError):
+    """Raise on write-side I/O errors that leave the backup tar corrupt."""
+
+
 class AddonBackupMetadataInvalidError(BackupError, APIError):
     """Raise if invalid metadata file provided for addon in backup."""
 

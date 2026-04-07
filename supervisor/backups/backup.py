@@ -3,7 +3,7 @@
 import asyncio
 from collections import defaultdict
 from collections.abc import AsyncGenerator, Awaitable
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import timedelta
@@ -52,6 +52,7 @@ from ..coresys import CoreSys
 from ..exceptions import (
     AddonsError,
     BackupError,
+    BackupFatalError,
     BackupFileExistError,
     BackupFileNotFoundError,
     BackupInvalidError,
@@ -505,10 +506,20 @@ class Backup(JobGroup):
 
         try:
             yield
-        finally:
+        except Exception:
+            self._outer_secure_tarfile = None
+            # Close may fail (e.g. ENOSPC writing end-of-archive
+            # markers), but tarfile's finally ensures the file handle
+            # is released regardless. The file is unlinked by the caller.
+            with suppress(Exception):
+                await self.sys_run_in_executor(outer_secure_tarfile.close)
+            raise
+
+        try:
             await self._create_finalize(outer_secure_tarfile)
             size_bytes = await self.sys_run_in_executor(_close_outer_tarfile)
             self._locations[self.location].size_bytes = size_bytes
+        finally:
             self._outer_secure_tarfile = None
 
     @asynccontextmanager
@@ -593,7 +604,11 @@ class Backup(JobGroup):
 
         try:
             await self.sys_run_in_executor(_add_backup_json)
-        except (OSError, json.JSONDecodeError) as err:
+        except OSError as err:
+            raise BackupFatalError(
+                f"Can't write backup metadata: {err!s}", _LOGGER.error
+            ) from err
+        except json.JSONDecodeError as err:
             self.sys_jobs.current.capture_error(BackupError("Can't write backup"))
             _LOGGER.error("Can't write backup: %s", err)
 
@@ -653,6 +668,8 @@ class Backup(JobGroup):
             try:
                 if start_task := await self._addon_save(addon):
                     start_tasks.append(start_task)
+            except BackupFatalError:
+                raise
             except BackupError as err:
                 self.sys_jobs.current.capture_error(err)
 
@@ -780,8 +797,12 @@ class Backup(JobGroup):
         try:
             if await self.sys_run_in_executor(_save):
                 self._data[ATTR_FOLDERS].append(name)
-        except (tarfile.TarError, OSError, AddFileError) as err:
-            raise BackupError(f"Can't write tarfile: {str(err)}") from err
+        except OSError as err:
+            raise BackupFatalError(
+                f"Can't write tarfile: {err!s}", _LOGGER.error
+            ) from err
+        except (tarfile.TarError, AddFileError) as err:
+            raise BackupError(f"Can't write tarfile: {err!s}") from err
 
     @Job(name="backup_store_folders", cleanup=False)
     async def store_folders(self, folder_list: list[str]):
@@ -790,6 +811,8 @@ class Backup(JobGroup):
         for folder in folder_list:
             try:
                 await self._folder_save(folder)
+            except BackupFatalError:
+                raise
             except BackupError as err:
                 err = BackupError(
                     f"Can't backup folder {folder}: {str(err)}", _LOGGER.error
@@ -1012,7 +1035,11 @@ class Backup(JobGroup):
 
         try:
             await self.sys_run_in_executor(_save)
-        except (tarfile.TarError, OSError) as err:
+        except OSError as err:
+            raise BackupFatalError(
+                f"Can't write supervisor config tarfile: {err!s}", _LOGGER.error
+            ) from err
+        except tarfile.TarError as err:
             raise BackupError(
                 f"Can't write supervisor config tarfile: {err!s}"
             ) from err
