@@ -185,17 +185,32 @@ class Core(CoreSysAttributes):
 
         # Execute each load task in secure context
         for setup_task in setup_loads:
+            unhealthy_before = self.sys_resolution.unhealthy.copy()
             try:
                 await setup_task
             except Exception as err:  # pylint: disable=broad-except
-                _LOGGER.critical(
-                    "Fatal error happening on load Task %s: %s",
-                    setup_task,
-                    err,
-                    exc_info=True,
-                )
+                # If the error already caused a new unhealthy reason to
+                # be set (e.g. via check_oserror), it was handled by the
+                # resolution system and the user has been notified. Skip
+                # capturing to Sentry in that case.
+                capture_exception = self.sys_resolution.unhealthy == unhealthy_before
+
                 self.sys_resolution.add_unhealthy_reason(UnhealthyReason.SETUP)
-                await async_capture_exception(err)
+
+                if capture_exception:
+                    _LOGGER.critical(
+                        "Fatal error happening on load Task %s: %s",
+                        setup_task,
+                        err,
+                        exc_info=True,
+                    )
+                    await async_capture_exception(err)
+                else:
+                    _LOGGER.error(
+                        "Error on load Task %s: %s",
+                        setup_task,
+                        err,
+                    )
 
     async def start(self) -> None:
         """Start Supervisor orchestration."""

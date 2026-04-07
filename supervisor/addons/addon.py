@@ -1682,8 +1682,9 @@ class App(AppModel):
         ]:
             await self._restart_after_problem(event.state)
 
-    def refresh_path_cache(self) -> Awaitable[None]:
+    async def refresh_path_cache(self) -> None:
         """Refresh cache of existing paths."""
         if self.is_detached or not self.app_store:
-            return super().refresh_path_cache()
-        return self.app_store.refresh_path_cache()
+            await super().refresh_path_cache()
+        else:
+            await self.app_store.refresh_path_cache()
