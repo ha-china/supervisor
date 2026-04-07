@@ -31,7 +31,6 @@ HASS_WATCHDOG_REANIMATE_FAILURES = "HASS_WATCHDOG_REANIMATE_FAILURES"
 HASS_WATCHDOG_MAX_API_ATTEMPTS = 2
 HASS_WATCHDOG_MAX_REANIMATE_ATTEMPTS = 5
 
-RUN_UPDATE_SUPERVISOR = 86400  # 24h
 RUN_UPDATE_ADDONS = 57600
 RUN_UPDATE_CLI = 43200  # 12h, staggered +2min per plugin
 RUN_UPDATE_DNS = 43320
@@ -42,7 +41,7 @@ RUN_UPDATE_OBSERVER = 43680
 RUN_RELOAD_ADDONS = 10800
 RUN_RELOAD_BACKUPS = 72000
 RUN_RELOAD_HOST = 7600
-RUN_RELOAD_UPDATER = 27100
+RUN_RELOAD_UPDATER = 86400  # 24h
 RUN_RELOAD_INGRESS = 930
 RUN_RELOAD_MOUNTS = 900
 
@@ -73,7 +72,6 @@ class Tasks(CoreSysAttributes):
         """Add Tasks to scheduler."""
         # Update
         self.sys_scheduler.register_task(self._update_addons, RUN_UPDATE_ADDONS)
-        self.sys_scheduler.register_task(self._update_supervisor, RUN_UPDATE_SUPERVISOR)
         self.sys_scheduler.register_task(self._update_cli, RUN_UPDATE_CLI)
         self.sys_scheduler.register_task(self._update_dns, RUN_UPDATE_DNS)
         self.sys_scheduler.register_task(self._update_audio, RUN_UPDATE_AUDIO)
@@ -163,34 +161,6 @@ class Tasks(CoreSysAttributes):
                     "Could not send add-on update command to Home Assistant Core: %s",
                     err,
                 )
-
-    @Job(
-        name="tasks_update_supervisor",
-        conditions=[
-            JobCondition.AUTO_UPDATE,
-            JobCondition.FREE_SPACE,
-            JobCondition.HEALTHY,
-            JobCondition.INTERNET_HOST,
-            JobCondition.OS_SUPPORTED,
-            JobCondition.RUNNING,
-            JobCondition.ARCHITECTURE_SUPPORTED,
-        ],
-        concurrency=JobConcurrency.REJECT,
-    )
-    async def _update_supervisor(self):
-        """Check and run update of Supervisor Supervisor."""
-        if not self.sys_supervisor.need_update:
-            return
-
-        _LOGGER.info(
-            "Found new Supervisor version %s, updating",
-            self.sys_supervisor.latest_version,
-        )
-
-        # Errors are logged by the exceptions, we can't really do something
-        # if an update fails here.
-        with suppress(SupervisorUpdateError):
-            await self.sys_supervisor.update()
 
     async def _watchdog_homeassistant_api(self):
         """Create scheduler task for monitoring running state of API.
@@ -390,9 +360,34 @@ class Tasks(CoreSysAttributes):
         """Check for new versions of Home Assistant, Supervisor, OS, etc."""
         await self.sys_updater.reload()
 
-        # If there's a new version of supervisor, start update immediately
+        # If there's a new version of supervisor, update immediately
         if self.sys_supervisor.need_update:
-            await self._update_supervisor()
+            await self._auto_update_supervisor()
+
+    @Job(
+        name="tasks_update_supervisor",
+        conditions=[
+            JobCondition.AUTO_UPDATE,
+            JobCondition.FREE_SPACE,
+            JobCondition.HEALTHY,
+            JobCondition.INTERNET_HOST,
+            JobCondition.OS_SUPPORTED,
+            JobCondition.RUNNING,
+            JobCondition.ARCHITECTURE_SUPPORTED,
+        ],
+        concurrency=JobConcurrency.REJECT,
+    )
+    async def _auto_update_supervisor(self):
+        """Auto update Supervisor if enabled."""
+        if not self.sys_supervisor.need_update:
+            return
+
+        _LOGGER.info(
+            "Found new Supervisor version %s, updating",
+            self.sys_supervisor.latest_version,
+        )
+        with suppress(SupervisorUpdateError):
+            await self.sys_supervisor.update()
 
     @Job(name="tasks_core_backup_cleanup", conditions=[JobCondition.HEALTHY])
     async def _core_backup_cleanup(self) -> None:
