@@ -73,14 +73,20 @@ class HomeAssistantAPI(CoreSysAttributes):
         with the SUPERVISOR_CORE_API_SOCKET env var. This prevents failures
         during Supervisor upgrades where Core is still running with a container
         started by the old Supervisor.
+
+        Requires container metadata to be available (via attach() or run()).
+        Callers should ensure the container is running before using this.
         """
         if not self.supports_unix_socket:
             return False
-        meta_config = self.sys_homeassistant.core.instance.meta_config
-        if not meta_config or "Env" not in meta_config:
-            return False
+        instance = self.sys_homeassistant.core.instance
+        if not instance.attached:
+            raise HomeAssistantAPIError(
+                "Cannot determine Core connection mode: container metadata not available"
+            )
         return any(
-            env.startswith(f"{ENV_CORE_API_SOCKET}=") for env in meta_config["Env"]
+            env.startswith(f"{ENV_CORE_API_SOCKET}=")
+            for env in instance.meta_config.get("Env", [])
         )
 
     @property
@@ -182,6 +188,9 @@ class HomeAssistantAPI(CoreSysAttributes):
             HomeAssistantAPIError: On connection or auth failure.
 
         """
+        if not await self.sys_homeassistant.core.instance.is_running():
+            raise HomeAssistantAPIError("Core container is not running", _LOGGER.debug)
+
         if self.use_unix_socket:
             return await WSClient.connect(
                 self.session, self.ws_url, max_msg_size=max_msg_size
@@ -248,6 +257,9 @@ class HomeAssistantAPI(CoreSysAttributes):
                 network errors, timeouts, or connection failures
 
         """
+        if not await self.sys_homeassistant.core.instance.is_running():
+            raise HomeAssistantAPIError("Core container is not running", _LOGGER.debug)
+
         url = f"{self.api_url}/{path}"
         headers = headers or {}
         client_timeout = aiohttp.ClientTimeout(total=timeout)
