@@ -958,7 +958,7 @@ async def test_addon_loads_wrong_image(
         "local/aarch64-addon-ssh:9.2.1", force=True
     )
     mock_run_command.assert_called_once()
-    assert mock_run_command.call_args.args[0] == "docker.io/library/docker"
+    assert mock_run_command.call_args.args[0] == "docker"
     assert mock_run_command.call_args.kwargs["tag"] == "1.0.0-cli"
     command = mock_run_command.call_args.kwargs["command"]
     assert is_in_list(
@@ -996,7 +996,7 @@ async def test_addon_loads_missing_image(coresys: CoreSys, install_addon_ssh: Ad
         await install_addon_ssh.load()
 
     mock_run_command.assert_called_once()
-    assert mock_run_command.call_args.args[0] == "docker.io/library/docker"
+    assert mock_run_command.call_args.args[0] == "docker"
     assert mock_run_command.call_args.kwargs["tag"] == "1.0.0-cli"
     command = mock_run_command.call_args.kwargs["command"]
     assert is_in_list(
