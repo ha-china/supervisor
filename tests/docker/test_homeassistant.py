@@ -25,7 +25,7 @@ from . import DEV_MOUNT
 @pytest.mark.usefixtures("tmp_supervisor_data", "path_extern")
 async def test_homeassistant_start(coresys: CoreSys, container: DockerContainer):
     """Test starting homeassistant."""
-    coresys.homeassistant.version = AwesomeVersion("2023.8.1")
+    coresys.homeassistant.version = AwesomeVersion("2026.4.0")
 
     with (
         patch.object(DockerAPI, "run", return_value=container.show.return_value) as run,
@@ -52,7 +52,7 @@ async def test_homeassistant_start(coresys: CoreSys, container: DockerContainer)
             "TZ": ANY,
             "SUPERVISOR_TOKEN": ANY,
             "HASSIO_TOKEN": ANY,
-            # no "HA_DUPLICATE_LOG_FILE"
+            "SUPERVISOR_CORE_API_SOCKET": "/run/supervisor/core.sock",
         }
         assert run.call_args.kwargs["mounts"] == [
             DEV_MOUNT,
@@ -94,7 +94,6 @@ async def test_homeassistant_start(coresys: CoreSys, container: DockerContainer)
                 read_only=False,
                 bind_options=MountBindOptions(propagation=PropagationMode.RSLAVE),
             ),
-            MOUNT_CORE_RUN,
             DockerMount(
                 type=MountType.BIND,
                 source=coresys.homeassistant.path_extern_pulse.as_posix(),
@@ -119,6 +118,7 @@ async def test_homeassistant_start(coresys: CoreSys, container: DockerContainer)
                 target="/etc/machine-id",
                 read_only=True,
             ),
+            MOUNT_CORE_RUN,
         ]
         assert "volumes" not in run.call_args.kwargs
 

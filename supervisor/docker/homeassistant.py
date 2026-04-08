@@ -138,8 +138,6 @@ class DockerHomeAssistant(DockerInterface):
                             propagation=PropagationMode.RSLAVE
                         ),
                     ),
-                    # Supervisor <-> Core communication socket
-                    MOUNT_CORE_RUN,
                     # Configuration audio
                     DockerMount(
                         type=MountType.BIND,
@@ -165,6 +163,9 @@ class DockerHomeAssistant(DockerInterface):
         # Machine ID
         if self.sys_machine_id:
             mounts.append(MOUNT_MACHINE_ID)
+
+        if self.sys_homeassistant.api.supports_unix_socket:
+            mounts.append(MOUNT_CORE_RUN)
 
         return mounts
 
