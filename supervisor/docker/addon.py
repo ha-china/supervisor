@@ -772,6 +772,15 @@ class DockerAddon(DockerInterface):
 
         _LOGGER.info("Build %s:%s done", self.image, version)
 
+        # Clean up old add-on builder images from previous Docker versions.
+        # Done here after build because cleanup_old_images needs the current
+        # image to exist, and the builder image is only pulled on first build
+        # (in run_command) after a Docker engine update.
+        with suppress(DockerError):
+            await self.sys_docker.cleanup_old_images(
+                ADDON_BUILDER_IMAGE, AwesomeVersion(builder_version_tag)
+            )
+
     async def export_image(self, tar_file: Path) -> None:
         """Export current images into a tar file."""
         if not self.image:

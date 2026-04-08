@@ -185,4 +185,6 @@ PATH_SHARE = PurePath("/share")
 PATH_MEDIA = PurePath("/media")
 
 # https://hub.docker.com/_/docker
-ADDON_BUILDER_IMAGE = "docker.io/library/docker"
+# Use short name as Docker stores it this way; the canonical docker.io/library/docker
+# does not match the reference filter used by cleanup_old_images.
+ADDON_BUILDER_IMAGE = "docker"
