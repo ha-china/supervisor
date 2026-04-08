@@ -49,7 +49,7 @@ class HomeAssistantAPI(CoreSysAttributes):
         self._access_token_expires: datetime | None = None
         self._token_lock: asyncio.Lock = asyncio.Lock()
         self._unix_session: aiohttp.ClientSession | None = None
-        self._logged_transport: bool = False
+        self._core_connected: bool = False
 
     @property
     def supports_unix_socket(self) -> bool:
@@ -88,17 +88,12 @@ class HomeAssistantAPI(CoreSysAttributes):
         """Return session for Core communication.
 
         Uses a Unix socket session when the installed Core version supports it,
-        otherwise falls back to the default TCP websession.
-
-        Raises HomeAssistantAPIError if Unix socket is expected but missing.
+        otherwise falls back to the default TCP websession. If the socket does
+        not exist yet (e.g. during Core startup), requests will fail with a
+        connection error handled by the caller.
         """
         if not self.use_unix_socket:
             return self.sys_websession
-
-        if not SOCKET_CORE.exists():
-            raise HomeAssistantAPIError(
-                f"Core Unix socket {SOCKET_CORE} does not exist", _LOGGER.error
-            )
 
         if self._unix_session is None or self._unix_session.closed:
             self._unix_session = aiohttp.ClientSession(
@@ -222,15 +217,16 @@ class HomeAssistantAPI(CoreSysAttributes):
         params: MultiMapping[str] | None = None,
         headers: dict[str, str] | None = None,
     ) -> AsyncIterator[aiohttp.ClientResponse]:
-        """Async context manager to make authenticated requests to Home Assistant API.
+        """Async context manager to make requests to Home Assistant Core API.
 
-        This context manager handles authentication token management automatically,
-        including token refresh on 401 responses. It yields the HTTP response
-        for the caller to handle.
+        This context manager handles transport and authentication automatically.
+        For Unix socket connections, requests are made directly without auth.
+        For TCP connections, it manages access tokens and retries once on 401.
+        It yields the HTTP response for the caller to handle.
 
         Error Handling:
         - HTTP error status codes (4xx, 5xx) are preserved in the response
-        - Authentication is handled transparently with one retry on 401
+        - Authentication is handled transparently (TCP only)
         - Network/connection failures raise HomeAssistantAPIError
         - No logging is performed - callers should handle logging as needed
 
@@ -256,27 +252,12 @@ class HomeAssistantAPI(CoreSysAttributes):
         headers = headers or {}
         client_timeout = aiohttp.ClientTimeout(total=timeout)
 
-        # Passthrough content type
         if content_type is not None:
             headers[hdrs.CONTENT_TYPE] = content_type
 
-        use_unix = self.use_unix_socket
-
-        if not self._logged_transport:
-            if use_unix:
-                _LOGGER.info(
-                    "Setting up Core communication via Unix socket %s", SOCKET_CORE
-                )
-            else:
-                _LOGGER.info(
-                    "Setting up Core communication via TCP %s",
-                    self.sys_homeassistant.api_url,
-                )
-            self._logged_transport = True
-
         for _ in (1, 2):
             try:
-                if not use_unix:
+                if not self.use_unix_socket:
                     await self._ensure_access_token()
                     headers[hdrs.AUTHORIZATION] = f"Bearer {self._access_token}"
                 async with self.session.request(
@@ -289,8 +270,7 @@ class HomeAssistantAPI(CoreSysAttributes):
                     params=params,
                     ssl=False,
                 ) as resp:
-                    # Access token expired (only relevant for TCP)
-                    if resp.status == 401 and not use_unix:
+                    if resp.status == 401 and not self.use_unix_socket:
                         self._access_token = None
                         continue
                     yield resp
@@ -318,7 +298,10 @@ class HomeAssistantAPI(CoreSysAttributes):
 
     async def get_core_state(self) -> dict[str, Any]:
         """Return Home Assistant core state."""
-        return await self._get_json("api/core/state")
+        state = await self._get_json("api/core/state")
+        if state is None or not isinstance(state, dict):
+            raise HomeAssistantAPIError("No state received from Home Assistant API")
+        return state
 
     async def get_api_state(self) -> APIState | None:
         """Return state of Home Assistant Core or None."""
@@ -340,14 +323,23 @@ class HomeAssistantAPI(CoreSysAttributes):
                 data = await self.get_core_state()
             else:
                 data = await self.get_config()
+
+            if not self._core_connected:
+                self._core_connected = True
+                transport = (
+                    f"Unix socket {SOCKET_CORE}"
+                    if self.use_unix_socket
+                    else f"TCP {self.sys_homeassistant.api_url}"
+                )
+                _LOGGER.info("Connected to Core via %s", transport)
+
             # Older versions of home assistant does not expose the state
-            if data:
-                state = data.get("state", "RUNNING")
-                # Recorder state was added in HA Core 2024.8
-                recorder_state = data.get("recorder_state", {})
-                migrating = recorder_state.get("migration_in_progress", False)
-                live_migration = recorder_state.get("migration_is_live", False)
-                return APIState(state, migrating and not live_migration)
+            state = data.get("state", "RUNNING")
+            # Recorder state was added in HA Core 2024.8
+            recorder_state = data.get("recorder_state", {})
+            migrating = recorder_state.get("migration_in_progress", False)
+            live_migration = recorder_state.get("migration_is_live", False)
+            return APIState(state, migrating and not live_migration)
         except HomeAssistantAPIError as err:
             _LOGGER.debug("Can't connect to Home Assistant API: %s", err)
 
