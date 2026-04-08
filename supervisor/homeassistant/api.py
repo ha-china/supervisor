@@ -15,7 +15,8 @@ from multidict import MultiMapping
 
 from ..const import SOCKET_CORE
 from ..coresys import CoreSys, CoreSysAttributes
-from ..docker.const import ENV_CORE_API_SOCKET
+from ..docker.const import ENV_CORE_API_SOCKET, ContainerState
+from ..docker.monitor import DockerContainerStateEvent
 from ..exceptions import HomeAssistantAPIError, HomeAssistantAuthError
 from ..utils import version_is_new_enough
 from .const import LANDINGPAGE
@@ -120,6 +121,18 @@ class HomeAssistantAPI(CoreSysAttributes):
         if self.use_unix_socket:
             return "ws://localhost/api/websocket"
         return self.sys_homeassistant.ws_url
+
+    async def container_state_changed(self, event: DockerContainerStateEvent) -> None:
+        """Process Core container state changes."""
+        if event.name != self.sys_homeassistant.core.instance.name:
+            return
+        if event.state not in (ContainerState.STOPPED, ContainerState.FAILED):
+            return
+
+        self._core_connected = False
+        if self._unix_session and not self._unix_session.closed:
+            await self._unix_session.close()
+            self._unix_session = None
 
     async def close(self) -> None:
         """Close the Unix socket session."""
