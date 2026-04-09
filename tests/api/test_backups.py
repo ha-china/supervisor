@@ -14,6 +14,7 @@ import pytest
 
 from supervisor.addons.addon import App
 from supervisor.backups.backup import Backup, BackupLocation
+from supervisor.backups.manager import BackupManager
 from supervisor.const import CoreState
 from supervisor.coresys import CoreSys
 from supervisor.docker.manager import DockerAPI
@@ -1535,3 +1536,28 @@ async def test_pre_post_backup_command_error(
         "exit_code": 1,
         "debug_logging_command": "ha supervisor options --logging debug",
     }
+
+
+async def test_restore_partial_with_addons_key(
+    api_client: TestClient,
+    coresys: CoreSys,
+    mock_partial_backup: Backup,
+):
+    """Test that partial restore accepts 'addons' key in request body and remaps it to 'apps'."""
+    await coresys.core.set_state(CoreState.RUNNING)
+    coresys.hardware.disk.get_disk_free_space = lambda x: 5000
+
+    with patch.object(
+        BackupManager, "do_restore_partial", return_value=True
+    ) as mock_restore:
+        resp = await api_client.post(
+            f"/backups/{mock_partial_backup.slug}/restore/partial",
+            json={"addons": ["local_ssh"]},
+        )
+
+    assert resp.status == 200
+    mock_restore.assert_called_once()
+    _, call_kwargs = mock_restore.call_args
+    assert "apps" in call_kwargs
+    assert call_kwargs["apps"] == ["local_ssh"]
+    assert "addons" not in call_kwargs

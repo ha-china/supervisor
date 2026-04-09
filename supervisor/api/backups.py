@@ -335,6 +335,8 @@ class APIBackups(CoreSysAttributes):
         if body.get(ATTR_APPS) == ALL_ADDONS_FLAG:
             body[ATTR_APPS] = list(self.sys_apps.local)
 
+        if ATTR_APPS in body:
+            body["apps"] = body.pop(ATTR_APPS)
         background = body.pop(ATTR_BACKGROUND)
         backup_task, job_id = await background_task(
             self, self.sys_backups.do_backup_partial, **body
@@ -380,6 +382,8 @@ class APIBackups(CoreSysAttributes):
             request, body.get(ATTR_LOCATION, backup.location)
         )
         background = body.pop(ATTR_BACKGROUND)
+        if ATTR_APPS in body:
+            body["apps"] = body.pop(ATTR_APPS)
         restore_task, job_id = await background_task(
             self, self.sys_backups.do_restore_partial, backup, **body
         )
