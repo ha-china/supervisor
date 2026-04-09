@@ -177,7 +177,13 @@ class WSClient:
         except HomeAssistantAPIError:
             await client.close()
             raise
-        except Exception as err:
+        except (
+            KeyError,
+            ValueError,
+            TypeError,
+            aiohttp.ClientError,
+            TimeoutError,
+        ) as err:
             await client.close()
             raise HomeAssistantAPIError(
                 f"Unexpected error during WebSocket handshake: {err}"
@@ -220,7 +226,13 @@ class WSClient:
         except HomeAssistantAPIError:
             await client.close()
             raise
-        except Exception as err:
+        except (
+            KeyError,
+            ValueError,
+            TypeError,
+            aiohttp.ClientError,
+            TimeoutError,
+        ) as err:
             await client.close()
             raise HomeAssistantAPIError(
                 f"Unexpected error during WebSocket handshake: {err}"
