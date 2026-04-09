@@ -89,7 +89,6 @@ class MountBindOptions:
 
     propagation: PropagationMode | None = None
     read_only_non_recursive: bool | None = None
-    create_mountpoint: bool | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """To dictionary representation."""
@@ -98,8 +97,6 @@ class MountBindOptions:
             out["Propagation"] = self.propagation.value
         if self.read_only_non_recursive is not None:
             out["ReadOnlyNonRecursive"] = self.read_only_non_recursive
-        if self.create_mountpoint is not None:
-            out["CreateMountpoint"] = self.create_mountpoint
         return out
 
 
