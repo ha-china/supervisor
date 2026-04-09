@@ -1,4 +1,4 @@
-"""Util add-on functions."""
+"""Util app functions."""
 
 import hashlib
 import re

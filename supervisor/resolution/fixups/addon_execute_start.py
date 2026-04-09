@@ -1,4 +1,4 @@
-"""Helpers to fix addon by starting it."""
+"""Helpers to fix app by starting it."""
 
 import logging
 
@@ -28,14 +28,14 @@ class FixupAddonExecuteStart(FixupBase):
             _LOGGER.info("Cannot start app %s as it does not exist", reference)
             return
 
-        # Start addon
+        # Start app
         try:
             start_task = await addon.start()
         except AddonsError as err:
             _LOGGER.error("Could not start %s due to %s", reference, err)
             raise ResolutionFixupError() from None
 
-        # Wait for addon start. If it ends up in error or unknown state it's not fixed
+        # Wait for app start. If it ends up in error or unknown state it's not fixed
         await start_task
         if addon.state in {AddonState.ERROR, AddonState.UNKNOWN}:
             _LOGGER.error("App %s could not start successfully", reference)

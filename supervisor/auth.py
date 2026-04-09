@@ -1,4 +1,4 @@
-"""Manage SSO for Add-ons with Home Assistant user."""
+"""Manage SSO for Apps with Home Assistant user."""
 
 import asyncio
 import hashlib
@@ -34,7 +34,7 @@ class BackendAuthRequest(TypedDict):
 
 
 class Auth(FileConfiguration, CoreSysAttributes):
-    """Manage SSO for Add-ons with Home Assistant user."""
+    """Manage SSO for Apps with Home Assistant user."""
 
     def __init__(self, coresys: CoreSys) -> None:
         """Initialize updater."""

@@ -1,4 +1,4 @@
-"""Helpers to fix addon by restarting it."""
+"""Helpers to fix app by restarting it."""
 
 import logging
 
@@ -27,14 +27,14 @@ class FixupAddonExecuteRestart(FixupBase):
             _LOGGER.info("Cannot restart app %s as it does not exist", reference)
             return
 
-        # Stop addon
+        # Stop app
         try:
             await addon.stop()
         except AddonsError as err:
             _LOGGER.error("Could not stop %s due to %s", reference, err)
             raise ResolutionFixupError() from None
 
-        # Start addon
+        # Start app
         # Removing the container has already fixed the issue and dismissed it
         # So any errors on startup are just logged. We won't wait on the startup task either
         try:

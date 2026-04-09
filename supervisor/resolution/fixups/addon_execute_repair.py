@@ -1,4 +1,4 @@
-"""Helper to fix missing image for addon."""
+"""Helper to fix missing image for app."""
 
 import logging
 
@@ -19,12 +19,12 @@ class FixupAddonExecuteRepair(FixupBase):
     """Storage class for fixup."""
 
     def __init__(self, coresys: CoreSys) -> None:
-        """Initialize the add-on execute repair fixup class."""
+        """Initialize the app execute repair fixup class."""
         super().__init__(coresys)
         self.attempts = 0
 
     async def process_fixup(self, reference: str | None = None) -> None:
-        """Pull the addons image."""
+        """Pull the apps image."""
         if not reference:
             return
 

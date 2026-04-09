@@ -34,7 +34,7 @@ class Ingress(FileConfiguration, CoreSysAttributes):
         self.tokens: dict[str, str] = {}
 
     def get(self, token: str) -> Addon | None:
-        """Return addon they have this ingress token."""
+        """Return app they have this ingress token."""
         if token not in self.tokens:
             return None
         return self.sys_addons.get_local_only(self.tokens[token])
@@ -62,7 +62,7 @@ class Ingress(FileConfiguration, CoreSysAttributes):
 
     @property
     def addons(self) -> list[Addon]:
-        """Return list of ingress Add-ons."""
+        """Return list of ingress Apps."""
         addons = []
         for addon in self.sys_addons.installed:
             if not addon.with_ingress:
@@ -115,7 +115,7 @@ class Ingress(FileConfiguration, CoreSysAttributes):
         self.sessions_data.update(sessions_data)
 
     def _update_token_list(self) -> None:
-        """Regenerate token <-> Add-on map."""
+        """Regenerate token <-> App map."""
         self.tokens.clear()
 
         # Read all ingress token and build a map

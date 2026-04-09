@@ -564,7 +564,7 @@ class RestAPI(CoreSysAttributes):
         )
 
     def _register_addons(self) -> None:
-        """Register Add-on functions."""
+        """Register App functions."""
         api_addons = APIAddons()
         api_addons.coresys = self.coresys
 
@@ -613,17 +613,17 @@ class RestAPI(CoreSysAttributes):
             ]
         )
 
-        # Legacy routing to support requests for not installed addons
+        # Legacy routing to support requests for not installed apps
         api_store = APIStore()
         api_store.coresys = self.coresys
 
         @api_process
         async def addons_addon_info(request: web.Request) -> dict[str, Any]:
-            """Route to store if info requested for not installed addon."""
+            """Route to store if info requested for not installed app."""
             try:
                 return await api_addons.info(request)
             except APIAddonNotInstalled:
-                # Route to store/{addon}/info but add missing fields
+                # Route to store/{app}/info but add missing fields
                 return dict(
                     await api_store.addons_addon_info_wrapped(request),
                     state=AddonState.UNKNOWN,

@@ -1,4 +1,4 @@
-"""Helpers to check for deprecated addons."""
+"""Helpers to check for deprecated apps."""
 
 from ...const import AddonStage, CoreState
 from ...coresys import CoreSys
@@ -12,7 +12,7 @@ def setup(coresys: CoreSys) -> CheckBase:
 
 
 class CheckDeprecatedAddon(CheckBase):
-    """CheckDeprecatedAddon class for check."""
+    """CheckDeprecatedApp class for check."""
 
     async def run_check(self) -> None:
         """Run check if not affected by issue."""

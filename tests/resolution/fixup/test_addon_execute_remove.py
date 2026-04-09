@@ -40,7 +40,7 @@ async def test_fixup(coresys: CoreSys, install_addon_ssh: Addon):
 
 
 async def test_fixup_deprecated_arch_addon(coresys: CoreSys, install_addon_ssh: Addon):
-    """Test fixup for deprecated arch add-on issue."""
+    """Test fixup for deprecated arch app issue."""
     addon_execute_remove = FixupAddonExecuteRemove(coresys)
 
     coresys.resolution.add_suggestion(

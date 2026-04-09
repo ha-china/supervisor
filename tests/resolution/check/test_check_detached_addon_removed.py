@@ -1,4 +1,4 @@
-"""Test check for detached addons due to removal from repo."""
+"""Test check for detached apps due to removal from repo."""
 
 from pathlib import Path
 from unittest.mock import PropertyMock, patch
@@ -23,7 +23,7 @@ async def test_base(coresys: CoreSys):
 async def test_check(
     coresys: CoreSys, install_addon_ssh: Addon, tmp_supervisor_data: Path
 ):
-    """Test check for detached addons."""
+    """Test check for detached apps."""
     detached_addon_removed = CheckDetachedAddonRemoved(coresys)
     await coresys.core.set_state(CoreState.SETUP)
 
@@ -53,7 +53,7 @@ async def test_check(
 async def test_approve(
     coresys: CoreSys, install_addon_ssh: Addon, tmp_supervisor_data: Path
 ):
-    """Test approve existing detached addon issues."""
+    """Test approve existing detached app issues."""
     detached_addon_removed = CheckDetachedAddonRemoved(coresys)
     await coresys.core.set_state(CoreState.SETUP)
 

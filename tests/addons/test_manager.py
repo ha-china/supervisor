@@ -1,4 +1,4 @@
-"""Test addon manager."""
+"""Test app manager."""
 
 import asyncio
 from collections.abc import AsyncGenerator, Generator
@@ -77,7 +77,7 @@ async def fixture_remove_wait_boot(coresys: CoreSys) -> AsyncGenerator[None]:
 async def fixture_install_addon_example_image(
     coresys: CoreSys, test_repository
 ) -> Generator[Addon]:
-    """Install local_example add-on with image."""
+    """Install local_example app with image."""
     store = coresys.addons.store["local_example_image"]
     await coresys.addons.data.install(store)
     # pylint: disable-next=protected-access
@@ -91,7 +91,7 @@ async def fixture_install_addon_example_image(
 async def test_image_added_removed_on_update(
     coresys: CoreSys, install_addon_ssh: Addon
 ):
-    """Test image added or removed from addon config on update."""
+    """Test image added or removed from app config on update."""
     assert install_addon_ssh.need_update is False
     with patch(
         "supervisor.store.data.read_json_or_yaml_file",
@@ -136,7 +136,7 @@ async def test_image_added_removed_on_update(
 async def test_addon_boot_skip_host_network_gateway_unprotected(
     coresys: CoreSys, install_addon_ssh: Addon
 ):
-    """Test host network add-ons are skipped when gateway is unprotected."""
+    """Test host network apps are skipped when gateway is unprotected."""
     install_addon_ssh.boot = AddonBoot.AUTO
     coresys.resolution.add_unhealthy_reason(UnhealthyReason.DOCKER_GATEWAY_UNPROTECTED)
     with (
@@ -152,7 +152,7 @@ async def test_addon_boot_skip_host_network_gateway_unprotected(
 async def test_addon_boot_host_network_gateway_protected(
     coresys: CoreSys, install_addon_ssh: Addon
 ):
-    """Test host network add-ons boot normally when gateway is protected."""
+    """Test host network apps boot normally when gateway is protected."""
     install_addon_ssh.boot = AddonBoot.AUTO
     assert (
         UnhealthyReason.DOCKER_GATEWAY_UNPROTECTED not in coresys.resolution.unhealthy
@@ -172,7 +172,7 @@ async def test_addon_boot_host_network_gateway_protected(
 async def test_addon_boot_system_error(
     coresys: CoreSys, install_addon_ssh: Addon, capture_exception: Mock, err
 ):
-    """Test system errors during addon boot."""
+    """Test system errors during app boot."""
     install_addon_ssh.boot = AddonBoot.AUTO
     assert coresys.resolution.issues == []
     assert coresys.resolution.suggestions == []
@@ -190,7 +190,7 @@ async def test_addon_boot_system_error(
 async def test_addon_boot_user_error(
     coresys: CoreSys, install_addon_ssh: Addon, capture_exception: Mock
 ):
-    """Test user error during addon boot."""
+    """Test user error during app boot."""
     install_addon_ssh.boot = AddonBoot.AUTO
     with patch.object(Addon, "write_options", side_effect=AddonConfigurationError):
         await coresys.addons.boot(AddonStartup.APPLICATION)
@@ -203,7 +203,7 @@ async def test_addon_boot_user_error(
 async def test_addon_boot_other_error(
     coresys: CoreSys, install_addon_ssh: Addon, capture_exception: Mock
 ):
-    """Test other errors captured during addon boot."""
+    """Test other errors captured during app boot."""
     install_addon_ssh.boot = AddonBoot.AUTO
     err = OSError()
     with (
@@ -220,7 +220,7 @@ async def test_addon_boot_other_error(
 async def test_addon_shutdown_error(
     coresys: CoreSys, install_addon_ssh: Addon, capture_exception: Mock
 ):
-    """Test errors captured during addon shutdown."""
+    """Test errors captured during app shutdown."""
     install_addon_ssh.state = AddonState.STARTED
     with patch.object(DockerAddon, "stop", side_effect=DockerNotFound()):
         await coresys.addons.shutdown(AddonStartup.APPLICATION)
@@ -236,7 +236,7 @@ async def test_addon_shutdown_error(
 async def test_addon_uninstall_removes_discovery(
     coresys: CoreSys, install_addon_ssh: Addon
 ):
-    """Test discovery messages removed when addon uninstalled."""
+    """Test discovery messages removed when app uninstalled."""
     assert coresys.discovery.list_messages == []
 
     message = await coresys.discovery.send(
@@ -272,7 +272,7 @@ async def test_addon_uninstall_removes_discovery(
 
 @pytest.mark.usefixtures("install_addon_ssh")
 async def test_load(coresys: CoreSys, caplog: pytest.LogCaptureFixture):
-    """Test addon manager load."""
+    """Test app manager load."""
     caplog.clear()
 
     with (
@@ -289,7 +289,7 @@ async def test_load(coresys: CoreSys, caplog: pytest.LogCaptureFixture):
 
 @pytest.mark.usefixtures("tmp_supervisor_data", "path_extern")
 async def test_boot_waits_for_addons(coresys: CoreSys, install_addon_ssh: Addon):
-    """Test addon manager boot waits for addons."""
+    """Test app manager boot waits for apps."""
     install_addon_ssh.path_data.mkdir()
     await install_addon_ssh.load()
     await asyncio.sleep(0)
@@ -326,7 +326,7 @@ async def test_update(
     container: DockerContainer,
     status: str,
 ):
-    """Test addon update."""
+    """Test app update."""
     container.show.return_value["State"]["Status"] = status
     container.show.return_value["State"]["Running"] = status == "running"
     install_addon_ssh.path_data.mkdir()
@@ -356,7 +356,7 @@ async def test_rebuild(
     container: DockerContainer,
     status: str,
 ):
-    """Test addon rebuild."""
+    """Test app rebuild."""
     container.show.return_value["State"]["Status"] = status
     container.show.return_value["State"]["Running"] = status == "running"
     install_addon_ssh.path_data.mkdir()
@@ -378,7 +378,7 @@ async def test_start_wait_resolved_on_uninstall_in_startup(
     install_addon_ssh: Addon,
     container: DockerContainer,
 ) -> None:
-    """Test uninstall resolves the startup wait task when addon is in STARTUP state."""
+    """Test uninstall resolves the startup wait task when app is in STARTUP state."""
     install_addon_ssh.path_data.mkdir()
     container.show.return_value["Config"] = {"Healthcheck": "exists"}
     await install_addon_ssh.load()
@@ -455,7 +455,7 @@ async def test_repository_file_error(
 async def test_store_data_changes_during_update(
     coresys: CoreSys, install_addon_ssh: Addon
 ):
-    """Test store data changing for an addon during an update does not cause errors."""
+    """Test store data changing for an app during an update does not cause errors."""
     event = asyncio.Event()
     coresys.store.data.addons["local_ssh"]["image"] = "test_image"
     coresys.store.data.addons["local_ssh"]["version"] = AwesomeVersion("1.1.1")
@@ -539,7 +539,7 @@ async def test_watchdog_runs_during_update(
 async def test_shared_image_kept_on_uninstall(
     coresys: CoreSys, install_addon_example: Addon
 ):
-    """Test if two addons share an image it is not removed on uninstall."""
+    """Test if two apps share an image it is not removed on uninstall."""
     # Clone example to a new mock copy so two share an image
     store_data = deepcopy(coresys.addons.store["local_example"].data)
     store = AddonStore(coresys, "local_example2", store_data)
@@ -571,12 +571,12 @@ async def test_update_reloads_ingress_tokens(
     install_addon_ssh: Addon,
     container: DockerContainer,
 ):
-    """Test ingress tokens are reloaded when addon gains ingress on update."""
+    """Test ingress tokens are reloaded when app gains ingress on update."""
     container.show.return_value["State"]["Status"] = "stopped"
     container.show.return_value["State"]["Running"] = False
     install_addon_ssh.path_data.mkdir()
 
-    # Simulate addon was installed without ingress
+    # Simulate app was installed without ingress
     coresys.addons.data.system[install_addon_ssh.slug][ATTR_INGRESS] = False
     await install_addon_ssh.load()
     await coresys.ingress.reload()
@@ -608,12 +608,12 @@ async def test_rebuild_reloads_ingress_tokens(
     install_addon_ssh: Addon,
     container: DockerContainer,
 ):
-    """Test ingress tokens are reloaded when addon gains ingress on rebuild."""
+    """Test ingress tokens are reloaded when app gains ingress on rebuild."""
     container.show.return_value["State"]["Status"] = "stopped"
     container.show.return_value["State"]["Running"] = False
     install_addon_ssh.path_data.mkdir()
 
-    # Simulate addon was installed without ingress
+    # Simulate app was installed without ingress
     coresys.addons.data.system[install_addon_ssh.slug][ATTR_INGRESS] = False
     await install_addon_ssh.load()
     await coresys.ingress.reload()
@@ -637,7 +637,7 @@ async def test_rebuild_reloads_ingress_tokens(
 async def test_shared_image_kept_on_update(
     coresys: CoreSys, install_addon_example_image: Addon, docker: DockerAPI
 ):
-    """Test if two addons share an image it is not removed on update."""
+    """Test if two apps share an image it is not removed on update."""
     # Clone example to a new mock copy so two share an image
     # But modify version in store so Supervisor sees an update
     curr_store_data = deepcopy(coresys.store.data.addons["local_example_image"])

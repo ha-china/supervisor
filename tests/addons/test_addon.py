@@ -1,4 +1,4 @@
-"""Test Home Assistant Add-ons."""
+"""Test Home Assistant Apps."""
 
 import asyncio
 from datetime import timedelta
@@ -112,7 +112,7 @@ def test_options_merge(coresys: CoreSys, install_addon_ssh: Addon) -> None:
 
 
 async def test_addon_state_listener(coresys: CoreSys, install_addon_ssh: Addon) -> None:
-    """Test addon is setting state from docker events."""
+    """Test app is setting state from docker events."""
     with patch.object(DockerAddon, "attach"):
         await install_addon_ssh.load()
 
@@ -135,14 +135,14 @@ async def test_addon_state_listener(coresys: CoreSys, install_addon_ssh: Addon) 
         await asyncio.sleep(0)
         assert install_addon_ssh.state == AddonState.ERROR
 
-        # Test other addons are ignored
+        # Test other apps are ignored
         _fire_test_event(coresys, "addon_local_non_installed", ContainerState.RUNNING)
         await asyncio.sleep(0)
         assert install_addon_ssh.state == AddonState.ERROR
 
 
 async def test_addon_watchdog(coresys: CoreSys, install_addon_ssh: Addon) -> None:
-    """Test addon watchdog works correctly."""
+    """Test app watchdog works correctly."""
     with patch.object(DockerAddon, "attach"):
         await install_addon_ssh.load()
 
@@ -181,7 +181,7 @@ async def test_addon_watchdog(coresys: CoreSys, install_addon_ssh: Addon) -> Non
         restart.assert_not_called()
         start.assert_not_called()
 
-        # Other addons ignored
+        # Other apps ignored
         current_state.return_value = ContainerState.UNHEALTHY
         _fire_test_event(coresys, "addon_local_non_installed", ContainerState.UNHEALTHY)
         await asyncio.sleep(0)
@@ -190,7 +190,7 @@ async def test_addon_watchdog(coresys: CoreSys, install_addon_ssh: Addon) -> Non
 
 
 async def test_watchdog_on_stop(coresys: CoreSys, install_addon_ssh: Addon) -> None:
-    """Test addon watchdog restarts addon on stop if not manual."""
+    """Test app watchdog restarts app on stop if not manual."""
     with patch.object(DockerAddon, "attach"):
         await install_addon_ssh.load()
 
@@ -205,7 +205,7 @@ async def test_watchdog_on_stop(coresys: CoreSys, install_addon_ssh: Addon) -> N
         ),
         patch.object(DockerAddon, "stop"),
     ):
-        # Do not restart when addon stopped by user
+        # Do not restart when app stopped by user
         _fire_test_event(coresys, f"addon_{TEST_ADDON_SLUG}", ContainerState.RUNNING)
         await asyncio.sleep(0)
         await install_addon_ssh.stop()
@@ -213,7 +213,7 @@ async def test_watchdog_on_stop(coresys: CoreSys, install_addon_ssh: Addon) -> N
         await asyncio.sleep(0)
         restart.assert_not_called()
 
-        # Do restart addon if it stops and user didn't do it
+        # Do restart app if it stops and user didn't do it
         _fire_test_event(coresys, f"addon_{TEST_ADDON_SLUG}", ContainerState.RUNNING)
         await asyncio.sleep(0)
         _fire_test_event(coresys, f"addon_{TEST_ADDON_SLUG}", ContainerState.STOPPED)
@@ -223,7 +223,7 @@ async def test_watchdog_on_stop(coresys: CoreSys, install_addon_ssh: Addon) -> N
 
 @pytest.mark.usefixtures("mock_amd64_arch_supported", "test_repository")
 async def test_listener_attached_on_install(coresys: CoreSys):
-    """Test events listener attached on addon install."""
+    """Test events listener attached on app install."""
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
     coresys.docker.containers.get.side_effect = aiodocker.DockerError(
         500, {"message": "fail"}
@@ -241,7 +241,7 @@ async def test_listener_attached_on_install(coresys: CoreSys):
     ):
         await coresys.addons.install(TEST_ADDON_SLUG)
 
-    # Normally this would be defaulted to False on start of the addon but test skips that
+    # Normally this would be defaulted to False on start of the app but test skips that
     coresys.addons.get_local_only(TEST_ADDON_SLUG).watchdog = False
 
     _fire_test_event(coresys, f"addon_{TEST_ADDON_SLUG}", ContainerState.RUNNING)
@@ -288,7 +288,7 @@ async def test_watchdog_during_attach(
 
 @pytest.mark.usefixtures("install_addon_ssh")
 async def test_install_update_fails_if_out_of_date(coresys: CoreSys):
-    """Test install or update of addon fails when supervisor or plugin is out of date."""
+    """Test install or update of app fails when supervisor or plugin is out of date."""
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
 
     with patch.object(
@@ -318,7 +318,7 @@ async def test_install_update_fails_if_out_of_date(coresys: CoreSys):
 async def test_listeners_removed_on_uninstall(
     coresys: CoreSys, install_addon_ssh: Addon
 ) -> None:
-    """Test addon listeners are removed on uninstall."""
+    """Test app listeners are removed on uninstall."""
     with patch.object(DockerAddon, "attach"):
         await install_addon_ssh.load()
 
@@ -342,7 +342,7 @@ async def test_listeners_removed_on_uninstall(
 
 @pytest.mark.usefixtures("tmp_supervisor_data", "path_extern")
 async def test_start(coresys: CoreSys, install_addon_ssh: Addon) -> None:
-    """Test starting an addon without healthcheck."""
+    """Test starting an app without healthcheck."""
     install_addon_ssh.path_data.mkdir()
     await install_addon_ssh.load()
     await asyncio.sleep(0)
@@ -364,7 +364,7 @@ async def test_start_wait_healthcheck(
     container: DockerContainer,
     state: ContainerState,
 ) -> None:
-    """Test starting an addon with a healthcheck waits for health status."""
+    """Test starting an app with a healthcheck waits for health status."""
     install_addon_ssh.path_data.mkdir()
     container.show.return_value["Config"] = {"Healthcheck": "exists"}
     await install_addon_ssh.load()
@@ -391,7 +391,7 @@ async def test_start_wait_healthcheck(
 async def test_start_timeout(
     install_addon_ssh: Addon, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Test starting an addon times out while waiting."""
+    """Test starting an app times out while waiting."""
     install_addon_ssh.path_data.mkdir()
     await install_addon_ssh.load()
     await asyncio.sleep(0)
@@ -411,7 +411,7 @@ async def test_start_timeout(
 
 @pytest.mark.usefixtures("tmp_supervisor_data", "path_extern")
 async def test_restart(coresys: CoreSys, install_addon_ssh: Addon) -> None:
-    """Test restarting an addon."""
+    """Test restarting an app."""
     install_addon_ssh.path_data.mkdir()
     await install_addon_ssh.load()
     await asyncio.sleep(0)
@@ -433,7 +433,7 @@ async def test_backup(
     container: DockerContainer,
     status: str,
 ) -> None:
-    """Test backing up an addon."""
+    """Test backing up an app."""
     container.show.return_value["State"]["Status"] = status
     container.show.return_value["State"]["Running"] = status == "running"
     install_addon_ssh.path_data.mkdir()
@@ -454,7 +454,7 @@ async def test_backup_no_config(
     container: DockerContainer,
     status: str,
 ) -> None:
-    """Test backing up an addon with deleted config directory."""
+    """Test backing up an app with deleted config directory."""
     container.show.return_value["State"]["Status"] = status
     container.show.return_value["State"]["Running"] = status == "running"
 
@@ -476,7 +476,7 @@ async def test_backup_with_pre_post_command(
     install_addon_ssh: Addon,
     container: DockerContainer,
 ) -> None:
-    """Test backing up an addon with pre and post command."""
+    """Test backing up an app with pre and post command."""
     container.show.return_value["State"]["Status"] = "running"
     container.show.return_value["State"]["Running"] = True
     install_addon_ssh.path_data.mkdir()
@@ -543,7 +543,7 @@ async def test_backup_with_pre_command_error(
     exec_inspect_side_effect: aiodocker.DockerError | list[dict[str, Any]] | None,
     exc_type_raised: type[HassioError],
 ) -> None:
-    """Test backing up an addon with error running pre command."""
+    """Test backing up an app with error running pre command."""
     coresys.docker.containers.get.side_effect = container_get_side_effect
     coresys.docker.containers.get.return_value.exec.return_value.start.side_effect = (
         exec_start_side_effect
@@ -577,7 +577,7 @@ async def test_backup_cold_mode(
     container: DockerContainer,
     status: str,
 ) -> None:
-    """Test backing up an addon in cold mode."""
+    """Test backing up an app in cold mode."""
     container.show.return_value["State"]["Status"] = status
     container.show.return_value["State"]["Running"] = status == "running"
     install_addon_ssh.path_data.mkdir()
@@ -608,7 +608,7 @@ async def test_backup_cold_mode_with_watchdog(
     install_addon_ssh: Addon,
     container: DockerContainer,
 ):
-    """Test backing up an addon in cold mode with watchdog active."""
+    """Test backing up an app in cold mode with watchdog active."""
     container.show.return_value["State"]["Status"] = "running"
     container.show.return_value["State"]["Running"] = True
     install_addon_ssh.watchdog = True
@@ -651,7 +651,7 @@ async def test_backup_cold_mode_with_watchdog(
     "tmp_supervisor_data", "path_extern", "mock_aarch64_arch_supported"
 )
 async def test_restore(coresys: CoreSys, install_addon_ssh: Addon, status: str) -> None:
-    """Test restoring an addon."""
+    """Test restoring an app."""
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
     install_addon_ssh.path_data.mkdir()
     await install_addon_ssh.load()
@@ -669,7 +669,7 @@ async def test_restore(coresys: CoreSys, install_addon_ssh: Addon, status: str) 
 async def test_restore_while_running(
     coresys: CoreSys, install_addon_ssh: Addon, container: DockerContainer
 ):
-    """Test restore of a running addon."""
+    """Test restore of a running app."""
     container.show.return_value["State"]["Status"] = "running"
     container.show.return_value["State"]["Running"] = True
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
@@ -693,7 +693,7 @@ async def test_restore_while_running(
 async def test_restore_while_running_with_watchdog(
     coresys: CoreSys, install_addon_ssh: Addon, container: DockerContainer
 ):
-    """Test restore of a running addon with watchdog interference."""
+    """Test restore of a running app with watchdog interference."""
     container.show.return_value["State"]["Status"] = "running"
     container.show.return_value["State"]["Running"] = True
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
@@ -728,7 +728,7 @@ async def test_start_when_running(
     container: DockerContainer,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Test starting an addon without healthcheck."""
+    """Test starting an app without healthcheck."""
     container.show.return_value["State"]["Status"] = "running"
     container.show.return_value["State"]["Running"] = True
     await install_addon_ssh.load()
@@ -745,7 +745,7 @@ async def test_start_when_running(
 
 @pytest.mark.usefixtures("test_repository", "mock_aarch64_arch_supported")
 async def test_local_example_install(coresys: CoreSys, tmp_supervisor_data: Path):
-    """Test install of an addon."""
+    """Test install of an app."""
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
     assert not (
         data_dir := tmp_supervisor_data / "addons" / "data" / "local_example"
@@ -760,7 +760,7 @@ async def test_local_example_install(coresys: CoreSys, tmp_supervisor_data: Path
 
 @pytest.mark.usefixtures("test_repository", "tmp_supervisor_data")
 async def test_addon_install_auth_failure(coresys: CoreSys):
-    """Test addon install raises DockerRegistryAuthError on 401 with credentials."""
+    """Test app install raises DockerRegistryAuthError on 401 with credentials."""
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
 
     # Configure bad registry credentials
@@ -778,7 +778,7 @@ async def test_addon_install_auth_failure(coresys: CoreSys):
     ):
         await coresys.addons.install("local_example")
 
-    # Verify addon data was cleaned up
+    # Verify app data was cleaned up
     assert "local_example" not in coresys.addons.local
 
 
@@ -786,7 +786,7 @@ async def test_addon_install_auth_failure(coresys: CoreSys):
 async def test_addon_update_auth_failure(
     coresys: CoreSys, install_addon_example: Addon
 ):
-    """Test addon update raises DockerRegistryAuthError on 401 with credentials."""
+    """Test app update raises DockerRegistryAuthError on 401 with credentials."""
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
 
     with (
@@ -804,7 +804,7 @@ async def test_addon_update_auth_failure(
 async def test_addon_rebuild_auth_failure(
     coresys: CoreSys, install_addon_example: Addon
 ):
-    """Test addon rebuild raises DockerRegistryAuthError on 401 with credentials."""
+    """Test app rebuild raises DockerRegistryAuthError on 401 with credentials."""
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
 
     with (
@@ -823,7 +823,7 @@ async def test_addon_rebuild_auth_failure(
 async def test_local_example_start(
     tmp_supervisor_data: Path, install_addon_example: Addon
 ):
-    """Test start of an addon."""
+    """Test start of an app."""
     install_addon_example.path_data.mkdir()
     await install_addon_example.load()
     await asyncio.sleep(0)
@@ -840,7 +840,7 @@ async def test_local_example_start(
 
 @pytest.mark.usefixtures("coresys", "tmp_supervisor_data")
 async def test_local_example_ingress_port_set(install_addon_example: Addon):
-    """Test start of an addon."""
+    """Test start of an app."""
     install_addon_example.path_data.mkdir()
     await install_addon_example.load()
 
@@ -851,7 +851,7 @@ async def test_local_example_ingress_port_set(install_addon_example: Addon):
 async def test_addon_pulse_error(
     coresys: CoreSys, install_addon_example: Addon, caplog: pytest.LogCaptureFixture
 ):
-    """Test error writing pulse config for addon."""
+    """Test error writing pulse config for app."""
     with patch(
         "supervisor.addons.addon.Path.write_text", side_effect=(err := OSError())
     ):
@@ -927,7 +927,7 @@ async def test_paths_cache(coresys: CoreSys, install_addon_ssh: Addon):
 async def test_addon_loads_wrong_image(
     coresys: CoreSys, install_addon_ssh: Addon, container: DockerContainer
 ):
-    """Test addon is loaded with incorrect image for architecture."""
+    """Test app is loaded with incorrect image for architecture."""
     coresys.addons.data.save_data.reset_mock()
     install_addon_ssh.persist["image"] = "local/aarch64-addon-ssh"
     assert install_addon_ssh.image == "local/aarch64-addon-ssh"
@@ -948,7 +948,7 @@ async def test_addon_loads_wrong_image(
         await install_addon_ssh.load()
 
     container.delete.assert_called_with(force=True, v=True)
-    # one for removing the addon, one for removing the addon builder
+    # one for removing the app, one for removing the app builder
     assert coresys.docker.images.delete.call_count == 2
 
     assert coresys.docker.images.delete.call_args_list[0] == call(
@@ -975,7 +975,7 @@ async def test_addon_loads_wrong_image(
 
 @pytest.mark.usefixtures("mock_amd64_arch_supported")
 async def test_addon_loads_missing_image(coresys: CoreSys, install_addon_ssh: Addon):
-    """Test addon corrects a missing image on load."""
+    """Test app corrects a missing image on load."""
     coresys.docker.images.inspect.side_effect = aiodocker.DockerError(
         HTTPStatus.NOT_FOUND, {"message": "missing"}
     )
@@ -1056,11 +1056,11 @@ async def test_addon_load_succeeds_with_docker_errors(
 
 @pytest.mark.usefixtures("coresys")
 async def test_addon_manual_only_boot(install_addon_example: Addon):
-    """Test an addon with manual only boot mode."""
+    """Test an app with manual only boot mode."""
     assert install_addon_example.boot_config == "manual_only"
     assert install_addon_example.boot == "manual"
 
-    # Users cannot change boot mode of an addon with manual forced so changing boot isn't realistic
+    # Users cannot change boot mode of an app with manual forced so changing boot isn't realistic
     # However boot mode can change on update and user may have set auto before, ensure it is ignored
     install_addon_example.boot = "auto"
     assert install_addon_example.boot == "manual"
@@ -1095,7 +1095,7 @@ async def test_addon_state_dismisses_issue(
     issue: Issue,
     suggestions: list[SuggestionType],
 ):
-    """Test an addon state change dismisses the issues."""
+    """Test an app state change dismisses the issues."""
     install_addon_ssh.state = initial_state
     coresys.resolution.add_issue(issue, suggestions)
 
@@ -1127,7 +1127,7 @@ async def test_addon_start_port_conflict_error(
     install_addon_ssh: Addon,
     caplog: pytest.LogCaptureFixture,
 ):
-    """Test port conflict error when trying to start addon."""
+    """Test port conflict error when trying to start app."""
     install_addon_ssh.data["image"] = "test/amd64-addon-ssh"
     coresys.docker.containers.create.return_value.start.side_effect = aiodocker.DockerError(
         HTTPStatus.INTERNAL_SERVER_ERROR,

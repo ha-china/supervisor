@@ -94,7 +94,7 @@ class APIRoot(CoreSysAttributes):
                 }
             )
 
-        # Add-ons
+        # Apps
         available_updates.extend(
             {
                 ATTR_UPDATE_TYPE: "addon",

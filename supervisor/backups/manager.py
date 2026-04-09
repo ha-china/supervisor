@@ -520,7 +520,7 @@ class BackupManager(FileConfiguration, JobGroup):
 
             # Any exception leaving create() means the backup is incomplete
             # and will be discarded (file unlinked below). Individual
-            # add-on/folder errors are captured inside store_addons/
+            # app/folder errors are captured inside store_addons/
             # store_folders and do not propagate.
             async with backup.create():
                 # HomeAssistant Folder is for v1
@@ -532,7 +532,7 @@ class BackupManager(FileConfiguration, JobGroup):
                         else homeassistant_exclude_database
                     )
 
-                # Backup add-ons
+                # Backup apps
                 if addon_list:
                     self._change_stage(BackupJobStage.ADDONS, backup)
                     addon_start_tasks = await backup.store_addons(addon_list)
@@ -570,7 +570,7 @@ class BackupManager(FileConfiguration, JobGroup):
 
             if addon_start_tasks:
                 self._change_stage(BackupJobStage.AWAIT_ADDON_RESTARTS, backup)
-                # Ignore exceptions from waiting for addon startup, addon errors handled elsewhere
+                # Ignore exceptions from waiting for app startup, app errors handled elsewhere
                 await asyncio.gather(*addon_start_tasks, return_exceptions=True)
 
             return backup
@@ -732,7 +732,7 @@ class BackupManager(FileConfiguration, JobGroup):
                     self._change_stage(RestoreJobStage.HOME_ASSISTANT, backup)
                     task_hass = await backup.restore_homeassistant()
 
-                # Delete delta add-ons
+                # Delete delta apps
                 if replace:
                     self._change_stage(RestoreJobStage.REMOVE_DELTA_ADDONS, backup)
                     success = success and await backup.remove_delta_addons()
@@ -769,7 +769,7 @@ class BackupManager(FileConfiguration, JobGroup):
         else:
             if addon_start_tasks:
                 self._change_stage(RestoreJobStage.AWAIT_ADDON_RESTARTS, backup)
-                # Failure to resume addons post restore is still a restore failure
+                # Failure to resume apps post restore is still a restore failure
                 if any(
                     await asyncio.gather(*addon_start_tasks, return_exceptions=True)
                 ):
@@ -871,7 +871,7 @@ class BackupManager(FileConfiguration, JobGroup):
         await self.sys_core.set_state(CoreState.FREEZE)
 
         try:
-            # Stop Home-Assistant / Add-ons
+            # Stop Home-Assistant / Apps
             await self.sys_core.shutdown(remove_homeassistant_container=True)
 
             success = await self._do_restore(
@@ -972,7 +972,7 @@ class BackupManager(FileConfiguration, JobGroup):
         """Freeze system to prepare for an external backup such as an image snapshot."""
         await self.sys_core.set_state(CoreState.FREEZE)
 
-        # Determine running addons
+        # Determine running apps
         installed = self.sys_addons.installed.copy()
         is_running: list[bool] = await asyncio.gather(
             *[addon.is_running() for addon in installed]
@@ -990,7 +990,7 @@ class BackupManager(FileConfiguration, JobGroup):
         self._change_stage(BackupJobStage.HOME_ASSISTANT)
         await self.sys_homeassistant.begin_backup()
 
-        # Run all pre-backup tasks for addons
+        # Run all pre-backup tasks for apps
         self._change_stage(BackupJobStage.ADDONS)
         await asyncio.gather(*[addon.begin_backup() for addon in running_addons])
 

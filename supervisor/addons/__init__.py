@@ -1,1 +1,1 @@
-"""Init file for Supervisor add-ons."""
+"""Init file for Supervisor apps."""

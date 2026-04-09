@@ -242,42 +242,42 @@ class CoreConfig(FileConfiguration):
 
     @property
     def path_addons_core(self) -> Path:
-        """Return git path for core Add-ons."""
+        """Return git path for core Apps."""
         return self.path_supervisor / ADDONS_CORE
 
     @property
     def path_addons_git(self) -> Path:
-        """Return path for Git Add-on."""
+        """Return path for Git App."""
         return self.path_supervisor / ADDONS_GIT
 
     @property
     def path_addons_local(self) -> Path:
-        """Return path for custom Add-ons."""
+        """Return path for custom Apps."""
         return self.path_supervisor / ADDONS_LOCAL
 
     @property
     def path_extern_addons_local(self) -> PurePath:
-        """Return path for custom Add-ons."""
+        """Return path for custom Apps."""
         return PurePath(self.path_extern_supervisor, ADDONS_LOCAL)
 
     @property
     def path_addons_data(self) -> Path:
-        """Return root Add-on data folder."""
+        """Return root App data folder."""
         return self.path_supervisor / ADDONS_DATA
 
     @property
     def path_extern_addons_data(self) -> PurePath:
-        """Return root add-on data folder external for Docker."""
+        """Return root app data folder external for Docker."""
         return PurePath(self.path_extern_supervisor, ADDONS_DATA)
 
     @property
     def path_addon_configs(self) -> Path:
-        """Return root Add-on configs folder."""
+        """Return root App configs folder."""
         return self.path_supervisor / ADDON_CONFIGS
 
     @property
     def path_extern_addon_configs(self) -> PurePath:
-        """Return root Add-on configs folder external for Docker."""
+        """Return root App configs folder external for Docker."""
         return PurePath(self.path_extern_supervisor, ADDON_CONFIGS)
 
     @property
@@ -412,7 +412,7 @@ class CoreConfig(FileConfiguration):
 
     @property
     def addons_repositories(self) -> list[str]:
-        """Return list of custom Add-on repositories."""
+        """Return list of custom App repositories."""
         return self._data[ATTR_ADDONS_CUSTOM_LIST]
 
     def add_addon_repository(self, repo: str) -> None:

@@ -1,4 +1,4 @@
-"""Add-on Store handler."""
+"""App Store handler."""
 
 import asyncio
 from collections.abc import Awaitable
@@ -27,7 +27,7 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
 class StoreManager(CoreSysAttributes, FileConfiguration):
-    """Manage add-ons inside Supervisor."""
+    """Manage apps inside Supervisor."""
 
     def __init__(self, coresys: CoreSys):
         """Initialize Docker base wrapper."""
@@ -38,7 +38,7 @@ class StoreManager(CoreSysAttributes, FileConfiguration):
 
     @property
     def all(self) -> list[Repository]:
-        """Return list of add-on repositories."""
+        """Return list of app repositories."""
         return list(self.repositories.values())
 
     @property
@@ -63,7 +63,7 @@ class StoreManager(CoreSysAttributes, FileConfiguration):
         return self.repositories[slug]
 
     async def load(self) -> None:
-        """Start up add-on store management."""
+        """Start up app store management."""
         # Make sure the built-in repositories are all present
         # This is especially important when adding new built-in repositories
         # to make sure existing installations have them.
@@ -82,7 +82,7 @@ class StoreManager(CoreSysAttributes, FileConfiguration):
         on_condition=StoreJobError,
     )
     async def reload(self, repository: Repository | None = None) -> None:
-        """Update add-ons from repository and reload list."""
+        """Update apps from repository and reload list."""
         # Make a copy to prevent race with other tasks
         repositories = [repository] if repository else self.all.copy()
         results: list[bool | BaseException] = await asyncio.gather(
@@ -101,7 +101,7 @@ class StoreManager(CoreSysAttributes, FileConfiguration):
                     result,
                 )
 
-        # Update path cache for all addons in updated repos
+        # Update path cache for all apps in updated repos
         if updated_repos:
             await asyncio.gather(
                 *[
@@ -288,7 +288,7 @@ class StoreManager(CoreSysAttributes, FileConfiguration):
                 raise error
 
     async def _read_addons(self) -> None:
-        """Reload add-ons inside store."""
+        """Reload apps inside store."""
         all_addons = set(self.data.addons)
 
         # calc diff
@@ -302,7 +302,7 @@ class StoreManager(CoreSysAttributes, FileConfiguration):
             len(del_addons),
         )
 
-        # new addons
+        # new apps
         if add_addons:
             cache_updates: list[Awaitable[None]] = []
             for slug in add_addons:

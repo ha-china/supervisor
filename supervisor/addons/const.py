@@ -1,4 +1,4 @@
-"""Add-on static data."""
+"""App static data."""
 
 from datetime import timedelta
 from enum import StrEnum
@@ -7,14 +7,14 @@ from ..jobs.const import JobCondition
 
 
 class AddonBackupMode(StrEnum):
-    """Backup mode of an Add-on."""
+    """Backup mode of an App."""
 
     HOT = "hot"
     COLD = "cold"
 
 
 class MappingType(StrEnum):
-    """Mapping type of an Add-on Folder."""
+    """Mapping type of an App Folder."""
 
     DATA = "data"
     CONFIG = "config"

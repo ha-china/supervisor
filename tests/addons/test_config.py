@@ -1,4 +1,4 @@
-"""Validate Add-on configs."""
+"""Validate App configs."""
 
 import pytest
 import voluptuous as vol
@@ -350,10 +350,10 @@ def test_watchdog_url():
 
 
 def test_valid_slug():
-    """Test valid and invalid addon slugs."""
+    """Test valid and invalid app slugs."""
     config = load_json_fixture("basic-addon-config.json")
 
-    # All examples pulled from https://analytics.home-assistant.io/addons.json
+    # All examples pulled from https://analytics.home-assistant.io/apps.json
     config["slug"] = "uptime-kuma"
     assert vd.SCHEMA_ADDON_CONFIG(config)
 
@@ -383,7 +383,7 @@ def test_valid_slug():
 
 
 def test_valid_schema():
-    """Test valid and invalid addon slugs."""
+    """Test valid and invalid app slugs."""
     config = load_json_fixture("basic-addon-config.json")
 
     # Basic types

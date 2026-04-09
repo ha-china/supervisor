@@ -1,4 +1,4 @@
-"""Test fixup addon execute start."""
+"""Test fixup app execute start."""
 
 from unittest.mock import patch
 
@@ -25,7 +25,7 @@ EXECUTE_START_SUGGESTION = Suggestion(
 )
 @pytest.mark.usefixtures("path_extern")
 async def test_fixup(coresys: CoreSys, install_addon_ssh: Addon, state: AddonState):
-    """Test fixup starts addon."""
+    """Test fixup starts app."""
     install_addon_ssh.state = AddonState.UNKNOWN
     addon_execute_start = FixupAddonExecuteStart(coresys)
     assert addon_execute_start.auto is False
@@ -51,7 +51,7 @@ async def test_fixup(coresys: CoreSys, install_addon_ssh: Addon, state: AddonSta
 
 @pytest.mark.usefixtures("path_extern")
 async def test_fixup_start_error(coresys: CoreSys, install_addon_ssh: Addon):
-    """Test fixup fails on start addon failure."""
+    """Test fixup fails on start app failure."""
     install_addon_ssh.state = AddonState.UNKNOWN
     addon_execute_start = FixupAddonExecuteStart(coresys)
 
@@ -75,7 +75,7 @@ async def test_fixup_start_error(coresys: CoreSys, install_addon_ssh: Addon):
 async def test_fixup_wait_start_failure(
     coresys: CoreSys, install_addon_ssh: Addon, state: AddonState
 ):
-    """Test fixup fails if addon does not complete startup."""
+    """Test fixup fails if app does not complete startup."""
     install_addon_ssh.state = AddonState.UNKNOWN
     addon_execute_start = FixupAddonExecuteStart(coresys)
 
@@ -99,7 +99,7 @@ async def test_fixup_wait_start_failure(
 
 
 async def test_fixup_no_addon(coresys: CoreSys):
-    """Test fixup dismisses if addon is missing."""
+    """Test fixup dismisses if app is missing."""
     addon_execute_start = FixupAddonExecuteStart(coresys)
 
     coresys.resolution.add_issue(

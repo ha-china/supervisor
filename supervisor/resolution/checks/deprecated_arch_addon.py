@@ -1,4 +1,4 @@
-"""Helpers to check for add-ons using deprecated compatibility entries."""
+"""Helpers to check for apps using deprecated compatibility entries."""
 
 from ...const import AddonStage, CoreState
 from ...coresys import CoreSys
@@ -12,7 +12,7 @@ def setup(coresys: CoreSys) -> CheckBase:
 
 
 class CheckDeprecatedArchAddon(CheckBase):
-    """CheckDeprecatedArchAddon class for check."""
+    """CheckDeprecatedArchApp class for check."""
 
     async def run_check(self) -> None:
         """Run check if not affected by issue."""

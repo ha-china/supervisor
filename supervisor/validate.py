@@ -87,7 +87,7 @@ def docker_image(image: str) -> str:
     if not path:
         raise vol.Invalid(f"Docker image has no name: {image}")
 
-    # Tags are not allowed - version is managed separately by the add-on system
+    # Tags are not allowed - version is managed separately by the app system
     if ":" in path:
         raise vol.Invalid(f"Docker image must not contain a tag: {image}")
 

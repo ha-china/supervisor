@@ -1,4 +1,4 @@
-"""Constants for the add-on store."""
+"""Constants for the app store."""
 
 from enum import StrEnum
 from pathlib import Path

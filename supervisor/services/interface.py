@@ -34,7 +34,7 @@ class ServiceInterface(CoreSysAttributes, ABC):
 
     @property
     def providers(self) -> list[str]:
-        """Return name of service providers addon."""
+        """Return name of service providers app."""
         addons = []
         for addon in self.sys_addons.installed:
             if addon.services_role.get(self.slug) == PROVIDE_SERVICE:
@@ -44,7 +44,7 @@ class ServiceInterface(CoreSysAttributes, ABC):
     @property
     @abstractmethod
     def active(self) -> list[str]:
-        """Return list of addon slug they have enable that."""
+        """Return list of app slug they have enable that."""
 
     @property
     def enabled(self) -> bool:

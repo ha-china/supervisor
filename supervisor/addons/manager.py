@@ -1,4 +1,4 @@
-"""Supervisor add-on manager."""
+"""Supervisor app manager."""
 
 import asyncio
 from collections.abc import Awaitable
@@ -35,7 +35,7 @@ AnyAddon = Union[Addon, AddonStore]
 
 
 class AddonManager(CoreSysAttributes):
-    """Manage add-ons inside Supervisor."""
+    """Manage apps inside Supervisor."""
 
     def __init__(self, coresys: CoreSys):
         """Initialize Docker base wrapper."""
@@ -46,17 +46,17 @@ class AddonManager(CoreSysAttributes):
 
     @property
     def all(self) -> list[AnyAddon]:
-        """Return a list of all add-ons."""
+        """Return a list of all apps."""
         addons: dict[str, AnyAddon] = {**self.store, **self.local}
         return list(addons.values())
 
     @property
     def installed(self) -> list[Addon]:
-        """Return a list of all installed add-ons."""
+        """Return a list of all installed apps."""
         return list(self.local.values())
 
     def get(self, addon_slug: str, local_only: bool = False) -> AnyAddon | None:
-        """Return an add-on from slug.
+        """Return an app from slug.
 
         Prio:
           1 - Local
@@ -69,11 +69,11 @@ class AddonManager(CoreSysAttributes):
         return None
 
     def get_local_only(self, addon_slug: str) -> Addon | None:
-        """Return an installed add-on from slug."""
+        """Return an installed app from slug."""
         return self.local.get(addon_slug)
 
     def from_token(self, token: str) -> Addon | None:
-        """Return an add-on from Supervisor token."""
+        """Return an app from Supervisor token."""
         for addon in self.installed:
             if token == addon.supervisor_token:
                 return addon
@@ -85,13 +85,13 @@ class AddonManager(CoreSysAttributes):
         return self
 
     async def load(self) -> None:
-        """Start up add-on management."""
-        # Refresh cache for all store addons
+        """Start up app management."""
+        # Refresh cache for all store apps
         tasks: list[Awaitable[None]] = [
             store.refresh_path_cache() for store in self.store.values()
         ]
 
-        # Load all installed addons
+        # Load all installed apps
         for slug in self.data.system:
             addon = self.local[slug] = Addon(self.coresys, slug)
             tasks.append(addon.load())
@@ -105,7 +105,7 @@ class AddonManager(CoreSysAttributes):
         await self.sync_dns()
 
     async def boot(self, stage: AddonStartup) -> None:
-        """Boot add-ons with mode auto."""
+        """Boot apps with mode auto."""
         tasks: list[Addon] = []
         for addon in self.installed:
             if addon.boot != AddonBoot.AUTO or addon.startup != stage:
@@ -123,14 +123,14 @@ class AddonManager(CoreSysAttributes):
                 continue
             tasks.append(addon)
 
-        # Evaluate add-ons which need to be started
+        # Evaluate apps which need to be started
         _LOGGER.info("Phase '%s' starting %d apps", stage, len(tasks))
         if not tasks:
             return
 
-        # Start Add-ons sequential
+        # Start Apps sequential
         # avoid issue on slow IO
-        # Config.wait_boot is deprecated. Until addons update with healthchecks,
+        # Config.wait_boot is deprecated. Until apps update with healthchecks,
         # add a sleep task for it to keep the same minimum amount of wait time
         wait_boot: list[Awaitable[None]] = [asyncio.sleep(self.sys_config.wait_boot)]
         for addon in tasks:
@@ -150,12 +150,12 @@ class AddonManager(CoreSysAttributes):
 
             _LOGGER.warning("Can't start app %s", addon.slug)
 
-        # Ignore exceptions from waiting for addon startup, addon errors handled elsewhere
+        # Ignore exceptions from waiting for app startup, app errors handled elsewhere
         await asyncio.gather(*wait_boot, return_exceptions=True)
 
-        # After waiting for startup, create an issue for boot addons that are error or unknown state
-        # Ignore stopped as single shot addons can be run at boot and this is successful exit
-        # Timeout waiting for startup is not a failure, addon is probably just slow
+        # After waiting for startup, create an issue for boot apps that are error or unknown state
+        # Ignore stopped as single shot apps can be run at boot and this is successful exit
+        # Timeout waiting for startup is not a failure, app is probably just slow
         for addon in tasks:
             if addon.state in {AddonState.ERROR, AddonState.UNKNOWN}:
                 self.sys_resolution.add_issue(
@@ -167,19 +167,19 @@ class AddonManager(CoreSysAttributes):
                 )
 
     async def shutdown(self, stage: AddonStartup) -> None:
-        """Shutdown addons."""
+        """Shutdown apps."""
         tasks: list[Addon] = []
         for addon in self.installed:
             if addon.state != AddonState.STARTED or addon.startup != stage:
                 continue
             tasks.append(addon)
 
-        # Evaluate add-ons which need to be stopped
+        # Evaluate apps which need to be stopped
         _LOGGER.info("Phase '%s' stopping %d apps", stage, len(tasks))
         if not tasks:
             return
 
-        # Stop Add-ons sequential
+        # Stop Apps sequential
         # avoid issue on slow IO
         for addon in tasks:
             try:
@@ -200,7 +200,7 @@ class AddonManager(CoreSysAttributes):
     async def install(
         self, slug: str, *, validation_complete: asyncio.Event | None = None
     ) -> None:
-        """Install an add-on."""
+        """Install an app."""
         self.sys_jobs.current.reference = slug
 
         if slug in self.local:
@@ -222,7 +222,7 @@ class AddonManager(CoreSysAttributes):
 
     @Job(name="addon_manager_uninstall")
     async def uninstall(self, slug: str, *, remove_config: bool = False) -> None:
-        """Remove an add-on."""
+        """Remove an app."""
         if slug not in self.local:
             _LOGGER.warning("App %s is not installed", slug)
             return
@@ -246,7 +246,7 @@ class AddonManager(CoreSysAttributes):
         # We assume for now the docker image pull is 100% of this task for progress
         # allocation. But from a user perspective that isn't true. Other steps
         # that take time which is not accounted for in progress include:
-        # partial backup, image cleanup, apparmor update, and addon restart
+        # partial backup, image cleanup, apparmor update, and app restart
         child_job_syncs=[
             ChildJobSyncFilter("docker_interface_install", progress_allocation=1.0)
         ],
@@ -258,10 +258,10 @@ class AddonManager(CoreSysAttributes):
         *,
         validation_complete: asyncio.Event | None = None,
     ) -> asyncio.Task | None:
-        """Update add-on.
+        """Update app.
 
-        Returns a Task that completes when addon has state 'started' (see addon.start)
-        if addon is started after update. Else nothing is returned.
+        Returns a Task that completes when app has state 'started' (see app.start)
+        if app is started after update. Else nothing is returned.
         """
         self.sys_jobs.current.reference = slug
 
@@ -307,10 +307,10 @@ class AddonManager(CoreSysAttributes):
         on_condition=AddonsJobError,
     )
     async def rebuild(self, slug: str, *, force: bool = False) -> asyncio.Task | None:
-        """Perform a rebuild of local build add-on.
+        """Perform a rebuild of local build app.
 
-        Returns a Task that completes when addon has state 'started' (see addon.start)
-        if addon is started after rebuild. Else nothing is returned.
+        Returns a Task that completes when app has state 'started' (see app.start)
+        if app is started after rebuild. Else nothing is returned.
         """
         self.sys_jobs.current.reference = slug
 
@@ -346,10 +346,10 @@ class AddonManager(CoreSysAttributes):
         on_condition=AddonsJobError,
     )
     async def restore(self, slug: str, tar_file: SecureTarFile) -> asyncio.Task | None:
-        """Restore state of an add-on.
+        """Restore state of an app.
 
-        Returns a Task that completes when addon has state 'started' (see addon.start)
-        if addon is started after restore. Else nothing is returned.
+        Returns a Task that completes when app has state 'started' (see app.start)
+        if app is started after restore. Else nothing is returned.
         """
         self.sys_jobs.current.reference = slug
 
@@ -381,10 +381,10 @@ class AddonManager(CoreSysAttributes):
         conditions=[JobCondition.FREE_SPACE, JobCondition.INTERNET_HOST],
     )
     async def repair(self) -> None:
-        """Repair local add-ons."""
+        """Repair local apps."""
         needs_repair: list[Addon] = []
 
-        # Evaluate Add-ons to repair
+        # Evaluate Apps to repair
         for addon in self.installed:
             if await addon.instance.exists():
                 continue
@@ -405,7 +405,7 @@ class AddonManager(CoreSysAttributes):
                 # Need local lookup
                 if addon.need_build and not addon.is_detached:
                     store = self.store[addon.slug]
-                    # If this add-on is available for rebuild
+                    # If this app is available for rebuild
                     if addon.version == store.version:
                         await addon.instance.install(addon.version, addon.image)
                         continue
@@ -415,7 +415,7 @@ class AddonManager(CoreSysAttributes):
                 await self.uninstall(addon.slug)
 
     async def sync_dns(self) -> None:
-        """Sync add-ons DNS names."""
+        """Sync apps DNS names."""
         # Update hosts
         add_host_coros: list[Awaitable[None]] = []
         for addon in self.installed:

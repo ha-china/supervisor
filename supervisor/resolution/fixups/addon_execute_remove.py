@@ -1,4 +1,4 @@
-"""Helpers to fix addon issue by removing it."""
+"""Helpers to fix app issue by removing it."""
 
 import logging
 
@@ -27,7 +27,7 @@ class FixupAddonExecuteRemove(FixupBase):
             _LOGGER.info("App %s already removed", reference)
             return
 
-        # Remove addon
+        # Remove app
         _LOGGER.info("Remove app: %s", reference)
         try:
             await addon.uninstall(remove_config=False)

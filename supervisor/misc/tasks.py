@@ -109,7 +109,7 @@ class Tasks(CoreSysAttributes):
         conditions=ADDON_UPDATE_CONDITIONS + [JobCondition.RUNNING],
     )
     async def _update_addons(self):
-        """Check if an update is available for an Add-on and update it."""
+        """Check if an update is available for an App and update it."""
         for addon in self.sys_addons.all:
             if not addon.is_installed or not addon.auto_update:
                 continue
@@ -141,7 +141,7 @@ class Tasks(CoreSysAttributes):
                 continue
 
             _LOGGER.info("App auto update process %s", addon.slug)
-            # Call Home Assistant Core to update add-on to make sure that backups
+            # Call Home Assistant Core to update app to make sure that backups
             # get created through the Home Assistant Core API (categorized correctly).
             # Ultimately auto updates should be handled by Home Assistant Core itself
             # through a update entity feature.
@@ -321,7 +321,7 @@ class Tasks(CoreSysAttributes):
             # Init cache data
             retry_scan = self._cache.get(addon.slug, 0)
 
-            # if Addon have running actions / Application work
+            # if App have running actions / Application work
             if addon.in_progress or await addon.watchdog_application():
                 continue
 
@@ -352,7 +352,7 @@ class Tasks(CoreSysAttributes):
         ],
     )
     async def _reload_store(self) -> None:
-        """Reload store and check for addon updates."""
+        """Reload store and check for app updates."""
         await self.sys_store.reload()
 
     @Job(name="tasks_reload_updater")

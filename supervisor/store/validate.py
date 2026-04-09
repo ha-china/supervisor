@@ -1,4 +1,4 @@
-"""Validate add-ons options schema."""
+"""Validate apps options schema."""
 
 import voluptuous as vol
 

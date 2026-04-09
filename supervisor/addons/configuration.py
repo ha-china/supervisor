@@ -1,4 +1,4 @@
-"""Confgiuration Objects for Addon Config."""
+"""Confgiuration Objects for App Config."""
 
 from dataclasses import dataclass
 

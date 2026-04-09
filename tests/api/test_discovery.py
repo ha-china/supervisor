@@ -19,7 +19,7 @@ from tests.const import TEST_ADDON_SLUG
 async def test_api_discovery_forbidden(
     api_client: TestClient, caplog: pytest.LogCaptureFixture, install_addon_ssh
 ):
-    """Test addon sending discovery message for an unregistered service."""
+    """Test app sending discovery message for an unregistered service."""
     caplog.clear()
 
     with caplog.at_level(logging.ERROR):

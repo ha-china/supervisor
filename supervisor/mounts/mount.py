@@ -142,7 +142,7 @@ class Mount(CoreSysAttributes, ABC):
 
     @property
     def container_where(self) -> PurePath | None:
-        """Return where this is made available in managed containers (core, addons, etc.).
+        """Return where this is made available in managed containers (core, apps, etc.).
 
         This returns none if it is not made available in managed containers.
         """

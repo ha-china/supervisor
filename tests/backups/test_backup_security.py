@@ -175,7 +175,7 @@ async def test_homeassistant_restore_rejects_path_traversal(
 async def test_addon_restore_rejects_path_traversal(
     coresys: CoreSys, install_addon_ssh: Addon, tmp_supervisor_data: Path
 ):
-    """Test that add-on restore raises BackupInvalidError for path traversal."""
+    """Test that app restore raises BackupInvalidError for path traversal."""
     tar_path = tmp_supervisor_data / "addon.tar.gz"
     traversal_info = tarfile.TarInfo(name="../../etc/passwd")
     traversal_info.size = 9
@@ -189,7 +189,7 @@ async def test_addon_restore_rejects_path_traversal(
 async def test_addon_restore_rejects_symlink_escape(
     coresys: CoreSys, install_addon_ssh: Addon, tmp_supervisor_data: Path
 ):
-    """Test that add-on restore raises BackupInvalidError for symlink escape."""
+    """Test that app restore raises BackupInvalidError for symlink escape."""
     link_info = tarfile.TarInfo(name="escape")
     link_info.type = tarfile.SYMTYPE
     link_info.linkname = "../outside"

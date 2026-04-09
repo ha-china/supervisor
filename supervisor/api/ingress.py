@@ -1,4 +1,4 @@
-"""Supervisor Add-on ingress service."""
+"""Supervisor App ingress service."""
 
 import asyncio
 from ipaddress import ip_address
@@ -75,13 +75,13 @@ def status_code_must_be_empty_body(code: int) -> bool:
 
 
 class APIIngress(CoreSysAttributes):
-    """Ingress view to handle add-on webui routing."""
+    """Ingress view to handle app webui routing."""
 
     def _extract_addon(self, request: web.Request) -> Addon:
-        """Return addon, throw an exception it it doesn't exist."""
+        """Return app, throw an exception it it doesn't exist."""
         token = request.match_info["token"]
 
-        # Find correct add-on
+        # Find correct app
         addon = self.sys_ingress.get(token)
         if not addon:
             _LOGGER.warning("Ingress for %s not available", token)
@@ -234,8 +234,8 @@ class APIIngress(CoreSysAttributes):
 
         # Passing the raw stream breaks requests for some webservers
         # since we just need it for POST requests really, for all other methods
-        # we read the bytes and pass that to the request to the add-on
-        # add-ons needs to add support with that in the configuration
+        # we read the bytes and pass that to the request to the app
+        # apps needs to add support with that in the configuration
         data = (
             request.content
             if request.method == "POST" and addon.ingress_stream

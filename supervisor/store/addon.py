@@ -1,4 +1,4 @@
-"""Init file for Supervisor add-ons."""
+"""Init file for Supervisor apps."""
 
 from copy import deepcopy
 import logging
@@ -11,7 +11,7 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
 class AddonStore(AddonModel):
-    """Hold data for add-on inside Supervisor."""
+    """Hold data for app inside Supervisor."""
 
     def __init__(self, coresys: CoreSys, slug: str, data: Data | None = None):
         """Initialize object."""
@@ -24,17 +24,17 @@ class AddonStore(AddonModel):
 
     @property
     def data(self) -> Data:
-        """Return add-on data/config."""
+        """Return app data/config."""
         return self._data or self.sys_store.data.addons[self.slug]
 
     @property
     def is_installed(self) -> bool:
-        """Return True if an add-on is installed."""
+        """Return True if an app is installed."""
         return self.sys_addons.get_local_only(self.slug) is not None
 
     @property
     def is_detached(self) -> bool:
-        """Return True if add-on is detached."""
+        """Return True if app is detached."""
         return False
 
     def clone(self) -> Self:

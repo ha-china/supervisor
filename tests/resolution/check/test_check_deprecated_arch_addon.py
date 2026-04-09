@@ -1,4 +1,4 @@
-"""Test check for add-ons with deprecated architectures."""
+"""Test check for apps with deprecated architectures."""
 
 from unittest.mock import patch
 
@@ -17,7 +17,7 @@ async def test_base(coresys: CoreSys):
 
 
 async def test_check(coresys: CoreSys, install_addon_ssh: Addon):
-    """Test check for installed add-ons with deprecated architectures."""
+    """Test check for installed apps with deprecated architectures."""
     deprecated_arch_addon = CheckDeprecatedArchAddon(coresys)
     await coresys.core.set_state(CoreState.SETUP)
 
@@ -51,7 +51,7 @@ async def test_check_ignores_mixed_supported_arch(
 
 
 async def test_check_deprecated_machine(coresys: CoreSys, install_addon_ssh: Addon):
-    """Test check for installed add-ons using deprecated machine entries."""
+    """Test check for installed apps using deprecated machine entries."""
     deprecated_arch_addon = CheckDeprecatedArchAddon(coresys)
     await coresys.core.set_state(CoreState.SETUP)
 
@@ -81,7 +81,7 @@ async def test_check_ignores_mixed_supported_machine(
 async def test_check_ignores_stage_deprecated(
     coresys: CoreSys, install_addon_ssh: Addon
 ):
-    """Test check does not create arch repair issue for already deprecated add-ons."""
+    """Test check does not create arch repair issue for already deprecated apps."""
     deprecated_arch_addon = CheckDeprecatedArchAddon(coresys)
     await coresys.core.set_state(CoreState.SETUP)
 
@@ -94,7 +94,7 @@ async def test_check_ignores_stage_deprecated(
 
 
 async def test_approve(coresys: CoreSys, install_addon_ssh: Addon):
-    """Test approve existing deprecated arch addon issues."""
+    """Test approve existing deprecated arch app issues."""
     deprecated_arch_addon = CheckDeprecatedArchAddon(coresys)
     await coresys.core.set_state(CoreState.SETUP)
 

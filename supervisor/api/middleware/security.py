@@ -68,7 +68,7 @@ OBSERVER_CHECK: Final = re.compile(
     r")$"
 )
 
-# Can called by every add-on
+# Can called by every app
 ADDONS_API_BYPASS: Final = re.compile(
     r"^(?:"
     r"|/addons/self/(?!security|update)[^/]+"
@@ -87,7 +87,7 @@ CORE_ONLY_PATHS: Final = re.compile(
     r")$"
 )
 
-# Policy role add-on API access
+# Policy role app API access
 ADDONS_ROLE_ACCESS: dict[str, re.Pattern[str]] = {
     ROLE_DEFAULT: re.compile(
         r"^(?:"
@@ -255,12 +255,12 @@ class SecurityMiddleware(CoreSysAttributes):
             _LOGGER.debug("%s access from Observer", request.path)
             request_from = self.sys_plugins.observer
 
-        # Add-on
+        # App
         addon = None
         if supervisor_token and not request_from:
             addon = self.sys_addons.from_token(supervisor_token)
 
-        # Check Add-on API access
+        # Check App API access
         if addon and ADDONS_API_BYPASS.match(request.path):
             _LOGGER.debug("Passthrough %s from %s", request.path, addon.slug)
             request_from = addon

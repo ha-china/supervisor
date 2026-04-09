@@ -435,7 +435,7 @@ DEFAULT_CHUNK_SIZE = 2**16  # 64KiB
 
 
 class AddonBootConfig(StrEnum):
-    """Boot mode config for the add-on."""
+    """Boot mode config for the app."""
 
     AUTO = "auto"
     MANUAL = "manual"
@@ -443,7 +443,7 @@ class AddonBootConfig(StrEnum):
 
 
 class AddonBoot(StrEnum):
-    """Boot mode for the add-on."""
+    """Boot mode for the app."""
 
     AUTO = "auto"
     MANUAL = "manual"
@@ -459,7 +459,7 @@ class AddonBoot(StrEnum):
 
 
 class AddonStartup(StrEnum):
-    """Startup types of Add-on."""
+    """Startup types of App."""
 
     INITIALIZE = "initialize"
     SYSTEM = "system"
@@ -469,7 +469,7 @@ class AddonStartup(StrEnum):
 
 
 class AddonStage(StrEnum):
-    """Stage types of add-on."""
+    """Stage types of app."""
 
     STABLE = "stable"
     EXPERIMENTAL = "experimental"
@@ -477,7 +477,7 @@ class AddonStage(StrEnum):
 
 
 class AddonState(StrEnum):
-    """State of add-on."""
+    """State of app."""
 
     STARTUP = "startup"
     STARTED = "started"

@@ -574,7 +574,7 @@ async def coresys(
     if not request.node.get_closest_marker("no_mock_init_websession"):
         coresys_obj.init_websession = AsyncMock()
 
-    # Don't remove files/folders related to addons and stores
+    # Don't remove files/folders related to apps and stores
     with patch("supervisor.store.git.GitRepo.remove"):
         yield coresys_obj
 
@@ -689,7 +689,7 @@ async def api_client(
 
     @web.middleware
     async def _security_middleware(request: web.Request, handler: web.RequestHandler):
-        """Make request are from Core or specified add-on."""
+        """Make request are from Core or specified app."""
         if request_from:
             request[REQUEST_FROM] = coresys.addons.get(request_from, local_only=True)
         else:
@@ -755,7 +755,7 @@ def run_supervisor_state(request: pytest.FixtureRequest) -> Generator[MagicMock]
 
 @pytest.fixture
 def store_addon(coresys: CoreSys, tmp_path, test_repository):
-    """Store add-on fixture."""
+    """Store app fixture."""
     addon_obj = AddonStore(coresys, "test_store_addon")
 
     coresys.addons.store[addon_obj.slug] = addon_obj
@@ -768,7 +768,7 @@ def store_addon(coresys: CoreSys, tmp_path, test_repository):
 
 @pytest.fixture
 async def test_repository(coresys: CoreSys):
-    """Test add-on store repository fixture."""
+    """Test app store repository fixture."""
     coresys.config._data[ATTR_ADDONS_CUSTOM_LIST] = []
 
     with (
@@ -790,7 +790,7 @@ async def test_repository(coresys: CoreSys):
 
 @pytest.fixture
 async def install_addon_ssh(coresys: CoreSys, test_repository):
-    """Install local_ssh add-on."""
+    """Install local_ssh app."""
     store = coresys.addons.store[TEST_ADDON_SLUG]
     await coresys.addons.data.install(store)
     coresys.addons.data._data = coresys.addons.data._schema(coresys.addons.data._data)
@@ -802,7 +802,7 @@ async def install_addon_ssh(coresys: CoreSys, test_repository):
 
 @pytest.fixture
 async def install_addon_example(coresys: CoreSys, test_repository):
-    """Install local_example add-on."""
+    """Install local_example app."""
     store = coresys.addons.store["local_example"]
     await coresys.addons.data.install(store)
     coresys.addons.data._data = coresys.addons.data._schema(coresys.addons.data._data)

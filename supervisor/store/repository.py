@@ -36,10 +36,10 @@ UNKNOWN = "unknown"
 
 
 class Repository(CoreSysAttributes, ABC):
-    """Add-on store repository in Supervisor."""
+    """App store repository in Supervisor."""
 
     def __init__(self, coresys: CoreSys, repository: str, local_path: Path, slug: str):
-        """Initialize add-on store repository object."""
+        """Initialize app store repository object."""
         self._slug: str = slug
         self._local_path: Path = local_path
         self.coresys: CoreSys = coresys
@@ -123,26 +123,26 @@ class Repository(CoreSysAttributes, ABC):
 
     @abstractmethod
     async def load(self) -> None:
-        """Load addon repository."""
+        """Load app repository."""
 
     @abstractmethod
     async def update(self) -> bool:
-        """Update add-on repository.
+        """Update app repository.
 
         Returns True if the repository was updated.
         """
 
     @abstractmethod
     async def remove(self) -> None:
-        """Remove add-on repository."""
+        """Remove app repository."""
 
     @abstractmethod
     async def reset(self) -> None:
-        """Reset add-on repository to fix corruption issue with files."""
+        """Reset app repository to fix corruption issue with files."""
 
 
 class RepositoryBuiltin(Repository, ABC):
-    """A built-in add-on repository."""
+    """A built-in app repository."""
 
     @property
     def is_builtin(self) -> bool:
@@ -159,16 +159,16 @@ class RepositoryBuiltin(Repository, ABC):
 
 
 class RepositoryGit(Repository, ABC):
-    """A git based add-on repository."""
+    """A git based app repository."""
 
     _git: GitRepo
 
     async def load(self) -> None:
-        """Load addon repository."""
+        """Load app repository."""
         await self._git.load()
 
     async def update(self) -> bool:
-        """Update add-on repository.
+        """Update app repository.
 
         Returns True if the repository was updated.
         """
@@ -202,7 +202,7 @@ class RepositoryGit(Repository, ABC):
         return await self.sys_run_in_executor(validate_file)
 
     async def reset(self) -> None:
-        """Reset add-on repository to fix corruption issue with files."""
+        """Reset app repository to fix corruption issue with files."""
         try:
             await self._git.reset()
             await self.load()
@@ -212,7 +212,7 @@ class RepositoryGit(Repository, ABC):
 
 
 class RepositoryLocal(RepositoryBuiltin):
-    """A local add-on repository."""
+    """A local app repository."""
 
     def __init__(self, coresys: CoreSys, local_path: Path, slug: str) -> None:
         """Initialize object."""
@@ -229,11 +229,11 @@ class RepositoryLocal(RepositoryBuiltin):
             raise StoreRepositoryUnknownError(repo=self.slug) from err
 
     async def load(self) -> None:
-        """Load addon repository."""
+        """Load app repository."""
         self._latest_mtime, _ = await self._get_latest_mtime()
 
     async def update(self) -> bool:
-        """Update add-on repository.
+        """Update app repository.
 
         Returns True if the repository was updated.
         """
@@ -257,7 +257,7 @@ class RepositoryLocal(RepositoryBuiltin):
 
 
 class RepositoryGitBuiltin(RepositoryBuiltin, RepositoryGit):
-    """A built-in add-on repository based on git."""
+    """A built-in app repository based on git."""
 
     def __init__(
         self, coresys: CoreSys, repository: str, local_path: Path, slug: str, url: str
@@ -268,7 +268,7 @@ class RepositoryGitBuiltin(RepositoryBuiltin, RepositoryGit):
 
 
 class RepositoryCustom(RepositoryGit):
-    """A custom add-on repository."""
+    """A custom app repository."""
 
     def __init__(self, coresys: CoreSys, url: str, local_path: Path, slug: str) -> None:
         """Initialize object."""
@@ -281,5 +281,5 @@ class RepositoryCustom(RepositoryGit):
         return False
 
     async def remove(self) -> None:
-        """Remove add-on repository."""
+        """Remove app repository."""
         await self._git.remove()

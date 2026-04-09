@@ -98,7 +98,7 @@ class APIInternalServerError(APIError):
 
 
 class APIAddonNotInstalled(APIError):
-    """Not installed addon requested at addons API."""
+    """Not installed app requested at apps API."""
 
 
 class APIDBMigrationInProgress(APIError):
@@ -342,19 +342,19 @@ class AudioJobError(AudioError, PluginJobError):
     """Raise on job error with audio plugin."""
 
 
-# Addons
+# Apps
 
 
 class AddonsError(HassioError):
-    """Addons exception."""
+    """Apps exception."""
 
 
 class AddonConfigurationError(AddonsError):
-    """Error with add-on configuration."""
+    """Error with app configuration."""
 
 
 class AddonConfigurationInvalidError(AddonConfigurationError, APIError):
-    """Raise if invalid configuration provided for addon."""
+    """Raise if invalid configuration provided for app."""
 
     error_key = "addon_configuration_invalid_error"
     message_template = "App {addon} has invalid options: {validation_error}"
@@ -372,7 +372,7 @@ class AddonConfigurationInvalidError(AddonConfigurationError, APIError):
 
 
 class AddonBootConfigCannotChangeError(AddonsError, APIError):
-    """Raise if user attempts to change addon boot config when it can't be changed."""
+    """Raise if user attempts to change app boot config when it can't be changed."""
 
     error_key = "addon_boot_config_cannot_change_error"
     message_template = (
@@ -388,7 +388,7 @@ class AddonBootConfigCannotChangeError(AddonsError, APIError):
 
 
 class AddonNotRunningError(AddonsError, APIError):
-    """Raise when an addon is not running."""
+    """Raise when an app is not running."""
 
     error_key = "addon_not_running_error"
     message_template = "App {addon} is not running"
@@ -402,7 +402,7 @@ class AddonNotRunningError(AddonsError, APIError):
 
 
 class AddonPortConflict(AddonsError, APIError):
-    """Raise if addon cannot start due to a port conflict."""
+    """Raise if app cannot start due to a port conflict."""
 
     error_key = "addon_port_conflict"
     message_template = "Cannot start app {name} because port {port} is already in use"
@@ -416,11 +416,11 @@ class AddonPortConflict(AddonsError, APIError):
 
 
 class AddonNotSupportedError(HassioNotSupportedError):
-    """Addon doesn't support a function."""
+    """App doesn't support a function."""
 
 
 class AddonNotSupportedArchitectureError(AddonNotSupportedError):
-    """Addon does not support system due to architecture."""
+    """App does not support system due to architecture."""
 
     error_key = "addon_not_supported_architecture_error"
     message_template = "App {slug} not supported on this platform, supported architectures: {architectures}"
@@ -438,7 +438,7 @@ class AddonNotSupportedArchitectureError(AddonNotSupportedError):
 
 
 class AddonNotSupportedMachineTypeError(AddonNotSupportedError):
-    """Addon does not support system due to machine type."""
+    """App does not support system due to machine type."""
 
     error_key = "addon_not_supported_machine_type_error"
     message_template = "App {slug} not supported on this machine, supported machine types: {machine_types}"
@@ -456,7 +456,7 @@ class AddonNotSupportedMachineTypeError(AddonNotSupportedError):
 
 
 class AddonNotSupportedHomeAssistantVersionError(AddonNotSupportedError):
-    """Addon does not support system due to Home Assistant version."""
+    """App does not support system due to Home Assistant version."""
 
     error_key = "addon_not_supported_home_assistant_version_error"
     message_template = "App {slug} not supported on this system, requires Home Assistant version {version} or greater"
@@ -474,7 +474,7 @@ class AddonNotSupportedHomeAssistantVersionError(AddonNotSupportedError):
 
 
 class AddonNotSupportedWriteStdinError(AddonNotSupportedError, APIError):
-    """Addon does not support writing to stdin."""
+    """App does not support writing to stdin."""
 
     error_key = "addon_not_supported_write_stdin_error"
     message_template = "App {addon} does not support writing to stdin"
@@ -488,7 +488,7 @@ class AddonNotSupportedWriteStdinError(AddonNotSupportedError, APIError):
 
 
 class AddonBuildDockerfileMissingError(AddonNotSupportedError, APIError):
-    """Raise when addon build invalid because dockerfile is missing."""
+    """Raise when app build invalid because dockerfile is missing."""
 
     error_key = "addon_build_dockerfile_missing_error"
     message_template = (
@@ -506,7 +506,7 @@ class AddonBuildDockerfileMissingError(AddonNotSupportedError, APIError):
 
 
 class AddonBuildArchitectureNotSupportedError(AddonNotSupportedError, APIError):
-    """Raise when addon cannot be built on system because it doesn't support its architecture."""
+    """Raise when app cannot be built on system because it doesn't support its architecture."""
 
     error_key = "addon_build_architecture_not_supported_error"
     message_template = (
@@ -532,7 +532,7 @@ class AddonBuildArchitectureNotSupportedError(AddonNotSupportedError, APIError):
 
 
 class AddonUnknownError(AddonsError, APIUnknownSupervisorError):
-    """Raise when unknown error occurs taking an action for an addon."""
+    """Raise when unknown error occurs taking an action for an app."""
 
     error_key = "addon_unknown_error"
     message_template = "An unknown error occurred with app {addon}"
@@ -546,7 +546,7 @@ class AddonUnknownError(AddonsError, APIUnknownSupervisorError):
 
 
 class AddonBuildFailedUnknownError(AddonsError, APIUnknownSupervisorError):
-    """Raise when the build failed for an addon due to an unknown error."""
+    """Raise when the build failed for an app due to an unknown error."""
 
     error_key = "addon_build_failed_unknown_error"
     message_template = (
@@ -1029,7 +1029,7 @@ class StoreNotFound(StoreError):
 
 
 class StoreAddonNotFoundError(StoreError, APINotFound):
-    """Raise if a requested addon is not in the store."""
+    """Raise if a requested app is not in the store."""
 
     error_key = "store_addon_not_found_error"
     message_template = "App {addon} does not exist in the store"
@@ -1043,7 +1043,7 @@ class StoreAddonNotFoundError(StoreError, APINotFound):
 
 
 class StoreRepositoryLocalCannotReset(StoreError, APIError):
-    """Raise if user requests a reset on the local addon repository."""
+    """Raise if user requests a reset on the local app repository."""
 
     error_key = "store_repository_local_cannot_reset"
     message_template = "Can't reset repository {local_repo} as it is not git based!"
@@ -1059,7 +1059,7 @@ class StoreJobError(StoreError, JobException):
 
 
 class StoreInvalidAddonRepo(StoreError):
-    """Raise on invalid addon repo."""
+    """Raise on invalid app repo."""
 
 
 class StoreRepositoryUnknownError(StoreError, APIUnknownSupervisorError):
@@ -1118,7 +1118,7 @@ class BackupFatalIOError(BackupError):
 
 
 class AddonBackupMetadataInvalidError(BackupError, APIError):
-    """Raise if invalid metadata file provided for addon in backup."""
+    """Raise if invalid metadata file provided for app in backup."""
 
     error_key = "addon_backup_metadata_invalid_error"
     message_template = (
@@ -1138,7 +1138,7 @@ class AddonBackupMetadataInvalidError(BackupError, APIError):
 
 
 class AddonPrePostBackupCommandReturnedError(BackupError, APIError):
-    """Raise when addon's pre/post backup command returns an error."""
+    """Raise when app's pre/post backup command returns an error."""
 
     error_key = "addon_pre_post_backup_command_returned_error"
     message_template = (

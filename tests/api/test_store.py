@@ -52,7 +52,7 @@ async def test_api_store(
 
 @pytest.mark.asyncio
 async def test_api_store_addons(api_client: TestClient, store_addon: AddonStore):
-    """Test /store/addons REST API."""
+    """Test /store/apps REST API."""
     resp = await api_client.get("/store/addons")
     result = await resp.json()
 
@@ -61,7 +61,7 @@ async def test_api_store_addons(api_client: TestClient, store_addon: AddonStore)
 
 @pytest.mark.asyncio
 async def test_api_store_addons_addon(api_client: TestClient, store_addon: AddonStore):
-    """Test /store/addons/{addon} REST API."""
+    """Test /store/apps/{app} REST API."""
     resp = await api_client.get(f"/store/addons/{store_addon.slug}")
     result = await resp.json()
     assert result["data"]["slug"] == store_addon.slug
@@ -71,7 +71,7 @@ async def test_api_store_addons_addon(api_client: TestClient, store_addon: Addon
 async def test_api_store_addons_addon_version(
     api_client: TestClient, store_addon: AddonStore
 ):
-    """Test /store/addons/{addon}/{version} REST API."""
+    """Test /store/apps/{app}/{version} REST API."""
     resp = await api_client.get(f"/store/addons/{store_addon.slug}/1.0.0")
     result = await resp.json()
     assert result["data"]["slug"] == store_addon.slug
@@ -207,7 +207,7 @@ async def test_api_store_update_healthcheck(
     install_addon_ssh: Addon,
     container: DockerContainer,
 ):
-    """Test updating an addon with healthcheck waits for health status."""
+    """Test updating an app with healthcheck waits for health status."""
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
     container.show.return_value["State"]["Status"] = "running"
     container.show.return_value["State"]["Running"] = True
@@ -283,7 +283,7 @@ async def test_api_store_update_healthcheck(
 async def test_api_store_addons_no_changelog(
     api_client: TestClient, coresys: CoreSys, store_addon: AddonStore, resource: str
 ):
-    """Test /store/addons/{addon}/changelog REST API.
+    """Test /store/apps/{app}/changelog REST API.
 
     Currently the frontend expects a valid body even in the error case. Make sure that is
     what the API returns.
@@ -303,7 +303,7 @@ async def test_api_detached_addon_changelog(
     tmp_supervisor_data: Path,
     resource: str,
 ):
-    """Test /store/addons/{addon}/changelog for an detached addon.
+    """Test /store/apps/{app}/changelog for an detached app.
 
     Currently the frontend expects a valid body even in the error case. Make sure that is
     what the API returns.
@@ -327,7 +327,7 @@ async def test_api_detached_addon_changelog(
 async def test_api_store_addons_no_documentation(
     api_client: TestClient, coresys: CoreSys, store_addon: AddonStore, resource: str
 ):
-    """Test /store/addons/{addon}/documentation REST API.
+    """Test /store/apps/{app}/documentation REST API.
 
     Currently the frontend expects a valid body even in the error case. Make sure that is
     what the API returns.
@@ -347,7 +347,7 @@ async def test_api_detached_addon_documentation(
     tmp_supervisor_data: Path,
     resource: str,
 ):
-    """Test /store/addons/{addon}/changelog for an detached addon.
+    """Test /store/apps/{app}/changelog for an detached app.
 
     Currently the frontend expects a valid body even in the error case. Make sure that is
     what the API returns.
@@ -389,7 +389,7 @@ async def test_api_detached_addon_documentation(
 async def test_store_addon_not_found(
     api_client: TestClient, method: str, url: str, json_expected: bool
 ):
-    """Test store addon not found error."""
+    """Test store app not found error."""
     resp = await api_client.request(method, url)
     assert resp.status == 404
     if json_expected:
@@ -412,7 +412,7 @@ async def test_store_addon_not_found(
 )
 @pytest.mark.usefixtures("test_repository")
 async def test_store_addon_not_installed(api_client: TestClient, method: str, url: str):
-    """Test store addon not installed error."""
+    """Test store app not installed error."""
     resp = await api_client.request(method, url)
     assert resp.status == 400
     body = await resp.json()
@@ -438,9 +438,9 @@ async def test_repository_not_found(api_client: TestClient, method: str, url: st
 async def test_api_store_addons_documentation_corrupted(
     api_client: TestClient, coresys: CoreSys, store_addon: AddonStore, resource: str
 ):
-    """Test /store/addons/{addon}/documentation REST API.
+    """Test /store/apps/{app}/documentation REST API.
 
-    Test add-on with documentation file with byte sequences which cannot be decoded
+    Test app with documentation file with byte sequences which cannot be decoded
     using UTF-8.
     """
     store_addon.path_documentation.write_bytes(b"Text with an invalid UTF-8 char: \xff")
@@ -457,9 +457,9 @@ async def test_api_store_addons_documentation_corrupted(
 async def test_api_store_addons_changelog_corrupted(
     api_client: TestClient, coresys: CoreSys, store_addon: AddonStore, resource: str
 ):
-    """Test /store/addons/{addon}/changelog REST API.
+    """Test /store/apps/{app}/changelog REST API.
 
-    Test add-on with changelog file with byte sequences which cannot be decoded
+    Test app with changelog file with byte sequences which cannot be decoded
     using UTF-8.
     """
     store_addon.path_changelog.write_bytes(b"Text with an invalid UTF-8 char: \xff")
@@ -474,7 +474,7 @@ async def test_api_store_addons_changelog_corrupted(
 
 @pytest.mark.usefixtures("test_repository", "tmp_supervisor_data")
 async def test_addon_install_in_background(api_client: TestClient, coresys: CoreSys):
-    """Test installing an addon in the background."""
+    """Test installing an app in the background."""
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
     event = asyncio.Event()
 
@@ -498,7 +498,7 @@ async def test_addon_install_in_background(api_client: TestClient, coresys: Core
 async def test_background_addon_install_fails_fast(
     api_client: TestClient, coresys: CoreSys
 ):
-    """Test background addon install returns error not job if validation fails."""
+    """Test background app install returns error not job if validation fails."""
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
 
     resp = await api_client.post(
@@ -522,7 +522,7 @@ async def test_addon_update_in_background(
     backup_called: bool,
     update_called: bool,
 ):
-    """Test updating an addon in the background."""
+    """Test updating an app in the background."""
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
     install_addon_ssh.data_store["version"] = "10.0.0"
     event = asyncio.Event()
@@ -562,7 +562,7 @@ async def test_addon_update_in_background(
 async def test_background_addon_update_fails_fast(
     api_client: TestClient, coresys: CoreSys
 ):
-    """Test background addon update returns error not job if validation doesn't succeed."""
+    """Test background app update returns error not job if validation doesn't succeed."""
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
 
     resp = await api_client.post(
@@ -576,7 +576,7 @@ async def test_background_addon_update_fails_fast(
 async def test_api_store_addons_addon_availability_success(
     api_client: TestClient, store_addon: AddonStore
 ):
-    """Test /store/addons/{addon}/availability REST API - success case."""
+    """Test /store/apps/{app}/availability REST API - success case."""
     resp = await api_client.get(f"/store/addons/{store_addon.slug}/availability")
     assert resp.status == 200
 
@@ -600,13 +600,13 @@ async def test_api_store_addons_addon_availability_arch_not_supported(
     api_method: str,
     installed: bool,
 ):
-    """Test availability errors for /store/addons/{addon}/* REST APIs - architecture not supported."""
+    """Test availability errors for /store/apps/{app}/* REST APIs - architecture not supported."""
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
-    # Create an addon with unsupported architecture
+    # Create an app with unsupported architecture
     addon_obj = AddonStore(coresys, "test_arch_addon")
     coresys.addons.store[addon_obj.slug] = addon_obj
 
-    # Set addon config with unsupported architecture
+    # Set app config with unsupported architecture
     addon_config = {
         "advanced": False,
         "arch": supported_architectures,
@@ -664,13 +664,13 @@ async def test_api_store_addons_addon_availability_machine_not_supported(
     api_method: str,
     installed: bool,
 ):
-    """Test availability errors for /store/addons/{addon}/* REST APIs - machine not supported."""
+    """Test availability errors for /store/apps/{app}/* REST APIs - machine not supported."""
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
-    # Create an addon with unsupported machine type
+    # Create an app with unsupported machine type
     addon_obj = AddonStore(coresys, "test_machine_addon")
     coresys.addons.store[addon_obj.slug] = addon_obj
 
-    # Set addon config with unsupported machine
+    # Set app config with unsupported machine
     addon_config = {
         "advanced": False,
         "arch": ["amd64"],
@@ -720,13 +720,13 @@ async def test_api_store_addons_addon_availability_homeassistant_version_too_old
     api_method: str,
     installed: bool,
 ):
-    """Test availability errors for /store/addons/{addon}/* REST APIs - Home Assistant version too old."""
+    """Test availability errors for /store/apps/{app}/* REST APIs - Home Assistant version too old."""
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
-    # Create an addon that requires newer Home Assistant version
+    # Create an app that requires newer Home Assistant version
     addon_obj = AddonStore(coresys, "test_version_addon")
     coresys.addons.store[addon_obj.slug] = addon_obj
 
-    # Set addon config with minimum Home Assistant version requirement
+    # Set app config with minimum Home Assistant version requirement
     addon_config = {
         "advanced": False,
         "arch": ["amd64"],
@@ -768,7 +768,7 @@ async def test_api_store_addons_addon_availability_homeassistant_version_too_old
 async def test_api_store_addons_addon_availability_installed_addon(
     api_client: TestClient, install_addon_ssh: Addon
 ):
-    """Test /store/addons/{addon}/availability REST API - installed addon checks against latest version."""
+    """Test /store/apps/{app}/availability REST API - installed app checks against latest version."""
     resp = await api_client.get("/store/addons/local_ssh/availability")
     assert resp.status == 200
 

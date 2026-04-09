@@ -1,4 +1,4 @@
-"""Init file for Supervisor add-on data."""
+"""Init file for Supervisor app data."""
 
 from copy import deepcopy
 from typing import Any
@@ -21,7 +21,7 @@ Config = dict[str, Any]
 
 
 class AddonsData(FileConfiguration, CoreSysAttributes):
-    """Hold data for installed Add-ons inside Supervisor."""
+    """Hold data for installed Apps inside Supervisor."""
 
     def __init__(self, coresys: CoreSys):
         """Initialize data holder."""
@@ -30,16 +30,16 @@ class AddonsData(FileConfiguration, CoreSysAttributes):
 
     @property
     def user(self):
-        """Return local add-on user data."""
+        """Return local app user data."""
         return self._data[ATTR_USER]
 
     @property
     def system(self):
-        """Return local add-on data."""
+        """Return local app data."""
         return self._data[ATTR_SYSTEM]
 
     async def install(self, addon: AddonStore) -> None:
-        """Set addon as installed."""
+        """Set app as installed."""
         self.system[addon.slug] = deepcopy(addon.data)
         self.user[addon.slug] = {
             ATTR_OPTIONS: {},
@@ -49,13 +49,13 @@ class AddonsData(FileConfiguration, CoreSysAttributes):
         await self.save_data()
 
     async def uninstall(self, addon: Addon) -> None:
-        """Set add-on as uninstalled."""
+        """Set app as uninstalled."""
         self.system.pop(addon.slug, None)
         self.user.pop(addon.slug, None)
         await self.save_data()
 
     async def update(self, addon: AddonStore) -> None:
-        """Update version of add-on."""
+        """Update version of app."""
         self.system[addon.slug] = deepcopy(addon.data)
         self.user[addon.slug].update(
             {ATTR_VERSION: addon.version, ATTR_IMAGE: addon.image}
@@ -65,7 +65,7 @@ class AddonsData(FileConfiguration, CoreSysAttributes):
     async def restore(
         self, slug: str, user: Config, system: Config, image: str
     ) -> None:
-        """Restore data to add-on."""
+        """Restore data to app."""
         self.user[slug] = deepcopy(user)
         self.system[slug] = deepcopy(system)
 

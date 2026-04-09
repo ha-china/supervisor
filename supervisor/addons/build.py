@@ -1,4 +1,4 @@
-"""Supervisor add-on build environment."""
+"""Supervisor app build environment."""
 
 from __future__ import annotations
 
@@ -49,17 +49,17 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
 class AddonBuild(CoreSysAttributes):
-    """Handle build options for add-ons."""
+    """Handle build options for apps."""
 
     def __init__(self, coresys: CoreSys, addon: AnyAddon, data: dict[str, Any]) -> None:
-        """Initialize Supervisor add-on builder."""
+        """Initialize Supervisor app builder."""
         self.coresys: CoreSys = coresys
         self.addon = addon
         self._build_config: dict[str, Any] = data
 
     @classmethod
     async def create(cls, coresys: CoreSys, addon: AnyAddon) -> Self:
-        """Create an AddonBuild by reading the build configuration from disk."""
+        """Create an AppBuild by reading the build configuration from disk."""
         data = await coresys.run_in_executor(cls._read_build_config, addon)
 
         if data:
@@ -117,12 +117,12 @@ class AddonBuild(CoreSysAttributes):
 
     @cached_property
     def arch(self) -> CpuArch:
-        """Return arch of the add-on."""
+        """Return arch of the app."""
         return self.sys_arch.match([self.addon.arch])
 
     @property
     def base_image(self) -> str | None:
-        """Return base image for this add-on, or None to use Dockerfile default."""
+        """Return base image for this app, or None to use Dockerfile default."""
         # No build config (otherwise default is coerced when reading the config)
         if not self._build_config.get(ATTR_BUILD_FROM):
             return None
@@ -262,7 +262,7 @@ class AddonBuild(CoreSysAttributes):
         for key, value in build_args.items():
             build_cmd.extend(["--build-arg", f"{key}={value}"])
 
-        # The addon path will be mounted from the host system
+        # The app path will be mounted from the host system
         addon_extern_path = self.sys_config.local_to_extern_path(
             self.addon.path_location
         )

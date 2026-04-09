@@ -1,4 +1,4 @@
-"""Util add-ons functions."""
+"""Util apps functions."""
 
 from __future__ import annotations
 

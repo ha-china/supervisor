@@ -56,7 +56,7 @@ async def test_default_load(coresys: CoreSys):
         "https://github.com/music-assistant/home-assistant-addon"
         in store_manager.repository_urls
     )
-    # NOTE: When adding new stores, make sure to add it to tests/fixtures/addons/git/
+    # NOTE: When adding new stores, make sure to add it to tests/fixtures/apps/git/
     assert refresh_cache_calls == {
         "local_ssh",
         "local_example",
@@ -151,7 +151,7 @@ async def test_update_unavailable_addon(
     config: dict[str, Any],
     log: str,
 ):
-    """Test updating addon when new version not available for system."""
+    """Test updating app when new version not available for system."""
     addon_config = dict(
         await coresys.run_in_executor(
             load_yaml_fixture, "addons/local/ssh/config.yaml"
@@ -210,7 +210,7 @@ async def test_install_unavailable_addon(
     config: dict[str, Any],
     log: str,
 ):
-    """Test updating addon when new version not available for system."""
+    """Test updating app when new version not available for system."""
     addon_config = dict(
         await coresys.run_in_executor(
             load_yaml_fixture, "addons/local/ssh/config.yaml"
@@ -251,7 +251,7 @@ async def test_reload(coresys: CoreSys, supervisor_internet):
 
 
 async def test_addon_version_timestamp(coresys: CoreSys, install_addon_example: Addon):
-    """Test timestamp tracked for addon's version."""
+    """Test timestamp tracked for app's version."""
     # When unset, version timestamp set to utcnow on store load
     assert (timestamp := install_addon_example.latest_version_timestamp)
 

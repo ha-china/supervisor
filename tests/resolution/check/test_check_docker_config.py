@@ -160,9 +160,9 @@ async def test_check(docker: DockerAPI, coresys: CoreSys, folder: str):
 async def test_addon_volume_mount_not_flagged(
     docker: DockerAPI, coresys: CoreSys, install_addon_ssh: Addon, folder: str
 ):
-    """Test that add-on with VOLUME mount to media/share but not in config is not flagged."""
-    # Create an add-on that doesn't have media/share in its mapping configuration
-    # Remove the mapping from the addon configuration
+    """Test that app with VOLUME mount to media/share but not in config is not flagged."""
+    # Create an app that doesn't have media/share in its mapping configuration
+    # Remove the mapping from the app configuration
     install_addon_ssh.data["map"] = [
         {"type": "config", "read_only": False},
         {"type": "ssl", "read_only": True},
@@ -183,10 +183,10 @@ async def test_addon_volume_mount_not_flagged(
     assert not coresys.resolution.issues
     assert not coresys.resolution.suggestions
 
-    # Run check - should NOT create issue for add-on since mount wasn't requested
+    # Run check - should NOT create issue for app since mount wasn't requested
     await docker_config.run_check()
 
-    # Should not create addon issue for VOLUME mounts not in config
+    # Should not create app issue for VOLUME mounts not in config
     addon_issues = [
         issue
         for issue in coresys.resolution.issues
@@ -210,9 +210,9 @@ async def test_addon_volume_mount_not_flagged(
 async def test_addon_configured_mount_still_flagged(
     docker: DockerAPI, coresys: CoreSys, folder: str
 ):
-    """Test that add-on with configured media/share mount is still flagged when propagation wrong."""
+    """Test that app with configured media/share mount is still flagged when propagation wrong."""
     # Keep the original configuration which includes media/share
-    # SSH addon config already has media:rw and share:rw
+    # SSH app config already has media:rw and share:rw
 
     # Mock container that has supervisor-managed mount with wrong propagation
     mount = {
@@ -248,10 +248,10 @@ async def test_addon_configured_mount_still_flagged(
     docker_config = CheckDockerConfig(coresys)
     assert not coresys.resolution.issues
 
-    # Run check - should create issue for add-on since mount was requested in config
+    # Run check - should create issue for app since mount was requested in config
     await docker_config.run_check()
 
-    # Should have addon issue since the mount was configured
+    # Should have app issue since the mount was configured
     addon_issues = [
         issue
         for issue in coresys.resolution.issues
@@ -266,8 +266,8 @@ async def test_addon_configured_mount_still_flagged(
 async def test_addon_custom_target_path_flagged(
     docker: DockerAPI, coresys: CoreSys, install_addon_ssh: Addon, folder: str
 ):
-    """Test that add-on with custom target path for media/share is properly checked."""
-    # Configure add-on with custom target path
+    """Test that app with custom target path for media/share is properly checked."""
+    # Configure app with custom target path
     custom_path = f"/custom/{folder}"
     mapping_type = "media" if folder == "media" else "share"
     install_addon_ssh.data["map"] = [
@@ -307,10 +307,10 @@ async def test_addon_custom_target_path_flagged(
     docker_config = CheckDockerConfig(coresys)
     assert not coresys.resolution.issues
 
-    # Run check - should create issue for add-on with custom target path
+    # Run check - should create issue for app with custom target path
     await docker_config.run_check()
 
-    # Should have addon issue since the mount with custom path was configured
+    # Should have app issue since the mount with custom path was configured
     addon_issues = [
         issue
         for issue in coresys.resolution.issues

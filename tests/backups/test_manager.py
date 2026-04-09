@@ -251,7 +251,7 @@ async def test_do_restore_full(
 async def test_do_restore_full_different_addon(
     coresys: CoreSys, full_backup_mock: Backup, install_addon_ssh: Addon
 ):
-    """Test restoring full Backup with different addons than installed."""
+    """Test restoring full Backup with different apps than installed."""
     await coresys.core.set_state(CoreState.RUNNING)
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
     coresys.homeassistant.core.start = AsyncMock(return_value=None)
@@ -950,7 +950,7 @@ async def test_load_network_error(
 async def test_backup_with_healthcheck(
     coresys: CoreSys, install_addon_ssh: Addon, container: DockerContainer
 ):
-    """Test backup of addon with healthcheck in cold mode."""
+    """Test backup of app with healthcheck in cold mode."""
     container.show.return_value["State"]["Status"] = "running"
     container.show.return_value["State"]["Running"] = True
     container.show.return_value["Config"] = {"Healthcheck": "exists"}
@@ -1026,7 +1026,7 @@ async def test_backup_with_healthcheck(
 async def test_restore_with_healthcheck(
     coresys: CoreSys, install_addon_ssh: Addon, container: DockerContainer
 ):
-    """Test backup of addon with healthcheck in cold mode."""
+    """Test backup of app with healthcheck in cold mode."""
     container.show.return_value["State"]["Status"] = "running"
     container.show.return_value["State"]["Running"] = True
     container.show.return_value["Config"] = {"Healthcheck": "exists"}
@@ -1253,7 +1253,7 @@ async def test_restore_progress(
     await asyncio.sleep(0)
     ha_ws_client.async_send_command.reset_mock()
 
-    # Install another addon to be uninstalled
+    # Install another app to be uninstalled
     # Duplicate code from install_addon_example fixture
     # Apparently request.getfixturevalue does not work with async fixtures: https://github.com/pytest-dev/pytest-asyncio/issues/112
     store = coresys.addons.store["local_example"]
@@ -1615,7 +1615,7 @@ async def test_restore_only_reloads_ingress_on_change(
 
 @pytest.mark.usefixtures("supervisor_internet", "tmp_supervisor_data", "path_extern")
 async def test_restore_new_addon(coresys: CoreSys, install_addon_example: Addon):
-    """Test restore installing new addon."""
+    """Test restore installing new app."""
     await coresys.core.set_state(CoreState.RUNNING)
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
 
@@ -2058,7 +2058,7 @@ async def test_backup_remove_one_location_of_multiple(coresys: CoreSys):
 
 @pytest.mark.usefixtures("tmp_supervisor_data", "supervisor_internet")
 async def test_addon_backup_excludes(coresys: CoreSys, install_addon_example: Addon):
-    """Test backup excludes option for addons."""
+    """Test backup excludes option for apps."""
     await coresys.core.set_state(CoreState.RUNNING)
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
 
@@ -2200,7 +2200,7 @@ async def test_get_upload_path_for_mount_location(coresys: CoreSys):
 async def test_backup_addon_skips_uninstalled(
     coresys: CoreSys, caplog: pytest.LogCaptureFixture
 ):
-    """Test restore installing new addon."""
+    """Test restore installing new app."""
     await coresys.core.set_state(CoreState.RUNNING)
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
     assert "local_example" in coresys.addons.local

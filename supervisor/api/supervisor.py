@@ -182,7 +182,7 @@ class APISupervisor(CoreSysAttributes):
         if ATTR_WAIT_BOOT in body:
             self.sys_config.wait_boot = body[ATTR_WAIT_BOOT]
 
-        # Save changes before processing addons in case of errors
+        # Save changes before processing apps in case of errors
         await self.sys_updater.save_data()
         await self.sys_config.save_data()
 
@@ -230,7 +230,7 @@ class APISupervisor(CoreSysAttributes):
 
     @api_process
     async def reload(self, request: web.Request) -> None:
-        """Reload add-ons, configuration, etc."""
+        """Reload apps, configuration, etc."""
         await asyncio.gather(
             asyncio.shield(self.sys_updater.reload()),
             asyncio.shield(self.sys_homeassistant.secrets.reload()),

@@ -1,4 +1,4 @@
-"""Test docker addon setup."""
+"""Test docker app setup."""
 
 import asyncio
 from dataclasses import replace
@@ -39,7 +39,7 @@ from . import DEV_MOUNT
 
 @pytest.fixture(name="addonsdata_system")
 def fixture_addonsdata_system() -> dict[str, Data]:
-    """Mock AddonsData.system."""
+    """Mock AppsData.system."""
     with patch(
         "supervisor.addons.data.AddonsData.system", new_callable=PropertyMock
     ) as mock:
@@ -48,7 +48,7 @@ def fixture_addonsdata_system() -> dict[str, Data]:
 
 @pytest.fixture(name="addonsdata_user", autouse=True)
 def fixture_addonsdata_user() -> dict[str, Data]:
-    """Mock AddonsData.user."""
+    """Mock AppsData.user."""
     with patch(
         "supervisor.addons.data.AddonsData.user", new_callable=PropertyMock
     ) as mock:
@@ -61,7 +61,7 @@ def get_docker_addon(
     addonsdata_system: dict[str, Data],
     config_file: str | dict[str, Any],
 ) -> DockerAddon:
-    """Make and return docker addon object."""
+    """Make and return docker app object."""
     config = (
         load_json_fixture(config_file) if isinstance(config_file, str) else config_file
     )
@@ -100,7 +100,7 @@ def test_base_volumes_included(coresys: CoreSys, addonsdata_system: dict[str, Da
 def test_addon_map_folder_defaults(
     coresys: CoreSys, addonsdata_system: dict[str, Data]
 ):
-    """Validate defaults for mapped folders in addons."""
+    """Validate defaults for mapped folders in apps."""
     docker_addon = get_docker_addon(
         coresys, addonsdata_system, "basic-addon-config.json"
     )
@@ -158,7 +158,7 @@ def test_addon_map_folder_defaults(
 def test_addon_map_homeassistant_folder(
     coresys: CoreSys, addonsdata_system: dict[str, Data]
 ):
-    """Test mounts for addon which maps homeassistant folder."""
+    """Test mounts for app which maps homeassistant folder."""
     config = load_json_fixture("addon-config-map-addon_config.json")
     config["map"].append("homeassistant_config")
     docker_addon = get_docker_addon(coresys, addonsdata_system, config)
@@ -179,12 +179,12 @@ def test_addon_map_homeassistant_folder(
 def test_addon_map_addon_configs_folder(
     coresys: CoreSys, addonsdata_system: dict[str, Data]
 ):
-    """Test mounts for addon which maps addon configs folder."""
+    """Test mounts for app which maps app configs folder."""
     config = load_json_fixture("addon-config-map-addon_config.json")
     config["map"].append("all_addon_configs")
     docker_addon = get_docker_addon(coresys, addonsdata_system, config)
 
-    # Addon configs folder included
+    # App configs folder included
     assert (
         DockerMount(
             type=MountType.BIND,
@@ -200,12 +200,12 @@ def test_addon_map_addon_configs_folder(
 def test_addon_map_addon_config_folder(
     coresys: CoreSys, addonsdata_system: dict[str, Data]
 ):
-    """Test mounts for addon which maps its own config folder."""
+    """Test mounts for app which maps its own config folder."""
     docker_addon = get_docker_addon(
         coresys, addonsdata_system, "addon-config-map-addon_config.json"
     )
 
-    # Addon config folder included
+    # App config folder included
     assert (
         DockerMount(
             type=MountType.BIND,
@@ -221,7 +221,7 @@ def test_addon_map_addon_config_folder(
 def test_addon_map_addon_config_folder_with_custom_target(
     coresys: CoreSys, addonsdata_system: dict[str, Data]
 ):
-    """Test mounts for addon which maps its own config folder and sets target path."""
+    """Test mounts for app which maps its own config folder and sets target path."""
     config = load_json_fixture("addon-config-map-addon_config.json")
     config["map"].remove("addon_config")
     config["map"].append(
@@ -229,7 +229,7 @@ def test_addon_map_addon_config_folder_with_custom_target(
     )
     docker_addon = get_docker_addon(coresys, addonsdata_system, config)
 
-    # Addon config folder included
+    # App config folder included
     assert (
         DockerMount(
             type=MountType.BIND,
@@ -245,12 +245,12 @@ def test_addon_map_addon_config_folder_with_custom_target(
 def test_addon_map_data_folder_with_custom_target(
     coresys: CoreSys, addonsdata_system: dict[str, Data]
 ):
-    """Test mounts for addon which sets target path for data folder."""
+    """Test mounts for app which sets target path for data folder."""
     config = load_json_fixture("addon-config-map-addon_config.json")
     config["map"].append({"type": "data", "path": "/custom/data/path"})
     docker_addon = get_docker_addon(coresys, addonsdata_system, config)
 
-    # Addon config folder included
+    # App config folder included
     assert (
         DockerMount(
             type=MountType.BIND,
@@ -266,7 +266,7 @@ def test_addon_map_data_folder_with_custom_target(
 def test_addon_ignore_on_config_map(
     coresys: CoreSys, addonsdata_system: dict[str, Data]
 ):
-    """Test mounts for addon don't include addon config or homeassistant when config included."""
+    """Test mounts for app don't include app config or homeassistant when config included."""
     config = load_json_fixture("basic-addon-config.json")
     config["map"].extend(["addon_config", "homeassistant_config"])
     docker_addon = get_docker_addon(coresys, addonsdata_system, config)
@@ -282,7 +282,7 @@ def test_addon_ignore_on_config_map(
         in docker_addon.mounts
     )
 
-    # Mount for addon's specific config folder omitted since config in map field
+    # Mount for app's specific config folder omitted since config in map field
     assert (
         len([mount for mount in docker_addon.mounts if mount.target == "/config"]) == 1
     )
@@ -331,7 +331,7 @@ def test_not_journald_addon(coresys: CoreSys, addonsdata_system: dict[str, Data]
 async def test_addon_run_docker_error(
     coresys: CoreSys, addonsdata_system: dict[str, Data]
 ):
-    """Test docker error when addon is run."""
+    """Test docker error when app is run."""
     await coresys.dbus.timedate.connect(coresys.dbus.bus)
     coresys.docker.containers.create.side_effect = aiodocker.DockerError(
         HTTPStatus.NOT_FOUND, {"message": "missing"}
@@ -359,7 +359,7 @@ async def test_addon_run_docker_error(
 async def test_addon_run_add_host_error(
     coresys: CoreSys, addonsdata_system: dict[str, Data], capture_exception: Mock
 ):
-    """Test error adding host when addon is run."""
+    """Test error adding host when app is run."""
     await coresys.dbus.timedate.connect(coresys.dbus.bus)
     docker_addon = get_docker_addon(
         coresys, addonsdata_system, "basic-addon-config.json"
@@ -380,7 +380,7 @@ async def test_addon_run_add_host_error(
 async def test_addon_stop_delete_host_error(
     coresys: CoreSys, addonsdata_system: dict[str, Data], capture_exception: Mock
 ):
-    """Test error deleting host when addon is stopped."""
+    """Test error deleting host when app is stopped."""
     docker_addon = get_docker_addon(
         coresys, addonsdata_system, "basic-addon-config.json"
     )
@@ -506,7 +506,7 @@ async def test_addon_new_device_no_haos(
 
 
 async def test_ulimits_integration(coresys: CoreSys, install_addon_ssh: Addon):
-    """Test ulimits integration with Docker addon."""
+    """Test ulimits integration with Docker app."""
     docker_addon = DockerAddon(coresys, install_addon_ssh)
 
     # Test default case (no ulimits, no realtime)

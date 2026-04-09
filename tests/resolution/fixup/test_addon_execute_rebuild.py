@@ -33,7 +33,7 @@ def make_mock_container_get(
 
 @pytest.mark.usefixtures("install_addon_ssh")
 async def test_fixup(docker: DockerAPI, coresys: CoreSys):
-    """Test fixup rebuilds addon's container."""
+    """Test fixup rebuilds app's container."""
     docker.containers.get = make_mock_container_get("running")
 
     addon_execute_rebuild = FixupAddonExecuteRebuild(coresys)
@@ -58,7 +58,7 @@ async def test_fixup(docker: DockerAPI, coresys: CoreSys):
 async def test_fixup_stopped_core(
     docker: DockerAPI, coresys: CoreSys, caplog: pytest.LogCaptureFixture
 ):
-    """Test fixup just removes addon's container when it is stopped."""
+    """Test fixup just removes app's container when it is stopped."""
     caplog.clear()
     docker.containers.get = make_mock_container_get("stopped")
     addon_execute_rebuild = FixupAddonExecuteRebuild(coresys)
@@ -85,7 +85,7 @@ async def test_fixup_stopped_core(
 async def test_fixup_unknown_core(
     docker: DockerAPI, coresys: CoreSys, caplog: pytest.LogCaptureFixture
 ):
-    """Test fixup does nothing if addon's container has already been removed."""
+    """Test fixup does nothing if app's container has already been removed."""
     caplog.clear()
     docker.containers.get.side_effect = aiodocker.DockerError(
         404, {"message": "missing"}
@@ -112,7 +112,7 @@ async def test_fixup_unknown_core(
 
 
 async def test_fixup_addon_removed(coresys: CoreSys, caplog: pytest.LogCaptureFixture):
-    """Test fixup does nothing if addon has been removed."""
+    """Test fixup does nothing if app has been removed."""
     caplog.clear()
     addon_execute_rebuild = FixupAddonExecuteRebuild(coresys)
 

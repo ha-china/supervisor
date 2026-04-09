@@ -20,7 +20,7 @@ def setup(coresys: CoreSys) -> CheckBase:
 
 
 class CheckAddonPwned(CheckBase):
-    """CheckAddonPwned class for check."""
+    """CheckAppPwned class for check."""
 
     @Job(
         name="check_addon_pwned_run",

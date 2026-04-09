@@ -1,4 +1,4 @@
-"""Init file for Supervisor add-on Git."""
+"""Init file for Supervisor app Git."""
 
 import asyncio
 import functools as ft
@@ -20,7 +20,7 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
 class GitRepo(CoreSysAttributes):
-    """Manage Add-on Git repository."""
+    """Manage App Git repository."""
 
     def __init__(self, coresys: CoreSys, path: Path, url: str):
         """Initialize Git base wrapper."""
@@ -48,7 +48,7 @@ class GitRepo(CoreSysAttributes):
         return self.data[ATTR_BRANCH]
 
     async def load(self) -> None:
-        """Init Git add-on repository."""
+        """Init Git app repository."""
         if await self.sys_run_in_executor(directory_missing_or_empty, self.path):
             await self.clone()
             return
@@ -83,7 +83,7 @@ class GitRepo(CoreSysAttributes):
         on_condition=StoreJobError,
     )
     async def clone(self) -> None:
-        """Clone git add-on repository."""
+        """Clone git app repository."""
         async with self.lock:
             await self._clone()
 
@@ -121,7 +121,7 @@ class GitRepo(CoreSysAttributes):
             await self.sys_run_in_executor(temp_dir.cleanup)
 
     async def _clone(self, path: Path | None = None) -> None:
-        """Clone git add-on repository to location."""
+        """Clone git app repository to location."""
         path = path or self.path
         git_args = {
             attribute: value
@@ -160,7 +160,7 @@ class GitRepo(CoreSysAttributes):
         on_condition=StoreJobError,
     )
     async def pull(self) -> bool:
-        """Pull Git add-on repo."""
+        """Pull Git app repo."""
         if self.lock.locked():
             _LOGGER.warning("There is already a task in progress")
             return False

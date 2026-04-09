@@ -193,7 +193,7 @@ async def test_proxy_large_message(
 async def test_proxy_invalid_auth(
     api_client: TestClient, install_addon_example: Addon, auth_token: str
 ):
-    """Test invalid access token or addon with no access."""
+    """Test invalid access token or app with no access."""
     install_addon_example.persist[ATTR_ACCESS_TOKEN] = "abc123"
     websocket = await api_client.ws_connect("/core/websocket")
     auth_resp = await websocket.receive_json()

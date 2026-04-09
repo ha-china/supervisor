@@ -78,7 +78,7 @@ async def test_new_backup_exists_error(coresys: CoreSys, tmp_path: Path):
 async def test_backup_error_addon(
     coresys: CoreSys, install_addon_ssh: Addon, tmp_path: Path
 ):
-    """Test if errors during add-on backup is correctly recorded in jobs."""
+    """Test if errors during app backup is correctly recorded in jobs."""
     backup_file = tmp_path / "my_backup.tar"
     backup = Backup(coresys, backup_file, "test", None)
     backup.new("test", "2023-07-21T21:05:00.000000+00:00", BackupType.FULL)
@@ -88,7 +88,7 @@ async def test_backup_error_addon(
     )
 
     async with backup.create():
-        # Validate that the add-on exception is collected in the main job
+        # Validate that the app exception is collected in the main job
         backup_store_addons_job, backup_task = coresys.jobs.schedule_job(
             backup.store_addons, JobSchedulerOptions(), [install_addon_ssh]
         )
@@ -166,9 +166,9 @@ async def test_backup_oserror_folder_propagates(
 async def test_backup_fatal_error_addon_propagates(
     coresys: CoreSys, install_addon_ssh: Addon, tmp_path: Path
 ):
-    """Test that BackupFatalIOError during add-on backup propagates out of store_addons.
+    """Test that BackupFatalIOError during app backup propagates out of store_addons.
 
-    store_addons swallows BackupError for individual add-on failures, but
+    store_addons swallows BackupError for individual app failures, but
     BackupFatalIOError must not be swallowed since it indicates a corrupt tar.
     """
     backup_file = tmp_path / "my_backup.tar"

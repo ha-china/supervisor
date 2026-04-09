@@ -169,7 +169,7 @@ class Core(CoreSysAttributes):
             self.sys_arch.load(),
             # Load Stores
             self.sys_store.load(),
-            # Load Add-ons
+            # Load Apps
             self.sys_addons.load(),
             # load last available data
             self.sys_backups.load(),
@@ -235,7 +235,7 @@ class Core(CoreSysAttributes):
                     return
 
         try:
-            # Start addon mark as initialize
+            # Start app mark as initialize
             await self.sys_addons.boot(AddonStartup.INITIALIZE)
 
             # HomeAssistant is already running, only Supervisor restarted
@@ -246,10 +246,10 @@ class Core(CoreSysAttributes):
             # reset register services / discovery
             await self.sys_services.reset()
 
-            # start addon mark as system
+            # start app mark as system
             await self.sys_addons.boot(AddonStartup.SYSTEM)
 
-            # start addon mark as services
+            # start app mark as services
             await self.sys_addons.boot(AddonStartup.SERVICES)
 
             # run HomeAssistant
@@ -279,7 +279,7 @@ class Core(CoreSysAttributes):
                     suggestions=[SuggestionType.EXECUTE_REPAIR],
                 )
 
-            # start addon mark as application
+            # start app mark as application
             await self.sys_addons.boot(AddonStartup.APPLICATION)
 
             # store new last boot
@@ -358,7 +358,7 @@ class Core(CoreSysAttributes):
         if self.state == CoreState.RUNNING:
             await self.set_state(CoreState.SHUTDOWN)
 
-        # Shutdown Application Add-ons, using Home Assistant API
+        # Shutdown Application Apps, using Home Assistant API
         await self.sys_addons.shutdown(AddonStartup.APPLICATION)
 
         # Close Home Assistant
@@ -367,7 +367,7 @@ class Core(CoreSysAttributes):
                 remove_container=remove_homeassistant_container
             )
 
-        # Shutdown System Add-ons
+        # Shutdown System Apps
         await self.sys_addons.shutdown(AddonStartup.SERVICES)
         await self.sys_addons.shutdown(AddonStartup.SYSTEM)
         await self.sys_addons.shutdown(AddonStartup.INITIALIZE)

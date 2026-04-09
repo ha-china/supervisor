@@ -306,10 +306,10 @@ async def test_update_addons_auto_update_success(
     ha_ws_client: AsyncMock,
     install_addon_example: Addon,
 ):
-    """Test that an eligible add-on is auto-updated via websocket command."""
+    """Test that an eligible app is auto-updated via websocket command."""
     await coresys.core.set_state(CoreState.RUNNING)
 
-    # Set up the add-on as eligible for auto-update
+    # Set up the app as eligible for auto-update
     install_addon_example.auto_update = True
     install_addon_example.data_store[ATTR_VERSION_TIMESTAMP] = 0
     with patch.object(
@@ -318,7 +318,7 @@ async def test_update_addons_auto_update_success(
         assert install_addon_example.need_update is True
         assert install_addon_example.auto_update_available is True
 
-        # Make sure all job events from installing the add-on are cleared
+        # Make sure all job events from installing the app are cleared
         ha_ws_client.async_send_command.reset_mock()
 
         # pylint: disable-next=protected-access

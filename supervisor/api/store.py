@@ -101,7 +101,7 @@ class APIStore(CoreSysAttributes):
     """Handle RESTful API for store functions."""
 
     def _extract_addon(self, request: web.Request, installed=False) -> AnyAddon:
-        """Return add-on, throw an exception it it doesn't exist."""
+        """Return app, throw an exception it it doesn't exist."""
         addon_slug: str = request.match_info["addon"]
 
         if not (addon := self.sys_addons.get(addon_slug)):
@@ -132,7 +132,7 @@ class APIStore(CoreSysAttributes):
     async def _generate_addon_information(
         self, addon: AddonStore, extended: bool = False
     ) -> dict[str, Any]:
-        """Generate addon information."""
+        """Generate app information."""
 
         installed = (
             self.sys_addons.get_local_only(addon.slug) if addon.is_installed else None
@@ -194,7 +194,7 @@ class APIStore(CoreSysAttributes):
 
     @api_process
     async def reload(self, request: web.Request) -> None:
-        """Reload all add-on data from store."""
+        """Reload all app data from store."""
         await asyncio.shield(self.sys_store.reload())
 
     @api_process
@@ -215,7 +215,7 @@ class APIStore(CoreSysAttributes):
 
     @api_process
     async def addons_list(self, request: web.Request) -> dict[str, Any]:
-        """Return all store add-ons."""
+        """Return all store apps."""
         return {
             ATTR_ADDONS: await asyncio.gather(
                 *[
@@ -227,7 +227,7 @@ class APIStore(CoreSysAttributes):
 
     @api_process
     async def addons_addon_install(self, request: web.Request) -> dict[str, str] | None:
-        """Install add-on."""
+        """Install app."""
         addon = self._extract_addon(request)
         body = await api_validate(SCHEMA_INSTALL, request)
 
@@ -244,7 +244,7 @@ class APIStore(CoreSysAttributes):
 
     @api_process
     async def addons_addon_update(self, request: web.Request) -> dict[str, str] | None:
-        """Update add-on."""
+        """Update app."""
         addon = self._extract_addon(request, installed=True)
         if addon == request.get(REQUEST_FROM):
             raise APIForbidden(f"App {addon.slug} can't update itself!")
@@ -268,18 +268,18 @@ class APIStore(CoreSysAttributes):
 
     @api_process
     async def addons_addon_info(self, request: web.Request) -> dict[str, Any]:
-        """Return add-on information."""
+        """Return app information."""
         return await self.addons_addon_info_wrapped(request)
 
-    # Used by legacy routing for addons/{addon}/info, can be refactored out when that is removed (1/2023)
+    # Used by legacy routing for apps/{app}/info, can be refactored out when that is removed (1/2023)
     async def addons_addon_info_wrapped(self, request: web.Request) -> dict[str, Any]:
-        """Return add-on information directly (not api)."""
+        """Return app information directly (not api)."""
         addon = cast(AddonStore, self._extract_addon(request))
         return await self._generate_addon_information(addon, True)
 
     @api_process_raw(CONTENT_TYPE_PNG)
     async def addons_addon_icon(self, request: web.Request) -> bytes:
-        """Return icon from add-on."""
+        """Return icon from app."""
         addon = self._extract_addon(request)
         if not addon.with_icon:
             raise APIError(f"No icon found for app {addon.slug}!")
@@ -288,7 +288,7 @@ class APIStore(CoreSysAttributes):
 
     @api_process_raw(CONTENT_TYPE_PNG)
     async def addons_addon_logo(self, request: web.Request) -> bytes:
-        """Return logo from add-on."""
+        """Return logo from app."""
         addon = self._extract_addon(request)
         if not addon.with_logo:
             raise APIError(f"No logo found for app {addon.slug}!")
@@ -297,7 +297,7 @@ class APIStore(CoreSysAttributes):
 
     @api_process_raw(CONTENT_TYPE_TEXT)
     async def addons_addon_changelog(self, request: web.Request) -> str:
-        """Return changelog from add-on."""
+        """Return changelog from app."""
         # Frontend can't handle error response here, need to return 200 and error as text for now
         try:
             addon = self._extract_addon(request)
@@ -313,7 +313,7 @@ class APIStore(CoreSysAttributes):
 
     @api_process_raw(CONTENT_TYPE_TEXT)
     async def addons_addon_documentation(self, request: web.Request) -> str:
-        """Return documentation from add-on."""
+        """Return documentation from app."""
         # Frontend can't handle error response here, need to return 200 and error as text for now
         try:
             addon = self._extract_addon(request)
@@ -329,7 +329,7 @@ class APIStore(CoreSysAttributes):
 
     @api_process
     async def addons_addon_availability(self, request: web.Request) -> None:
-        """Check add-on availability for current system."""
+        """Check app availability for current system."""
         addon = cast(AddonStore, self._extract_addon(request))
         addon.validate_availability()
 

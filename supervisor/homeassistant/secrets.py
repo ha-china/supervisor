@@ -1,4 +1,4 @@
-"""Handle Home Assistant secrets to add-ons."""
+"""Handle Home Assistant secrets to apps."""
 
 from datetime import timedelta
 import logging

@@ -130,7 +130,7 @@ def initialize_system(coresys: CoreSys) -> None:
         _LOGGER.debug("Creating Supervisor SSL/TLS folder at '%s'", config.path_ssl)
         config.path_ssl.mkdir()
 
-    # Supervisor addon data folder
+    # Supervisor app data folder
     if not config.path_addons_data.is_dir():
         _LOGGER.debug(
             "Creating Supervisor app data folder at '%s'", config.path_addons_data
@@ -219,7 +219,7 @@ def initialize_system(coresys: CoreSys) -> None:
         )
         config.path_emergency.mkdir()
 
-    # Addon Configs folder
+    # App Configs folder
     if not config.path_addon_configs.is_dir():
         _LOGGER.debug(
             "Creating Supervisor app configs folder at '%s'",

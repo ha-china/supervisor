@@ -1,4 +1,4 @@
-"""Test fixup addon execute repair."""
+"""Test fixup app execute repair."""
 
 from http import HTTPStatus
 from unittest.mock import patch
@@ -17,7 +17,7 @@ from supervisor.resolution.fixups.addon_execute_repair import FixupAddonExecuteR
 
 
 async def test_fixup(docker: DockerAPI, coresys: CoreSys, install_addon_ssh: Addon):
-    """Test fixup rebuilds addon's container."""
+    """Test fixup rebuilds app's container."""
     docker.images.inspect.side_effect = aiodocker.DockerError(
         HTTPStatus.NOT_FOUND, {"message": "missing"}
     )
@@ -67,7 +67,7 @@ async def test_fixup_max_auto_attempts(
 
 
 async def test_fixup_no_addon(coresys: CoreSys):
-    """Test fixup dismisses if addon is missing."""
+    """Test fixup dismisses if app is missing."""
     addon_execute_repair = FixupAddonExecuteRepair(coresys)
     assert addon_execute_repair.auto is True
 

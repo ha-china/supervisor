@@ -1,4 +1,4 @@
-"""Test addon build."""
+"""Test app build."""
 
 import base64
 import json
@@ -215,7 +215,7 @@ async def test_docker_args_with_config_path(coresys: CoreSys, install_addon_ssh:
             config_path,
         )
 
-    # Check that config is mounted (3 mounts: docker socket, addon path, config)
+    # Check that config is mounted (3 mounts: docker socket, app path, config)
     assert len(args["mounts"]) == 3
     config_mount = next(
         m for m in args["mounts"] if m.target == "/root/.docker/config.json"
@@ -248,7 +248,7 @@ async def test_docker_args_without_config_path(
             build.get_docker_args, AwesomeVersion("latest"), "test-image:latest", None
         )
 
-    # Only docker socket and addon path should be mounted
+    # Only docker socket and app path should be mounted
     assert len(args["mounts"]) == 2
     # Verify no docker config mount
     for mount in args["mounts"]:
@@ -391,7 +391,7 @@ async def test_no_build_yaml_docker_config_includes_registries(
 async def test_labels_include_name_and_description(
     coresys: CoreSys, install_addon_ssh: Addon
 ):
-    """Test name and description labels are included when addon has them set."""
+    """Test name and description labels are included when app has them set."""
     build = await AddonBuild.create(coresys, install_addon_ssh)
 
     with (
@@ -422,7 +422,7 @@ async def test_labels_include_name_and_description(
 async def test_labels_omit_name_and_description_when_empty(
     coresys: CoreSys, install_addon_ssh: Addon
 ):
-    """Test name and description labels are omitted when addon has empty values."""
+    """Test name and description labels are omitted when app has empty values."""
     build = await AddonBuild.create(coresys, install_addon_ssh)
 
     with (

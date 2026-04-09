@@ -1,4 +1,4 @@
-"""Validate add-ons options schema."""
+"""Validate apps options schema."""
 
 import logging
 import re
@@ -250,7 +250,7 @@ def _warn_addon_config(config: dict[str, Any]):
 
 
 def _migrate_addon_config(protocol=False):
-    """Migrate addon config."""
+    """Migrate app config."""
 
     def _migrate(config: dict[str, Any]):
         if not isinstance(config, dict):
@@ -349,7 +349,7 @@ def _migrate_addon_config(protocol=False):
         # Always update config to clear potentially malformed ones
         config[ATTR_MAP] = volumes
 
-        # 2023-10 "config" became "homeassistant" so /config can be used for addon's public config
+        # 2023-10 "config" became "homeassistant" so /config can be used for app's public config
         if any(volume[ATTR_TYPE] == MappingType.CONFIG for volume in volumes):
             if any(
                 volume

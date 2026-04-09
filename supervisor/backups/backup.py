@@ -170,7 +170,7 @@ class Backup(JobGroup):
 
     @property
     def addon_list(self) -> list[str]:
-        """Return a list of add-ons slugs."""
+        """Return a list of apps slugs."""
         return [addon_data[ATTR_SLUG] for addon_data in self.addons]
 
     @property
@@ -180,12 +180,12 @@ class Backup(JobGroup):
 
     @property
     def repositories(self) -> list[str]:
-        """Return add-on store repositories."""
+        """Return app store repositories."""
         return self._data[ATTR_REPOSITORIES]
 
     @repositories.setter
     def repositories(self, value: list[str]) -> None:
-        """Set add-on store repositories."""
+        """Set app store repositories."""
         self._data[ATTR_REPOSITORIES] = value
 
     @property
@@ -614,7 +614,7 @@ class Backup(JobGroup):
 
     @Job(name="backup_addon_save", cleanup=False)
     async def _addon_save(self, addon: Addon) -> asyncio.Task | None:
-        """Store an add-on into backup."""
+        """Store an app into backup."""
         self.sys_jobs.current.reference = slug = addon.slug
         if not self._outer_secure_tarfile:
             raise RuntimeError(
@@ -657,12 +657,12 @@ class Backup(JobGroup):
 
     @Job(name="backup_store_addons", cleanup=False)
     async def store_addons(self, addon_list: list[Addon]) -> list[asyncio.Task]:
-        """Add a list of add-ons into backup.
+        """Add a list of apps into backup.
 
-        For each addon that needs to be started after backup, returns a Task which
-        completes when that addon has state 'started' (see addon.start).
+        For each app that needs to be started after backup, returns a Task which
+        completes when that app has state 'started' (see app.start).
         """
-        # Save Add-ons sequential avoid issue on slow IO
+        # Save Apps sequential avoid issue on slow IO
         start_tasks: list[asyncio.Task] = []
         for addon in addon_list:
             try:
@@ -677,7 +677,7 @@ class Backup(JobGroup):
 
     @Job(name="backup_addon_restore", cleanup=False)
     async def _addon_restore(self, addon_slug: str) -> asyncio.Task | None:
-        """Restore an add-on from backup."""
+        """Restore an app from backup."""
         self.sys_jobs.current.reference = addon_slug
         if not self._tmp:
             raise RuntimeError("Cannot restore components without opening backup tar")
@@ -708,8 +708,8 @@ class Backup(JobGroup):
     async def restore_addons(
         self, addon_list: list[str]
     ) -> tuple[bool, list[asyncio.Task]]:
-        """Restore a list add-on from backup."""
-        # Save Add-ons sequential avoid issue on slow IO
+        """Restore a list app from backup."""
+        # Save Apps sequential avoid issue on slow IO
         start_tasks: list[asyncio.Task] = []
         success = True
         for slug in addon_list:
@@ -726,13 +726,13 @@ class Backup(JobGroup):
 
     @Job(name="backup_remove_delta_addons", cleanup=False)
     async def remove_delta_addons(self) -> bool:
-        """Remove addons which are not in this backup."""
+        """Remove apps which are not in this backup."""
         success = True
         for addon in self.sys_addons.installed:
             if addon.slug in self.addon_list:
                 continue
 
-            # Remove Add-on because it's not a part of the new env
+            # Remove App because it's not a part of the new env
             # Do it sequential avoid issue on slow IO
             try:
                 await self.sys_addons.uninstall(addon.slug)

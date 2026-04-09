@@ -63,7 +63,7 @@ class APIDiscovery(CoreSysAttributes):
             and discovered.state == AddonState.STARTED
         ]
 
-        # Get available services/add-ons
+        # Get available services/apps
         services: dict[str, list[str]] = {}
         for addon in self.sys_addons.all:
             for name in addon.discovery:

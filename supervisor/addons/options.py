@@ -1,4 +1,4 @@
-"""Add-on Options / UI rendering."""
+"""App Options / UI rendering."""
 
 import hashlib
 import logging
@@ -57,7 +57,7 @@ _SCHEMA_LENGTH_PARTS = (
 
 
 class AddonOptions(CoreSysAttributes):
-    """Validate Add-ons Options."""
+    """Validate Apps Options."""
 
     def __init__(
         self, coresys: CoreSys, raw_schema: dict[str, Any], name: str, slug: str
@@ -72,11 +72,11 @@ class AddonOptions(CoreSysAttributes):
 
     @property
     def validate(self) -> vol.Schema:
-        """Create a schema for add-on options."""
+        """Create a schema for app options."""
         return vol.Schema(vol.All(dict, self))
 
     def __call__(self, struct: dict[str, Any]) -> dict[str, Any]:
-        """Create schema validator for add-ons options."""
+        """Create schema validator for apps options."""
         options = {}
 
         # read options
@@ -262,7 +262,7 @@ class AddonOptions(CoreSysAttributes):
 
 
 class UiOptions(CoreSysAttributes):
-    """Render UI Add-ons Options."""
+    """Render UI Apps Options."""
 
     def __init__(self, coresys: CoreSys) -> None:
         """Initialize UI option render."""

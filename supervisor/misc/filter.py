@@ -82,7 +82,7 @@ def filter_data(coresys: CoreSys, event: Event, hint: Hint) -> Event | None:
             )
         return event
 
-    # List installed addons
+    # List installed apps
     installed_addons = [
         {"slug": addon.slug, "repository": addon.repository, "name": addon.name}
         for addon in coresys.addons.installed

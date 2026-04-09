@@ -9,10 +9,10 @@ from typing import Any
 
 
 class AddonLoggerAdapter(logging.LoggerAdapter):
-    """Logging Adapter which prepends log entries with add-on name."""
+    """Logging Adapter which prepends log entries with app name."""
 
     def process(self, msg, kwargs):
-        """Process the logging message by prepending the add-on name."""
+        """Process the logging message by prepending the app name."""
         return f"[{self.extra['addon_name']}] {msg}", kwargs
 
 

@@ -1,4 +1,4 @@
-"""Helpers to check for detached addons due to removal from repo."""
+"""Helpers to check for detached apps due to removal from repo."""
 
 from ...const import CoreState
 from ...coresys import CoreSys
@@ -12,7 +12,7 @@ def setup(coresys: CoreSys) -> CheckBase:
 
 
 class CheckDetachedAddonRemoved(CheckBase):
-    """CheckDetachedAddonRemoved class for check."""
+    """CheckDetachedAppRemoved class for check."""
 
     async def run_check(self) -> None:
         """Run check if not affected by issue."""

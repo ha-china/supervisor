@@ -43,7 +43,7 @@ ALL_FOLDERS = [
 
 
 def unique_addons(addons_list):
-    """Validate that an add-on is unique."""
+    """Validate that an app is unique."""
     single = {addon[ATTR_SLUG] for addon in addons_list}
 
     if len(single) != len(addons_list):

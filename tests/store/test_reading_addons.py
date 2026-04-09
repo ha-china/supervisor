@@ -1,4 +1,4 @@
-"""Test that we are reading add-on files correctly."""
+"""Test that we are reading app files correctly."""
 
 import errno
 from pathlib import Path
@@ -12,7 +12,7 @@ from supervisor.resolution.data import Issue, Suggestion
 
 
 async def test_read_addon_files(coresys: CoreSys):
-    """Test that we are reading add-on files correctly."""
+    """Test that we are reading app files correctly."""
     with patch(
         "pathlib.Path.glob",
         return_value=[
@@ -32,7 +32,7 @@ async def test_read_addon_files(coresys: CoreSys):
 
 
 async def test_reading_addon_files_error(coresys: CoreSys):
-    """Test error trying to read addon files."""
+    """Test error trying to read app files."""
     corrupt_repo = Issue(IssueType.CORRUPT_REPOSITORY, ContextType.STORE, "test")
     reset_repo = Suggestion(SuggestionType.EXECUTE_RESET, ContextType.STORE, "test")
 

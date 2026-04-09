@@ -1,4 +1,4 @@
-"""Test Check Addon Pwned."""
+"""Test Check App Pwned."""
 
 # pylint: disable=import-error,protected-access
 from unittest.mock import AsyncMock, patch
@@ -11,7 +11,7 @@ from supervisor.resolution.const import IssueType, SuggestionType
 
 
 class TestAddon:
-    """Test Addon."""
+    """Test App."""
 
     slug = "my_test"
     pwned = set()

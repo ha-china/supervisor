@@ -1,4 +1,4 @@
-"""Helper to fix an issue with an addon by rebuilding its container."""
+"""Helper to fix an issue with an app by rebuilding its container."""
 
 import logging
 
@@ -19,7 +19,7 @@ class FixupAddonExecuteRebuild(FixupBase):
     """Storage class for fixup."""
 
     async def process_fixup(self, reference: str | None = None) -> None:
-        """Rebuild the addon's container."""
+        """Rebuild the app's container."""
         if not reference:
             return
 

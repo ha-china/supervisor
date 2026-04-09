@@ -158,10 +158,10 @@ class OptionsValidateResponse(TypedDict):
 
 
 class APIAddons(CoreSysAttributes):
-    """Handle RESTful API for add-on functions."""
+    """Handle RESTful API for app functions."""
 
     def get_addon_for_request(self, request: web.Request) -> Addon:
-        """Return addon, throw an exception if it doesn't exist."""
+        """Return app, throw an exception if it doesn't exist."""
         addon_slug: str = request.match_info["addon"]
 
         # Lookup itself
@@ -181,7 +181,7 @@ class APIAddons(CoreSysAttributes):
 
     @api_process
     async def list_addons(self, request: web.Request) -> dict[str, Any]:
-        """Return all add-ons or repositories."""
+        """Return all apps or repositories."""
         data_addons = [
             {
                 ATTR_NAME: addon.name,
@@ -210,11 +210,11 @@ class APIAddons(CoreSysAttributes):
 
     @api_process
     async def reload(self, request: web.Request) -> None:
-        """Reload all add-on data from store."""
+        """Reload all app data from store."""
         await asyncio.shield(self.sys_store.reload())
 
     async def info(self, request: web.Request) -> dict[str, Any]:
-        """Return add-on information."""
+        """Return app information."""
         addon: Addon = self.get_addon_for_request(request)
 
         data = {
@@ -298,7 +298,7 @@ class APIAddons(CoreSysAttributes):
 
     @api_process
     async def options(self, request: web.Request) -> None:
-        """Store user options for add-on."""
+        """Store user options for app."""
         addon = self.get_addon_for_request(request)
 
         # Update secrets for validation
@@ -342,7 +342,7 @@ class APIAddons(CoreSysAttributes):
 
     @api_process
     async def sys_options(self, request: web.Request) -> None:
-        """Store system options for an add-on."""
+        """Store system options for an app."""
         addon = self.get_addon_for_request(request)
 
         # Validate/Process Body
@@ -356,7 +356,7 @@ class APIAddons(CoreSysAttributes):
 
     @api_process
     async def options_validate(self, request: web.Request) -> OptionsValidateResponse:
-        """Validate user options for add-on."""
+        """Validate user options for app."""
         addon = self.get_addon_for_request(request)
         data = OptionsValidateResponse(message="", valid=True, pwned=False)
 
@@ -395,7 +395,7 @@ class APIAddons(CoreSysAttributes):
 
     @api_process
     async def options_config(self, request: web.Request) -> dict[str, Any]:
-        """Validate user options for add-on."""
+        """Validate user options for app."""
         slug: str = request.match_info["addon"]
         if slug != "self":
             raise APIForbidden("This can be only read by the app itself!")
@@ -410,7 +410,7 @@ class APIAddons(CoreSysAttributes):
 
     @api_process
     async def security(self, request: web.Request) -> None:
-        """Store security options for add-on."""
+        """Store security options for app."""
         addon = self.get_addon_for_request(request)
         body: dict[str, Any] = await api_validate(SCHEMA_SECURITY, request)
 
@@ -440,7 +440,7 @@ class APIAddons(CoreSysAttributes):
 
     @api_process
     async def uninstall(self, request: web.Request) -> None:
-        """Uninstall add-on."""
+        """Uninstall app."""
         addon = self.get_addon_for_request(request)
         body: dict[str, Any] = await api_validate(SCHEMA_UNINSTALL, request)
         await asyncio.shield(
@@ -451,27 +451,27 @@ class APIAddons(CoreSysAttributes):
 
     @api_process
     async def start(self, request: web.Request) -> None:
-        """Start add-on."""
+        """Start app."""
         addon = self.get_addon_for_request(request)
         if start_task := await asyncio.shield(addon.start()):
             await start_task
 
     @api_process
     def stop(self, request: web.Request) -> Awaitable[None]:
-        """Stop add-on."""
+        """Stop app."""
         addon = self.get_addon_for_request(request)
         return asyncio.shield(addon.stop())
 
     @api_process
     async def restart(self, request: web.Request) -> None:
-        """Restart add-on."""
+        """Restart app."""
         addon: Addon = self.get_addon_for_request(request)
         if start_task := await asyncio.shield(addon.restart()):
             await start_task
 
     @api_process
     async def rebuild(self, request: web.Request) -> None:
-        """Rebuild local build add-on."""
+        """Rebuild local build app."""
         addon = self.get_addon_for_request(request)
         body: dict[str, Any] = await api_validate(SCHEMA_REBUILD, request)
 
@@ -482,7 +482,7 @@ class APIAddons(CoreSysAttributes):
 
     @api_process
     async def stdin(self, request: web.Request) -> None:
-        """Write to stdin of add-on."""
+        """Write to stdin of app."""
         addon = self.get_addon_for_request(request)
         if not addon.with_stdin:
             raise AddonNotSupportedWriteStdinError(_LOGGER.error, addon=addon.slug)

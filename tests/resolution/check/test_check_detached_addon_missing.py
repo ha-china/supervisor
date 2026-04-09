@@ -1,4 +1,4 @@
-"""Test check for detached addons due to repo missing."""
+"""Test check for detached apps due to repo missing."""
 
 from unittest.mock import patch
 
@@ -19,14 +19,14 @@ async def test_base(coresys: CoreSys):
 
 
 async def test_check(coresys: CoreSys, install_addon_ssh: Addon):
-    """Test check for detached addons."""
+    """Test check for detached apps."""
     detached_addon_missing = CheckDetachedAddonMissing(coresys)
     await coresys.core.set_state(CoreState.SETUP)
 
     await detached_addon_missing()
     assert len(coresys.resolution.issues) == 0
 
-    # Mock test addon was been installed from a now non-existent store
+    # Mock test app was been installed from a now non-existent store
     install_addon_ssh.slug = "abc123_ssh"
     coresys.addons.data.system["abc123_ssh"] = coresys.addons.data.system["local_ssh"]
     coresys.addons.local["abc123_ssh"] = coresys.addons.local["local_ssh"]
@@ -42,7 +42,7 @@ async def test_check(coresys: CoreSys, install_addon_ssh: Addon):
 
 
 async def test_approve(coresys: CoreSys, install_addon_ssh: Addon):
-    """Test approve existing detached addon issues."""
+    """Test approve existing detached app issues."""
     detached_addon_missing = CheckDetachedAddonMissing(coresys)
     await coresys.core.set_state(CoreState.SETUP)
 
@@ -51,7 +51,7 @@ async def test_approve(coresys: CoreSys, install_addon_ssh: Addon):
         is False
     )
 
-    # Mock test addon was been installed from a now non-existent store
+    # Mock test app was been installed from a now non-existent store
     install_addon_ssh.slug = "abc123_ssh"
     coresys.addons.data.system["abc123_ssh"] = coresys.addons.data.system["local_ssh"]
     coresys.addons.local["abc123_ssh"] = coresys.addons.local["local_ssh"]

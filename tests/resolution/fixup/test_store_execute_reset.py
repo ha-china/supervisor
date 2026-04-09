@@ -25,7 +25,7 @@ from supervisor.store.repository import Repository
 
 @pytest.fixture(name="mock_addons_git", autouse=True)
 async def fixture_mock_addons_git(tmp_supervisor_data: Path) -> None:
-    """Mock addons git path."""
+    """Mock apps git path."""
     with patch.object(
         CoreConfig,
         "path_addons_git",

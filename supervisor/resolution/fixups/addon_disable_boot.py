@@ -1,4 +1,4 @@
-"""Helpers to fix addon by disabling boot."""
+"""Helpers to fix app by disabling boot."""
 
 import logging
 
@@ -27,7 +27,7 @@ class FixupAddonDisableBoot(FixupBase):
             _LOGGER.info("Cannot change app %s as it does not exist", reference)
             return
 
-        # Disable boot on addon
+        # Disable boot on app
         addon.boot = AddonBoot.MANUAL
 
     @property

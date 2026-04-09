@@ -1,1 +1,1 @@
-"""Add-ons tests."""
+"""Apps tests."""

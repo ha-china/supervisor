@@ -54,7 +54,7 @@ class MySQLService(ServiceInterface):
 
     @property
     def active(self) -> list[str]:
-        """Return list of addon slug they have enable that."""
+        """Return list of app slug they have enable that."""
         if not self.enabled:
             return []
         return [self._data[ATTR_ADDON]]

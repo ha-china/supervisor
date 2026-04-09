@@ -1,4 +1,4 @@
-"""Test fixup addon disable boot."""
+"""Test fixup app disable boot."""
 
 from supervisor.addons.addon import Addon
 from supervisor.const import AddonBoot
@@ -27,7 +27,7 @@ async def test_fixup(coresys: CoreSys, install_addon_ssh: Addon):
 
 
 async def test_fixup_no_addon(coresys: CoreSys):
-    """Test fixup dismisses if addon is missing."""
+    """Test fixup dismisses if app is missing."""
     addon_disable_boot = FixupAddonDisableBoot(coresys)
 
     coresys.resolution.add_issue(

@@ -13,15 +13,15 @@ from .base import CheckBase
 def _check_container(container: DockerInterface, addon=None) -> bool:
     """Check if container has mount propagation issues requiring recreate.
 
-    For add-ons, only validates mounts explicitly configured (not Docker VOLUMEs).
+    For apps, only validates mounts explicitly configured (not Docker VOLUMEs).
     For Core/plugins, validates all /media and /share mounts.
     """
-    # For add-ons, check mounts against their actual configured targets
+    # For apps, check mounts against their actual configured targets
     if addon is not None:
         addon_mapping = addon.map_volumes
         configured_targets = set()
 
-        # Get actual target paths from add-on configuration
+        # Get actual target paths from app configuration
         if MappingType.MEDIA in addon_mapping:
             target = addon_mapping[MappingType.MEDIA].path or PATH_MEDIA.as_posix()
             configured_targets.add(target)

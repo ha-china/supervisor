@@ -1,4 +1,4 @@
-"""Init file for Supervisor add-on data."""
+"""Init file for Supervisor app data."""
 
 from dataclasses import dataclass
 import errno
@@ -41,7 +41,7 @@ class ProcessedRepository:
 
 
 def _read_addon_translations(addon_path: Path) -> dict:
-    """Read translations from add-ons folder.
+    """Read translations from apps folder.
 
     Should be run in the executor.
     """
@@ -101,7 +101,7 @@ def _read_git_repository(path: Path) -> ProcessedRepository | None:
 
 
 class StoreData(CoreSysAttributes):
-    """Hold data for Add-ons inside Supervisor."""
+    """Hold data for Apps inside Supervisor."""
 
     def __init__(self, coresys: CoreSys):
         """Initialize data holder."""
@@ -110,7 +110,7 @@ class StoreData(CoreSysAttributes):
         self.addons: dict[str, dict[str, Any]] = {}
 
     async def update(self) -> None:
-        """Read data from add-on repository."""
+        """Read data from app repository."""
         # read core repository
         addons = await self._read_addons_folder(
             self.sys_config.path_addons_core, REPOSITORY_CORE
@@ -145,7 +145,7 @@ class StoreData(CoreSysAttributes):
     async def _find_addon_configs(
         self, path: Path, repository: str
     ) -> list[Path] | None:
-        """Find add-ons in the path."""
+        """Find apps in the path."""
 
         def _get_addons_list() -> list[Path]:
             # Generate a list without artefact, safe for corruptions
@@ -182,7 +182,7 @@ class StoreData(CoreSysAttributes):
     async def _read_addons_folder(
         self, path: Path, repository: str
     ) -> dict[str, dict[str, Any]]:
-        """Read data from add-ons folder."""
+        """Read data from apps folder."""
         if not (addon_config_list := await self._find_addon_configs(path, repository)):
             return {}
 

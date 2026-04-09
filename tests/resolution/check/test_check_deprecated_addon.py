@@ -1,4 +1,4 @@
-"""Test check for deprecated addons."""
+"""Test check for deprecated apps."""
 
 from unittest.mock import patch
 
@@ -17,14 +17,14 @@ async def test_base(coresys: CoreSys):
 
 
 async def test_check(coresys: CoreSys, install_addon_ssh: Addon):
-    """Test check for deprecated addons."""
+    """Test check for deprecated apps."""
     deprecated_addon = CheckDeprecatedAddon(coresys)
     await coresys.core.set_state(CoreState.SETUP)
 
     await deprecated_addon()
     assert len(coresys.resolution.issues) == 0
 
-    # Mock test addon as deprecated
+    # Mock test app as deprecated
     install_addon_ssh.data["stage"] = AddonStage.DEPRECATED
 
     await deprecated_addon()
@@ -37,7 +37,7 @@ async def test_check(coresys: CoreSys, install_addon_ssh: Addon):
 
 
 async def test_approve(coresys: CoreSys, install_addon_ssh: Addon):
-    """Test approve existing deprecated addon issues."""
+    """Test approve existing deprecated app issues."""
     deprecated_addon = CheckDeprecatedAddon(coresys)
     await coresys.core.set_state(CoreState.SETUP)
 
@@ -45,7 +45,7 @@ async def test_approve(coresys: CoreSys, install_addon_ssh: Addon):
         await deprecated_addon.approve_check(reference=install_addon_ssh.slug) is False
     )
 
-    # Mock test addon as deprecated
+    # Mock test app as deprecated
     install_addon_ssh.data["stage"] = AddonStage.DEPRECATED
 
     assert (

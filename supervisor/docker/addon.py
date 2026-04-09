@@ -1,4 +1,4 @@
-"""Init file for Supervisor add-on Docker object."""
+"""Init file for Supervisor app Docker object."""
 
 from __future__ import annotations
 
@@ -139,10 +139,10 @@ class DockerAddon(DockerInterface):
 
     @property
     def environment(self) -> dict[str, str | int | None]:
-        """Return environment for Docker add-on."""
+        """Return environment for Docker app."""
         addon_env = cast(dict[str, str | int | None], self.addon.environment or {})
 
-        # Provide options for legacy add-ons
+        # Provide options for legacy apps
         if self.addon.legacy:
             for key, value in self.addon.options.items():
                 if isinstance(value, (int, str)):
@@ -218,7 +218,7 @@ class DockerAddon(DockerInterface):
 
     @property
     def ports(self) -> dict[str, str | int | None] | None:
-        """Filter None from add-on ports."""
+        """Filter None from app ports."""
         if self.addon.host_network or not self.addon.ports:
             return None
 
@@ -246,7 +246,7 @@ class DockerAddon(DockerInterface):
 
     @property
     def tmpfs(self) -> dict[str, str] | None:
-        """Return tmpfs for Docker add-on."""
+        """Return tmpfs for Docker app."""
         tmpfs = {}
 
         if self.addon.with_tmpfs:
@@ -270,21 +270,21 @@ class DockerAddon(DockerInterface):
 
     @property
     def network_mode(self) -> Literal["host"] | None:
-        """Return network mode for add-on."""
+        """Return network mode for app."""
         if self.addon.host_network:
             return "host"
         return None
 
     @property
     def pid_mode(self) -> str | None:
-        """Return PID mode for add-on."""
+        """Return PID mode for app."""
         if not self.addon.protected and self.addon.host_pid:
             return "host"
         return None
 
     @property
     def uts_mode(self) -> str | None:
-        """Return UTS mode for add-on."""
+        """Return UTS mode for app."""
         if self.addon.host_uts:
             return "host"
         return None
@@ -309,7 +309,7 @@ class DockerAddon(DockerInterface):
 
     @property
     def ulimits(self) -> list[Ulimit] | None:
-        """Generate ulimits for add-on."""
+        """Generate ulimits for app."""
         limits: list[Ulimit] = []
 
         # Need schedule functions
@@ -320,7 +320,7 @@ class DockerAddon(DockerInterface):
             mem = 128 * 1024 * 1024
             limits.append(Ulimit(name="memlock", soft=mem, hard=mem))
 
-        # Add configurable ulimits from add-on config
+        # Add configurable ulimits from app config
         for name, config in self.addon.ulimits.items():
             if isinstance(config, int):
                 # Simple format: both soft and hard limits are the same
@@ -379,7 +379,7 @@ class DockerAddon(DockerInterface):
             )
 
         else:
-            # Map addon's public config folder if not using deprecated config option
+            # Map app's public config folder if not using deprecated config option
             if self.addon.addon_config_used:
                 mounts.append(
                     DockerMount(
@@ -833,7 +833,7 @@ class DockerAddon(DockerInterface):
         concurrency=JobConcurrency.GROUP_REJECT,
     )
     async def write_stdin(self, data: bytes) -> None:
-        """Write to add-on stdin."""
+        """Write to app stdin."""
         try:
             # Load needed docker objects
             container = await self.sys_docker.containers.get(self.name)

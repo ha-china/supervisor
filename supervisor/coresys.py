@@ -351,14 +351,14 @@ class CoreSys:
 
     @property
     def addons(self) -> AddonManager:
-        """Return AddonManager object."""
+        """Return AppManager object."""
         if self._addons is None:
             raise RuntimeError("AddonManager not set!")
         return self._addons
 
     @addons.setter
     def addons(self, value: AddonManager) -> None:
-        """Set a AddonManager object."""
+        """Set a AppManager object."""
         if self._addons:
             raise RuntimeError("AddonManager already set!")
         self._addons = value
@@ -772,7 +772,7 @@ class CoreSysAttributes:
 
     @property
     def sys_addons(self) -> AddonManager:
-        """Return AddonManager object."""
+        """Return AppManager object."""
         return self.coresys.addons
 
     @property
