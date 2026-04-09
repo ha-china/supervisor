@@ -184,11 +184,10 @@ class APIProxy(CoreSysAttributes):
             )
             return ws_client.client
         except HomeAssistantAPIError as err:
-            _LOGGER.error("Error connecting to Home Assistant WebSocket: %s", err)
-            raise APIError() from err
-        except (RuntimeError, ValueError, TypeError) as err:
-            _LOGGER.error("Client error on WebSocket API %s.", err)
-            raise APIError() from err
+            raise APIError(
+                f"Error connecting to Home Assistant WebSocket: {err}",
+                _LOGGER.error,
+            ) from err
 
     async def _proxy_message(
         self,

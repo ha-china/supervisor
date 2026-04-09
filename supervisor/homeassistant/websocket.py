@@ -174,9 +174,14 @@ class WSClient:
                 )
 
             return cls(AwesomeVersion(first_message["ha_version"]), client)
-        except Exception:
+        except HomeAssistantAPIError:
             await client.close()
             raise
+        except Exception as err:
+            await client.close()
+            raise HomeAssistantAPIError(
+                f"Unexpected error during WebSocket handshake: {err}"
+            ) from err
 
     @classmethod
     async def connect_with_auth(
@@ -212,9 +217,14 @@ class WSClient:
                 raise HomeAssistantAPIError("AUTH NOT OK")
 
             return cls(AwesomeVersion(first_message["ha_version"]), client)
-        except Exception:
+        except HomeAssistantAPIError:
             await client.close()
             raise
+        except Exception as err:
+            await client.close()
+            raise HomeAssistantAPIError(
+                f"Unexpected error during WebSocket handshake: {err}"
+            ) from err
 
 
 class HomeAssistantWebSocket(CoreSysAttributes):
