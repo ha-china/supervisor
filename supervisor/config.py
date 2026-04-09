@@ -15,6 +15,7 @@ from .const import (
     ATTR_DEBUG_BLOCK,
     ATTR_DETECT_BLOCKING_IO,
     ATTR_DIAGNOSTICS,
+    ATTR_FEATURE_FLAGS,
     ATTR_IMAGE,
     ATTR_LAST_BOOT,
     ATTR_LOGGING,
@@ -24,6 +25,7 @@ from .const import (
     ENV_SUPERVISOR_SHARE,
     FILE_HASSIO_CONFIG,
     SUPERVISOR_DATA,
+    ExperimentalFeature,
     LogLevel,
 )
 from .utils.common import FileConfiguration
@@ -194,6 +196,17 @@ class CoreConfig(FileConfiguration):
         """Change log level."""
         lvl = getattr(logging, self.logging.value.upper())
         logging.getLogger("supervisor").setLevel(lvl)
+
+    @property
+    def feature_flags(self) -> dict[ExperimentalFeature, bool]:
+        """Return current state of all experimental feature flags."""
+        return self._data.get(ATTR_FEATURE_FLAGS, {})
+
+    def set_feature_flag(self, feature: ExperimentalFeature, enabled: bool) -> None:
+        """Enable or disable an experimental feature flag."""
+        if ATTR_FEATURE_FLAGS not in self._data:
+            self._data[ATTR_FEATURE_FLAGS] = {}
+        self._data[ATTR_FEATURE_FLAGS][feature] = enabled
 
     @property
     def last_boot(self) -> datetime:

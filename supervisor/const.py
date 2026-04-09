@@ -192,6 +192,7 @@ ATTR_ENVIRONMENT = "environment"
 ATTR_EVENT = "event"
 ATTR_EXCLUDE_DATABASE = "exclude_database"
 ATTR_EXTRA = "extra"
+ATTR_FEATURE_FLAGS = "feature_flags"
 ATTR_FEATURES = "features"
 ATTR_FIELDS = "fields"
 ATTR_FILENAME = "filename"
@@ -546,6 +547,12 @@ class CpuArch(StrEnum):
 
     AARCH64 = "aarch64"
     AMD64 = "amd64"
+
+
+class ExperimentalFeature(StrEnum):
+    """Experimental features that can be toggled."""
+
+    SUPERVISOR_V2_API = "supervisor_v2_api"
 
 
 @dataclass

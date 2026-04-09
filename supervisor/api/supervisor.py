@@ -22,6 +22,7 @@ from ..const import (
     ATTR_DEBUG_BLOCK,
     ATTR_DETECT_BLOCKING_IO,
     ATTR_DIAGNOSTICS,
+    ATTR_FEATURE_FLAGS,
     ATTR_HEALTHY,
     ATTR_ICON,
     ATTR_IP_ADDRESS,
@@ -41,6 +42,7 @@ from ..const import (
     ATTR_VERSION,
     ATTR_VERSION_LATEST,
     ATTR_WAIT_BOOT,
+    ExperimentalFeature,
     LogLevel,
     UpdateChannel,
 )
@@ -70,6 +72,9 @@ SCHEMA_OPTIONS = vol.Schema(
         vol.Optional(ATTR_AUTO_UPDATE): vol.Boolean(),
         vol.Optional(ATTR_DETECT_BLOCKING_IO): vol.Coerce(DetectBlockingIO),
         vol.Optional(ATTR_COUNTRY): str,
+        vol.Optional(ATTR_FEATURE_FLAGS): vol.Schema(
+            {vol.Coerce(ExperimentalFeature): vol.Boolean()}
+        ),
     }
 )
 
@@ -104,6 +109,10 @@ class APISupervisor(CoreSysAttributes):
             ATTR_AUTO_UPDATE: self.sys_updater.auto_update,
             ATTR_DETECT_BLOCKING_IO: BlockBusterManager.is_enabled(),
             ATTR_COUNTRY: self.sys_config.country,
+            ATTR_FEATURE_FLAGS: {
+                feature: self.sys_config.feature_flags.get(feature, False)
+                for feature in ExperimentalFeature
+            },
             # Depricated
             ATTR_WAIT_BOOT: self.sys_config.wait_boot,
             ATTR_APPS: [
@@ -181,6 +190,10 @@ class APISupervisor(CoreSysAttributes):
         # Deprecated
         if ATTR_WAIT_BOOT in body:
             self.sys_config.wait_boot = body[ATTR_WAIT_BOOT]
+
+        if ATTR_FEATURE_FLAGS in body:
+            for feature, enabled in body[ATTR_FEATURE_FLAGS].items():
+                self.sys_config.set_feature_flag(feature, enabled)
 
         # Save changes before processing apps in case of errors
         await self.sys_updater.save_data()

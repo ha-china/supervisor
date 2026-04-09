@@ -20,6 +20,7 @@ from .const import (
     ATTR_DISPLAYNAME,
     ATTR_DNS,
     ATTR_ENABLE_IPV6,
+    ATTR_FEATURE_FLAGS,
     ATTR_FORCE_SECURITY,
     ATTR_HASSOS,
     ATTR_HASSOS_UNRESTRICTED,
@@ -47,6 +48,7 @@ from .const import (
     ATTR_VERSION,
     ATTR_WAIT_BOOT,
     SUPERVISOR_VERSION,
+    ExperimentalFeature,
     LogLevel,
     UpdateChannel,
 )
@@ -212,6 +214,9 @@ SCHEMA_SUPERVISOR_CONFIG = vol.Schema(
         vol.Optional(ATTR_DIAGNOSTICS, default=None): vol.Maybe(vol.Boolean()),
         vol.Optional(ATTR_DETECT_BLOCKING_IO, default=False): vol.Boolean(),
         vol.Optional(ATTR_COUNTRY): str,
+        vol.Optional(ATTR_FEATURE_FLAGS, default=dict): vol.Schema(
+            {vol.Coerce(ExperimentalFeature): vol.Boolean()}
+        ),
     },
     extra=vol.REMOVE_EXTRA,
 )
