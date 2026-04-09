@@ -11,12 +11,12 @@ from ..const import ROLE_ADMIN, ROLE_MANAGER, SECURITY_DISABLE, SECURITY_PROFILE
 from ..docker.const import Capabilities
 
 if TYPE_CHECKING:
-    from .model import AddonModel
+    from .model import AppModel
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
-def rating_security(addon: AddonModel) -> int:
+def rating_security(app: AppModel) -> int:
     """Return 1-8 for security rating.
 
     1 = not secure
@@ -25,25 +25,25 @@ def rating_security(addon: AddonModel) -> int:
     rating = 5
 
     # AppArmor
-    if addon.apparmor == SECURITY_DISABLE:
+    if app.apparmor == SECURITY_DISABLE:
         rating += -1
-    elif addon.apparmor == SECURITY_PROFILE:
+    elif app.apparmor == SECURITY_PROFILE:
         rating += 1
 
     # Home Assistant Login & Ingress
-    if addon.with_ingress:
+    if app.with_ingress:
         rating += 2
-    elif addon.access_auth_api:
+    elif app.access_auth_api:
         rating += 1
 
     # Signed
-    if addon.signed:
+    if app.signed:
         rating += 1
 
     # Privileged options
     if (
         any(
-            privilege in addon.privileged
+            privilege in app.privileged
             for privilege in (
                 Capabilities.BPF,
                 Capabilities.CHECKPOINT_RESTORE,
@@ -57,30 +57,30 @@ def rating_security(addon: AddonModel) -> int:
                 Capabilities.SYS_RAWIO,
             )
         )
-        or addon.with_kernel_modules
+        or app.with_kernel_modules
     ):
         rating += -1
 
     # API Supervisor role
-    if addon.hassio_role == ROLE_MANAGER:
+    if app.hassio_role == ROLE_MANAGER:
         rating += -1
-    elif addon.hassio_role == ROLE_ADMIN:
+    elif app.hassio_role == ROLE_ADMIN:
         rating += -2
 
     # Not secure Networking
-    if addon.host_network:
+    if app.host_network:
         rating += -1
 
     # Insecure PID namespace
-    if addon.host_pid:
+    if app.host_pid:
         rating += -2
 
     # UTS host namespace allows to set hostname only with SYS_ADMIN
-    if addon.host_uts and Capabilities.SYS_ADMIN in addon.privileged:
+    if app.host_uts and Capabilities.SYS_ADMIN in app.privileged:
         rating += -1
 
     # Docker Access & full Access
-    if addon.access_docker_api or addon.with_full_access:
+    if app.access_docker_api or app.with_full_access:
         rating = 1
 
     return max(min(8, rating), 1)

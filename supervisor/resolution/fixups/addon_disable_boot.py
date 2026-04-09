@@ -2,7 +2,7 @@
 
 import logging
 
-from ...const import AddonBoot
+from ...const import AppBoot
 from ...coresys import CoreSys
 from ..const import ContextType, IssueType, SuggestionType
 from .base import FixupBase
@@ -12,10 +12,10 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 def setup(coresys: CoreSys) -> FixupBase:
     """Check setup function."""
-    return FixupAddonDisableBoot(coresys)
+    return FixupAppDisableBoot(coresys)
 
 
-class FixupAddonDisableBoot(FixupBase):
+class FixupAppDisableBoot(FixupBase):
     """Storage class for fixup."""
 
     async def process_fixup(self, reference: str | None = None) -> None:
@@ -23,12 +23,12 @@ class FixupAddonDisableBoot(FixupBase):
         if not reference:
             return
 
-        if not (addon := self.sys_addons.get_local_only(reference)):
+        if not (app := self.sys_apps.get_local_only(reference)):
             _LOGGER.info("Cannot change app %s as it does not exist", reference)
             return
 
         # Disable boot on app
-        addon.boot = AddonBoot.MANUAL
+        app.boot = AppBoot.MANUAL
 
     @property
     def suggestion(self) -> SuggestionType:

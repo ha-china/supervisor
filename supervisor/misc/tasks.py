@@ -5,12 +5,12 @@ from datetime import datetime, timedelta
 import logging
 from typing import cast
 
-from ..addons.const import ADDON_UPDATE_CONDITIONS
+from ..addons.const import APP_UPDATE_CONDITIONS
 from ..backups.const import LOCATION_CLOUD_BACKUP, LOCATION_TYPE
-from ..const import ATTR_TYPE, AddonState
+from ..const import ATTR_TYPE, AppState
 from ..coresys import CoreSysAttributes
 from ..exceptions import (
-    AddonsError,
+    AppsError,
     BackupFileNotFoundError,
     HomeAssistantError,
     HomeAssistantWSError,
@@ -71,7 +71,7 @@ class Tasks(CoreSysAttributes):
     async def load(self):
         """Add Tasks to scheduler."""
         # Update
-        self.sys_scheduler.register_task(self._update_addons, RUN_UPDATE_ADDONS)
+        self.sys_scheduler.register_task(self._update_apps, RUN_UPDATE_ADDONS)
         self.sys_scheduler.register_task(self._update_cli, RUN_UPDATE_CLI)
         self.sys_scheduler.register_task(self._update_dns, RUN_UPDATE_DNS)
         self.sys_scheduler.register_task(self._update_audio, RUN_UPDATE_AUDIO)
@@ -94,7 +94,7 @@ class Tasks(CoreSysAttributes):
             self._watchdog_observer_application, RUN_WATCHDOG_OBSERVER_APPLICATION
         )
         self.sys_scheduler.register_task(
-            self._watchdog_addon_application, RUN_WATCHDOG_ADDON_APPLICATON
+            self._watchdog_app_application, RUN_WATCHDOG_ADDON_APPLICATON
         )
 
         # Cleanup
@@ -106,48 +106,46 @@ class Tasks(CoreSysAttributes):
 
     @Job(
         name="tasks_update_addons",
-        conditions=ADDON_UPDATE_CONDITIONS + [JobCondition.RUNNING],
+        conditions=APP_UPDATE_CONDITIONS + [JobCondition.RUNNING],
     )
-    async def _update_addons(self):
+    async def _update_apps(self):
         """Check if an update is available for an App and update it."""
-        for addon in self.sys_addons.all:
-            if not addon.is_installed or not addon.auto_update:
+        for app in self.sys_apps.all:
+            if not app.is_installed or not app.auto_update:
                 continue
 
             # Evaluate available updates
-            if not addon.need_update:
+            if not app.need_update:
                 continue
-            if not addon.auto_update_available:
+            if not app.auto_update_available:
                 _LOGGER.debug(
                     "Not updating app %s from %s to %s as that would cross a known breaking version",
-                    addon.slug,
-                    addon.version,
-                    addon.latest_version,
+                    app.slug,
+                    app.version,
+                    app.latest_version,
                 )
                 continue
             # Delay auto-updates for a day in case of issues
-            if utcnow() < addon.latest_version_timestamp + timedelta(days=1):
+            if utcnow() < app.latest_version_timestamp + timedelta(days=1):
                 _LOGGER.debug(
                     "Not updating app %s from %s to %s as the latest version is less than a day old",
-                    addon.slug,
-                    addon.version,
-                    addon.latest_version,
+                    app.slug,
+                    app.version,
+                    app.latest_version,
                 )
                 continue
-            if not addon.test_update_schema():
-                _LOGGER.warning(
-                    "App %s will be ignored, schema tests failed", addon.slug
-                )
+            if not app.test_update_schema():
+                _LOGGER.warning("App %s will be ignored, schema tests failed", app.slug)
                 continue
 
-            _LOGGER.info("App auto update process %s", addon.slug)
+            _LOGGER.info("App auto update process %s", app.slug)
             # Call Home Assistant Core to update app to make sure that backups
             # get created through the Home Assistant Core API (categorized correctly).
             # Ultimately auto updates should be handled by Home Assistant Core itself
             # through a update entity feature.
             message = {
                 ATTR_TYPE: WSType.HASSIO_UPDATE_ADDON,
-                "addon": addon.slug,
+                "addon": app.slug,
                 "backup": True,
             }
             _LOGGER.debug(
@@ -311,37 +309,37 @@ class Tasks(CoreSysAttributes):
         except ObserverError:
             _LOGGER.error("Observer watchdog reanimation failed!")
 
-    async def _watchdog_addon_application(self):
+    async def _watchdog_app_application(self):
         """Check running state of the application and start if they is hangs."""
-        for addon in self.sys_addons.installed:
+        for app in self.sys_apps.installed:
             # if watchdog need looking for
-            if not addon.watchdog or addon.state != AddonState.STARTED:
+            if not app.watchdog or app.state != AppState.STARTED:
                 continue
 
             # Init cache data
-            retry_scan = self._cache.get(addon.slug, 0)
+            retry_scan = self._cache.get(app.slug, 0)
 
             # if App have running actions / Application work
-            if addon.in_progress or await addon.watchdog_application():
+            if app.in_progress or await app.watchdog_application():
                 continue
 
             # Look like we run into a problem
             retry_scan += 1
             if retry_scan == 1:
-                self._cache[addon.slug] = retry_scan
+                self._cache[app.slug] = retry_scan
                 _LOGGER.warning(
-                    "Watchdog missing application response from %s", addon.slug
+                    "Watchdog missing application response from %s", app.slug
                 )
                 return
 
-            _LOGGER.warning("Watchdog found a problem with %s application!", addon.slug)
+            _LOGGER.warning("Watchdog found a problem with %s application!", app.slug)
             try:
-                await (await addon.restart())
-            except AddonsError as err:
-                _LOGGER.error("%s watchdog reanimation failed with %s", addon.slug, err)
+                await (await app.restart())
+            except AppsError as err:
+                _LOGGER.error("%s watchdog reanimation failed with %s", app.slug, err)
                 await async_capture_exception(err)
             finally:
-                self._cache[addon.slug] = 0
+                self._cache[app.slug] = 0
 
     @Job(
         name="tasks_reload_store",

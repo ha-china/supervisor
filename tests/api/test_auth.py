@@ -7,7 +7,7 @@ from aiohttp.hdrs import WWW_AUTHENTICATE
 from aiohttp.test_utils import TestClient
 import pytest
 
-from supervisor.addons.addon import Addon
+from supervisor.addons.addon import App
 from supervisor.coresys import CoreSys
 from supervisor.exceptions import HomeAssistantAPIError, HomeAssistantWSError
 from supervisor.homeassistant.api import HomeAssistantAPI
@@ -196,7 +196,7 @@ async def test_list_users_ws_error(
 async def test_auth_json_success(
     api_client: TestClient,
     mock_check_login: AsyncMock,
-    install_addon_ssh: Addon,
+    install_app_ssh: App,
     field: str,
 ):
     """Test successful JSON auth."""
@@ -216,7 +216,7 @@ async def test_auth_json_success(
 async def test_auth_json_failure_none(
     api_client: TestClient,
     mock_check_login: AsyncMock,
-    install_addon_ssh: Addon,
+    install_app_ssh: App,
     user: str | None,
     password: str | None,
 ):
@@ -235,7 +235,7 @@ async def test_auth_json_failure_none(
 
 @pytest.mark.parametrize("api_client", [TEST_ADDON_SLUG], indirect=True)
 async def test_auth_json_invalid_credentials(
-    api_client: TestClient, mock_check_login: AsyncMock, install_addon_ssh: Addon
+    api_client: TestClient, mock_check_login: AsyncMock, install_app_ssh: App
 ):
     """Test failed JSON auth due to invalid credentials."""
     mock_check_login.return_value = False
@@ -247,7 +247,7 @@ async def test_auth_json_invalid_credentials(
 
 
 @pytest.mark.parametrize("api_client", [TEST_ADDON_SLUG], indirect=True)
-async def test_auth_json_empty_body(api_client: TestClient, install_addon_ssh: Addon):
+async def test_auth_json_empty_body(api_client: TestClient, install_app_ssh: App):
     """Test JSON auth with empty body."""
     resp = await api_client.post(
         "/auth", data="", headers={"Content-Type": "application/json"}
@@ -256,7 +256,7 @@ async def test_auth_json_empty_body(api_client: TestClient, install_addon_ssh: A
 
 
 @pytest.mark.parametrize("api_client", [TEST_ADDON_SLUG], indirect=True)
-async def test_auth_json_invalid_json(api_client: TestClient, install_addon_ssh: Addon):
+async def test_auth_json_invalid_json(api_client: TestClient, install_app_ssh: App):
     """Test JSON auth with malformed JSON."""
     resp = await api_client.post(
         "/auth", data="{not json}", headers={"Content-Type": "application/json"}
@@ -266,7 +266,7 @@ async def test_auth_json_invalid_json(api_client: TestClient, install_addon_ssh:
 
 @pytest.mark.parametrize("api_client", [TEST_ADDON_SLUG], indirect=True)
 async def test_auth_urlencoded_success(
-    api_client: TestClient, mock_check_login: AsyncMock, install_addon_ssh: Addon
+    api_client: TestClient, mock_check_login: AsyncMock, install_app_ssh: App
 ):
     """Test successful URL-encoded auth."""
     mock_check_login.return_value = True
@@ -280,7 +280,7 @@ async def test_auth_urlencoded_success(
 
 @pytest.mark.parametrize("api_client", [TEST_ADDON_SLUG], indirect=True)
 async def test_auth_urlencoded_failure(
-    api_client: TestClient, mock_check_login: AsyncMock, install_addon_ssh: Addon
+    api_client: TestClient, mock_check_login: AsyncMock, install_app_ssh: App
 ):
     """Test URL-encoded auth with invalid credentials."""
     mock_check_login.return_value = False
@@ -295,7 +295,7 @@ async def test_auth_urlencoded_failure(
 
 @pytest.mark.parametrize("api_client", [TEST_ADDON_SLUG], indirect=True)
 async def test_auth_unsupported_content_type(
-    api_client: TestClient, install_addon_ssh: Addon
+    api_client: TestClient, install_app_ssh: App
 ):
     """Test auth with unsupported content type."""
     resp = await api_client.post(
@@ -307,7 +307,7 @@ async def test_auth_unsupported_content_type(
 
 @pytest.mark.parametrize("api_client", [TEST_ADDON_SLUG], indirect=True)
 async def test_auth_basic_auth(
-    api_client: TestClient, mock_check_login: AsyncMock, install_addon_ssh: Addon
+    api_client: TestClient, mock_check_login: AsyncMock, install_app_ssh: App
 ):
     """Test auth with BasicAuth header."""
     mock_check_login.return_value = True
@@ -319,7 +319,7 @@ async def test_auth_basic_auth(
 
 @pytest.mark.parametrize("api_client", [TEST_ADDON_SLUG], indirect=True)
 async def test_auth_basic_auth_failure(
-    api_client: TestClient, mock_check_login: AsyncMock, install_addon_ssh: Addon
+    api_client: TestClient, mock_check_login: AsyncMock, install_app_ssh: App
 ):
     """Test auth with BasicAuth header and failure."""
     mock_check_login.return_value = False
@@ -331,7 +331,7 @@ async def test_auth_basic_auth_failure(
 
 @pytest.mark.parametrize("api_client", [TEST_ADDON_SLUG], indirect=True)
 async def test_auth_bearer_token_returns_401(
-    api_client: TestClient, install_addon_ssh: Addon
+    api_client: TestClient, install_app_ssh: App
 ):
     """Test that a Bearer token in Authorization header returns 401, not 500."""
     resp = await api_client.post(
@@ -342,22 +342,22 @@ async def test_auth_bearer_token_returns_401(
 
 
 @pytest.mark.parametrize("api_client", ["local_example"], indirect=True)
-async def test_auth_addon_no_auth_access(
-    api_client: TestClient, install_addon_example: Addon
+async def test_auth_app_no_auth_access(
+    api_client: TestClient, install_app_example: App
 ):
     """Test auth where app is not allowed to access auth API."""
     resp = await api_client.post("/auth", json={"username": "test", "password": "pass"})
     assert resp.status == 403
 
 
-async def test_non_addon_token_no_auth_access(api_client: TestClient):
+async def test_non_app_token_no_auth_access(api_client: TestClient):
     """Test auth where app is not allowed to access auth API."""
     resp = await api_client.post("/auth", json={"username": "test", "password": "pass"})
     assert resp.status == 403
 
 
 @pytest.mark.parametrize("api_client", [TEST_ADDON_SLUG], indirect=True)
-@pytest.mark.usefixtures("install_addon_ssh")
+@pytest.mark.usefixtures("install_app_ssh")
 async def test_auth_backend_login_failure(api_client: TestClient):
     """Test backend login failure on auth."""
     with (

@@ -13,15 +13,15 @@ from awesomeversion import AwesomeVersion
 from dbus_fast import DBusError
 import pytest
 
-from supervisor.addons.addon import Addon
-from supervisor.addons.const import AddonBackupMode
-from supervisor.addons.model import AddonModel
+from supervisor.addons.addon import App
+from supervisor.addons.const import AppBackupMode
+from supervisor.addons.model import AppModel
 from supervisor.backups.backup import Backup, BackupLocation
 from supervisor.backups.const import LOCATION_TYPE, BackupJobStage, BackupType
 from supervisor.backups.manager import BackupManager
-from supervisor.const import FOLDER_HOMEASSISTANT, FOLDER_SHARE, AddonState, CoreState
+from supervisor.const import FOLDER_HOMEASSISTANT, FOLDER_SHARE, AppState, CoreState
 from supervisor.coresys import CoreSys
-from supervisor.docker.addon import DockerAddon
+from supervisor.docker.addon import DockerApp
 from supervisor.docker.const import ContainerState
 from supervisor.docker.homeassistant import DockerHomeAssistant
 from supervisor.docker.monitor import DockerContainerStateEvent
@@ -50,7 +50,7 @@ from tests.dbus_service_mocks.systemd import Systemd as SystemdService
 from tests.dbus_service_mocks.systemd_unit import SystemdUnit as SystemdUnitService
 
 
-async def test_do_backup_full(coresys: CoreSys, backup_mock, install_addon_ssh):
+async def test_do_backup_full(coresys: CoreSys, backup_mock, install_app_ssh):
     """Test creating Backup."""
     await coresys.core.set_state(CoreState.RUNNING)
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
@@ -68,8 +68,8 @@ async def test_do_backup_full(coresys: CoreSys, backup_mock, install_addon_ssh):
     backup_instance.store_homeassistant.assert_called_once()
     backup_instance.store_repositories.assert_called_once()
 
-    backup_instance.store_addons.assert_called_once()
-    assert install_addon_ssh in backup_instance.store_addons.call_args[0][0]
+    backup_instance.store_apps.assert_called_once()
+    assert install_app_ssh in backup_instance.store_apps.call_args[0][0]
 
     backup_instance.store_folders.assert_called_once()
     assert len(backup_instance.store_folders.call_args[0][0]) == 4
@@ -100,7 +100,7 @@ async def test_do_backup_full_with_filename(
 
 
 @pytest.mark.usefixtures("backup_mock")
-async def test_do_backup_full_uncompressed(coresys: CoreSys, install_addon_ssh: Addon):
+async def test_do_backup_full_uncompressed(coresys: CoreSys, install_app_ssh: App):
     """Test creating Backup."""
     await coresys.core.set_state(CoreState.RUNNING)
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
@@ -118,8 +118,8 @@ async def test_do_backup_full_uncompressed(coresys: CoreSys, install_addon_ssh: 
     backup_instance.store_homeassistant.assert_called_once()
     backup_instance.store_repositories.assert_called_once()
 
-    backup_instance.store_addons.assert_called_once()
-    assert install_addon_ssh in backup_instance.store_addons.call_args[0][0]
+    backup_instance.store_apps.assert_called_once()
+    assert install_app_ssh in backup_instance.store_apps.call_args[0][0]
 
     backup_instance.store_folders.assert_called_once()
     assert len(backup_instance.store_folders.call_args[0][0]) == 4
@@ -128,7 +128,7 @@ async def test_do_backup_full_uncompressed(coresys: CoreSys, install_addon_ssh: 
     assert coresys.core.state == CoreState.RUNNING
 
 
-@pytest.mark.usefixtures("backup_mock", "install_addon_ssh")
+@pytest.mark.usefixtures("backup_mock", "install_app_ssh")
 async def test_do_backup_partial_minimal(coresys: CoreSys):
     """Test creating minimal partial Backup."""
     await coresys.core.set_state(CoreState.RUNNING)
@@ -147,14 +147,14 @@ async def test_do_backup_partial_minimal(coresys: CoreSys):
     backup_instance.store_homeassistant.assert_not_called()
     backup_instance.store_repositories.assert_called_once()
 
-    backup_instance.store_addons.assert_not_called()
+    backup_instance.store_apps.assert_not_called()
 
     backup_instance.store_folders.assert_not_called()
 
     assert coresys.core.state == CoreState.RUNNING
 
 
-@pytest.mark.usefixtures("backup_mock", "install_addon_ssh")
+@pytest.mark.usefixtures("backup_mock", "install_app_ssh")
 async def test_do_backup_partial_minimal_uncompressed(coresys: CoreSys):
     """Test creating minimal partial Backup."""
     await coresys.core.set_state(CoreState.RUNNING)
@@ -175,7 +175,7 @@ async def test_do_backup_partial_minimal_uncompressed(coresys: CoreSys):
     backup_instance.store_homeassistant.assert_not_called()
     backup_instance.store_repositories.assert_called_once()
 
-    backup_instance.store_addons.assert_not_called()
+    backup_instance.store_apps.assert_not_called()
 
     backup_instance.store_folders.assert_not_called()
 
@@ -183,7 +183,7 @@ async def test_do_backup_partial_minimal_uncompressed(coresys: CoreSys):
 
 
 @pytest.mark.usefixtures("backup_mock")
-async def test_do_backup_partial_maximal(coresys: CoreSys, install_addon_ssh: Addon):
+async def test_do_backup_partial_maximal(coresys: CoreSys, install_app_ssh: App):
     """Test creating maximal partial Backup."""
     await coresys.core.set_state(CoreState.RUNNING)
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
@@ -192,7 +192,7 @@ async def test_do_backup_partial_maximal(coresys: CoreSys, install_addon_ssh: Ad
 
     # backup_mock fixture causes Backup() to be a MagicMock
     backup_instance: MagicMock = await manager.do_backup_partial(
-        addons=[TEST_ADDON_SLUG],
+        apps=[TEST_ADDON_SLUG],
         folders=[FOLDER_SHARE, FOLDER_HOMEASSISTANT],
         homeassistant=True,
     )
@@ -205,8 +205,8 @@ async def test_do_backup_partial_maximal(coresys: CoreSys, install_addon_ssh: Ad
     backup_instance.store_homeassistant.assert_called_once()
     backup_instance.store_repositories.assert_called_once()
 
-    backup_instance.store_addons.assert_called_once()
-    assert install_addon_ssh in backup_instance.store_addons.call_args[0][0]
+    backup_instance.store_apps.assert_called_once()
+    assert install_app_ssh in backup_instance.store_apps.call_args[0][0]
 
     backup_instance.store_folders.assert_called_once()
     assert len(backup_instance.store_folders.call_args[0][0]) == 1
@@ -217,7 +217,7 @@ async def test_do_backup_partial_maximal(coresys: CoreSys, install_addon_ssh: Ad
 
 @pytest.mark.usefixtures("supervisor_internet")
 async def test_do_restore_full(
-    coresys: CoreSys, full_backup_mock: Backup, install_addon_ssh: Addon
+    coresys: CoreSys, full_backup_mock: Backup, install_app_ssh: App
 ):
     """Test restoring full Backup."""
     await coresys.core.set_state(CoreState.RUNNING)
@@ -225,22 +225,22 @@ async def test_do_restore_full(
     coresys.homeassistant.core.start = AsyncMock(return_value=None)
     coresys.homeassistant.core.stop = AsyncMock(return_value=None)
     coresys.homeassistant.core.update = AsyncMock(return_value=None)
-    install_addon_ssh.uninstall = AsyncMock(return_value=None)
+    install_app_ssh.uninstall = AsyncMock(return_value=None)
 
     manager = await BackupManager(coresys).load_config()
 
     backup_instance = full_backup_mock.return_value
-    backup_instance.sys_addons = coresys.addons
-    backup_instance.remove_delta_addons = partial(
-        Backup.remove_delta_addons, backup_instance
+    backup_instance.sys_apps = coresys.apps
+    backup_instance.remove_delta_apps = partial(
+        Backup.remove_delta_apps, backup_instance
     )
     assert await manager.do_restore_full(backup_instance)
 
     backup_instance.restore_homeassistant.assert_called_once()
     backup_instance.restore_repositories.assert_called_once()
 
-    backup_instance.restore_addons.assert_called_once()
-    install_addon_ssh.uninstall.assert_not_called()
+    backup_instance.restore_apps.assert_called_once()
+    install_app_ssh.uninstall.assert_not_called()
 
     backup_instance.restore_folders.assert_called_once()
 
@@ -248,8 +248,8 @@ async def test_do_restore_full(
 
 
 @pytest.mark.usefixtures("supervisor_internet")
-async def test_do_restore_full_different_addon(
-    coresys: CoreSys, full_backup_mock: Backup, install_addon_ssh: Addon
+async def test_do_restore_full_different_app(
+    coresys: CoreSys, full_backup_mock: Backup, install_app_ssh: App
 ):
     """Test restoring full Backup with different apps than installed."""
     await coresys.core.set_state(CoreState.RUNNING)
@@ -257,30 +257,30 @@ async def test_do_restore_full_different_addon(
     coresys.homeassistant.core.start = AsyncMock(return_value=None)
     coresys.homeassistant.core.stop = AsyncMock(return_value=None)
     coresys.homeassistant.core.update = AsyncMock(return_value=None)
-    install_addon_ssh.uninstall = AsyncMock(return_value=None)
+    install_app_ssh.uninstall = AsyncMock(return_value=None)
 
     manager = await BackupManager(coresys).load_config()
 
     backup_instance = full_backup_mock.return_value
-    backup_instance.addon_list = ["differentslug"]
-    backup_instance.sys_addons = coresys.addons
-    backup_instance.remove_delta_addons = partial(
-        Backup.remove_delta_addons, backup_instance
+    backup_instance.app_list = ["differentslug"]
+    backup_instance.sys_apps = coresys.apps
+    backup_instance.remove_delta_apps = partial(
+        Backup.remove_delta_apps, backup_instance
     )
     assert await manager.do_restore_full(backup_instance)
 
     backup_instance.restore_homeassistant.assert_called_once()
     backup_instance.restore_repositories.assert_called_once()
 
-    backup_instance.restore_addons.assert_called_once()
-    install_addon_ssh.uninstall.assert_called_once()
+    backup_instance.restore_apps.assert_called_once()
+    install_app_ssh.uninstall.assert_called_once()
 
     backup_instance.restore_folders.assert_called_once()
 
     assert coresys.core.state == CoreState.RUNNING
 
 
-@pytest.mark.usefixtures("supervisor_internet", "install_addon_ssh")
+@pytest.mark.usefixtures("supervisor_internet", "install_app_ssh")
 async def test_do_restore_partial_minimal(
     coresys: CoreSys, partial_backup_mock: Backup
 ):
@@ -299,7 +299,7 @@ async def test_do_restore_partial_minimal(
     backup_instance.restore_homeassistant.assert_not_called()
     backup_instance.restore_repositories.assert_not_called()
 
-    backup_instance.restore_addons.assert_not_called()
+    backup_instance.restore_apps.assert_not_called()
 
     backup_instance.restore_folders.assert_not_called()
 
@@ -322,7 +322,7 @@ async def test_do_restore_partial_maximal(
     backup_instance = partial_backup_mock.return_value
     assert await manager.do_restore_partial(
         backup_instance,
-        addons=[TEST_ADDON_SLUG],
+        apps=[TEST_ADDON_SLUG],
         folders=[FOLDER_SHARE, FOLDER_HOMEASSISTANT],
         homeassistant=True,
     )
@@ -330,7 +330,7 @@ async def test_do_restore_partial_maximal(
     backup_instance.restore_homeassistant.assert_called_once()
     backup_instance.restore_repositories.assert_called_once()
 
-    backup_instance.restore_addons.assert_called_once()
+    backup_instance.restore_apps.assert_called_once()
 
     backup_instance.restore_folders.assert_called_once()
     backup_instance.restore_homeassistant.assert_called_once()
@@ -408,7 +408,7 @@ async def test_fail_invalid_partial_backup(
         await manager.do_restore_partial(backup_instance)
 
 
-@pytest.mark.usefixtures("install_addon_ssh", "capture_exception")
+@pytest.mark.usefixtures("install_app_ssh", "capture_exception")
 async def test_backup_error_homeassistant(coresys: CoreSys, backup_mock: MagicMock):
     """Test error collected and file deleted when Home Assistant Core backup fails."""
     await coresys.core.set_state(CoreState.RUNNING)
@@ -432,7 +432,7 @@ async def test_backup_error_homeassistant(coresys: CoreSys, backup_mock: MagicMo
     backup_instance.tarfile.unlink.assert_called_once()
 
 
-@pytest.mark.usefixtures("install_addon_ssh")
+@pytest.mark.usefixtures("install_app_ssh")
 async def test_backup_error_capture(
     coresys: CoreSys, backup_mock: MagicMock, capture_exception: Mock
 ):
@@ -948,27 +948,27 @@ async def test_load_network_error(
 
 @pytest.mark.usefixtures("tmp_supervisor_data", "path_extern")
 async def test_backup_with_healthcheck(
-    coresys: CoreSys, install_addon_ssh: Addon, container: DockerContainer
+    coresys: CoreSys, install_app_ssh: App, container: DockerContainer
 ):
     """Test backup of app with healthcheck in cold mode."""
     container.show.return_value["State"]["Status"] = "running"
     container.show.return_value["State"]["Running"] = True
     container.show.return_value["Config"] = {"Healthcheck": "exists"}
-    install_addon_ssh.path_data.mkdir()
+    install_app_ssh.path_data.mkdir()
     await coresys.core.set_state(CoreState.RUNNING)
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
-    await install_addon_ssh.load()
+    await install_app_ssh.load()
     await asyncio.sleep(0)
-    assert install_addon_ssh.state == AddonState.STARTUP
+    assert install_app_ssh.state == AppState.STARTUP
 
-    state_changes: list[AddonState] = []
+    state_changes: list[AppState] = []
     _container_events_task: asyncio.Task | None = None
 
     async def container_events():
         nonlocal state_changes
         await asyncio.sleep(0.01)
 
-        await install_addon_ssh.container_state_changed(
+        await install_app_ssh.container_state_changed(
             DockerContainerStateEvent(
                 name=f"addon_{TEST_ADDON_SLUG}",
                 state=ContainerState.STOPPED,
@@ -977,8 +977,8 @@ async def test_backup_with_healthcheck(
             )
         )
 
-        state_changes.append(install_addon_ssh.state)
-        await install_addon_ssh.container_state_changed(
+        state_changes.append(install_app_ssh.state)
+        await install_app_ssh.container_state_changed(
             DockerContainerStateEvent(
                 name=f"addon_{TEST_ADDON_SLUG}",
                 state=ContainerState.RUNNING,
@@ -987,8 +987,8 @@ async def test_backup_with_healthcheck(
             )
         )
 
-        state_changes.append(install_addon_ssh.state)
-        await install_addon_ssh.container_state_changed(
+        state_changes.append(install_app_ssh.state)
+        await install_app_ssh.container_state_changed(
             DockerContainerStateEvent(
                 name=f"addon_{TEST_ADDON_SLUG}",
                 state=ContainerState.HEALTHY,
@@ -1002,21 +1002,21 @@ async def test_backup_with_healthcheck(
         _container_events_task = asyncio.create_task(container_events())
 
     with (
-        patch.object(DockerAddon, "run", new=container_events_task),
+        patch.object(DockerApp, "run", new=container_events_task),
         patch.object(
-            AddonModel,
+            AppModel,
             "backup_mode",
-            new=PropertyMock(return_value=AddonBackupMode.COLD),
+            new=PropertyMock(return_value=AppBackupMode.COLD),
         ),
-        patch.object(DockerAddon, "is_running", side_effect=[True, False, False]),
+        patch.object(DockerApp, "is_running", side_effect=[True, False, False]),
     ):
         backup = await coresys.backups.do_backup_partial(
-            homeassistant=False, addons=["local_ssh"]
+            homeassistant=False, apps=["local_ssh"]
         )
 
     assert backup
-    assert state_changes == [AddonState.STOPPED, AddonState.STARTUP]
-    assert install_addon_ssh.state == AddonState.STARTED
+    assert state_changes == [AppState.STOPPED, AppState.STARTUP]
+    assert install_app_ssh.state == AppState.STARTED
     assert coresys.core.state == CoreState.RUNNING
 
     await _container_events_task
@@ -1024,29 +1024,29 @@ async def test_backup_with_healthcheck(
 
 @pytest.mark.usefixtures("supervisor_internet", "tmp_supervisor_data", "path_extern")
 async def test_restore_with_healthcheck(
-    coresys: CoreSys, install_addon_ssh: Addon, container: DockerContainer
+    coresys: CoreSys, install_app_ssh: App, container: DockerContainer
 ):
     """Test backup of app with healthcheck in cold mode."""
     container.show.return_value["State"]["Status"] = "running"
     container.show.return_value["State"]["Running"] = True
     container.show.return_value["Config"] = {"Healthcheck": "exists"}
-    install_addon_ssh.path_data.mkdir()
+    install_app_ssh.path_data.mkdir()
     await coresys.core.set_state(CoreState.RUNNING)
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
-    await install_addon_ssh.load()
+    await install_app_ssh.load()
     await asyncio.sleep(0)
-    assert install_addon_ssh.state == AddonState.STARTUP
+    assert install_app_ssh.state == AppState.STARTUP
 
     backup = await coresys.backups.do_backup_partial(
-        homeassistant=False, addons=["local_ssh"]
+        homeassistant=False, apps=["local_ssh"]
     )
-    state_changes: list[AddonState] = []
+    state_changes: list[AppState] = []
     _container_events_task: asyncio.Task | None = None
 
     async def container_events():
         nonlocal state_changes
 
-        await install_addon_ssh.container_state_changed(
+        await install_app_ssh.container_state_changed(
             DockerContainerStateEvent(
                 name=f"addon_{TEST_ADDON_SLUG}",
                 state=ContainerState.STOPPED,
@@ -1055,8 +1055,8 @@ async def test_restore_with_healthcheck(
             )
         )
 
-        state_changes.append(install_addon_ssh.state)
-        await install_addon_ssh.container_state_changed(
+        state_changes.append(install_app_ssh.state)
+        await install_app_ssh.container_state_changed(
             DockerContainerStateEvent(
                 name=f"addon_{TEST_ADDON_SLUG}",
                 state=ContainerState.RUNNING,
@@ -1065,8 +1065,8 @@ async def test_restore_with_healthcheck(
             )
         )
 
-        state_changes.append(install_addon_ssh.state)
-        await install_addon_ssh.container_state_changed(
+        state_changes.append(install_app_ssh.state)
+        await install_app_ssh.container_state_changed(
             DockerContainerStateEvent(
                 name=f"addon_{TEST_ADDON_SLUG}",
                 state=ContainerState.HEALTHY,
@@ -1080,15 +1080,15 @@ async def test_restore_with_healthcheck(
         _container_events_task = asyncio.create_task(container_events())
 
     with (
-        patch.object(DockerAddon, "run", new=container_events_task),
-        patch.object(DockerAddon, "is_running", return_value=False),
-        patch.object(AddonModel, "_validate_availability"),
-        patch.object(Addon, "with_ingress", new=PropertyMock(return_value=False)),
+        patch.object(DockerApp, "run", new=container_events_task),
+        patch.object(DockerApp, "is_running", return_value=False),
+        patch.object(AppModel, "_validate_availability"),
+        patch.object(App, "with_ingress", new=PropertyMock(return_value=False)),
     ):
-        await coresys.backups.do_restore_partial(backup, addons=["local_ssh"])
+        await coresys.backups.do_restore_partial(backup, apps=["local_ssh"])
 
-    assert state_changes == [AddonState.STOPPED, AddonState.STARTUP]
-    assert install_addon_ssh.state == AddonState.STARTED
+    assert state_changes == [AppState.STOPPED, AppState.STARTUP]
+    assert install_app_ssh.state == AppState.STARTED
     assert coresys.core.state == CoreState.RUNNING
 
     await _container_events_task
@@ -1126,22 +1126,22 @@ def _make_backup_message_for_assert(
 @pytest.mark.usefixtures("tmp_supervisor_data", "path_extern")
 async def test_backup_progress(
     coresys: CoreSys,
-    install_addon_ssh: Addon,
+    install_app_ssh: App,
     container: DockerContainer,
     ha_ws_client: AsyncMock,
 ):
     """Test progress is tracked during backups."""
     container.show.return_value["State"]["Status"] = "running"
     container.show.return_value["State"]["Running"] = True
-    install_addon_ssh.path_data.mkdir()
+    install_app_ssh.path_data.mkdir()
     await coresys.core.set_state(CoreState.RUNNING)
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
 
     with (
         patch.object(
-            AddonModel,
+            AppModel,
             "backup_mode",
-            new=PropertyMock(return_value=AddonBackupMode.COLD),
+            new=PropertyMock(return_value=AppBackupMode.COLD),
         ),
         patch("supervisor.addons.addon.asyncio.Event.wait"),
     ):
@@ -1185,7 +1185,7 @@ async def test_backup_progress(
 
     ha_ws_client.async_send_command.reset_mock()
     partial_backup: Backup = await coresys.backups.do_backup_partial(
-        addons=["local_ssh"], folders=["media", "share", "ssl"]
+        apps=["local_ssh"], folders=["media", "share", "ssl"]
     )
     await asyncio.sleep(0)
 
@@ -1237,15 +1237,15 @@ async def test_backup_progress(
 @pytest.mark.usefixtures("supervisor_internet", "tmp_supervisor_data", "path_extern")
 async def test_restore_progress(
     coresys: CoreSys,
-    install_addon_ssh: Addon,
+    install_app_ssh: App,
     container: DockerContainer,
     ha_ws_client: AsyncMock,
 ):
     """Test progress is tracked during backups."""
     container.show.return_value["State"]["Status"] = "running"
     container.show.return_value["State"]["Running"] = True
-    install_addon_ssh.path_data.mkdir()
-    install_addon_ssh.state = AddonState.STARTED
+    install_app_ssh.path_data.mkdir()
+    install_app_ssh.state = AppState.STARTED
     await coresys.core.set_state(CoreState.RUNNING)
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
 
@@ -1256,18 +1256,18 @@ async def test_restore_progress(
     # Install another app to be uninstalled
     # Duplicate code from install_addon_example fixture
     # Apparently request.getfixturevalue does not work with async fixtures: https://github.com/pytest-dev/pytest-asyncio/issues/112
-    store = coresys.addons.store["local_example"]
-    await coresys.addons.data.install(store)
+    store = coresys.apps.store["local_example"]
+    await coresys.apps.data.install(store)
     # pylint: disable-next=protected-access
-    coresys.addons.data._data = coresys.addons.data._schema(coresys.addons.data._data)
-    coresys.addons.local[store.slug] = Addon(coresys, store.slug)
+    coresys.apps.data._data = coresys.apps.data._schema(coresys.apps.data._data)
+    coresys.apps.local[store.slug] = App(coresys, store.slug)
 
     with (
         patch("supervisor.addons.addon.asyncio.Event.wait"),
         patch.object(HomeAssistant, "restore"),
         patch.object(HomeAssistantCore, "update"),
-        patch.object(AddonModel, "_validate_availability"),
-        patch.object(AddonModel, "with_ingress", new=PropertyMock(return_value=False)),
+        patch.object(AppModel, "_validate_availability"),
+        patch.object(AppModel, "with_ingress", new=PropertyMock(return_value=False)),
     ):
         await coresys.backups.do_restore_full(full_backup)
     await asyncio.sleep(0)
@@ -1377,15 +1377,15 @@ async def test_restore_progress(
 
     container.show.return_value["State"]["Status"] = "stopped"
     container.show.return_value["State"]["Running"] = False
-    install_addon_ssh.state = AddonState.STOPPED
-    addon_backup: Backup = await coresys.backups.do_backup_partial(addons=["local_ssh"])
+    install_app_ssh.state = AppState.STOPPED
+    app_backup: Backup = await coresys.backups.do_backup_partial(apps=["local_ssh"])
 
     ha_ws_client.async_send_command.reset_mock()
     with (
-        patch.object(AddonModel, "_validate_availability"),
+        patch.object(AppModel, "_validate_availability"),
         patch.object(HomeAssistantCore, "start"),
     ):
-        await coresys.backups.do_restore_partial(addon_backup, addons=["local_ssh"])
+        await coresys.backups.do_restore_partial(app_backup, apps=["local_ssh"])
     await asyncio.sleep(0)
 
     messages = [
@@ -1401,27 +1401,27 @@ async def test_restore_progress(
         ),
         _make_backup_message_for_assert(
             action="partial_restore",
-            reference=addon_backup.slug,
+            reference=app_backup.slug,
             stage=None,
         ),
         _make_backup_message_for_assert(
             action="partial_restore",
-            reference=addon_backup.slug,
+            reference=app_backup.slug,
             stage="addon_repositories",
         ),
         _make_backup_message_for_assert(
             action="partial_restore",
-            reference=addon_backup.slug,
+            reference=app_backup.slug,
             stage="addons",
         ),
         _make_backup_message_for_assert(
             action="partial_restore",
-            reference=addon_backup.slug,
+            reference=app_backup.slug,
             stage="supervisor_config",
         ),
         _make_backup_message_for_assert(
             action="partial_restore",
-            reference=addon_backup.slug,
+            reference=app_backup.slug,
             stage="supervisor_config",
             done=True,
             progress=100,
@@ -1432,24 +1432,24 @@ async def test_restore_progress(
 @pytest.mark.usefixtures("tmp_supervisor_data", "path_extern")
 async def test_freeze_thaw(
     coresys: CoreSys,
-    install_addon_ssh: Addon,
+    install_app_ssh: App,
     container: DockerContainer,
     ha_ws_client: AsyncMock,
 ):
     """Test manual freeze and thaw for external snapshots."""
     container.show.return_value["State"]["Status"] = "running"
     container.show.return_value["State"]["Running"] = True
-    install_addon_ssh.path_data.mkdir()
+    install_app_ssh.path_data.mkdir()
     await coresys.core.set_state(CoreState.RUNNING)
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
     ha_ws_client.ha_version = AwesomeVersion("2022.1.0")
 
     with (
         patch.object(
-            AddonModel, "backup_pre", new=PropertyMock(return_value="pre_backup")
+            AppModel, "backup_pre", new=PropertyMock(return_value="pre_backup")
         ),
         patch.object(
-            AddonModel, "backup_post", new=PropertyMock(return_value="post_backup")
+            AppModel, "backup_post", new=PropertyMock(return_value="post_backup")
         ),
     ):
         # Run the freeze
@@ -1557,21 +1557,21 @@ async def test_cannot_manually_thaw_normal_freeze(coresys: CoreSys):
 
 @pytest.mark.usefixtures("supervisor_internet", "tmp_supervisor_data", "path_extern")
 async def test_restore_only_reloads_ingress_on_change(
-    coresys: CoreSys, install_addon_ssh: Addon
+    coresys: CoreSys, install_app_ssh: App
 ):
     """Test restore only tells core to reload ingress when something has changed."""
-    install_addon_ssh.path_data.mkdir()
+    install_app_ssh.path_data.mkdir()
     await coresys.core.set_state(CoreState.RUNNING)
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
 
     backup_no_ingress: Backup = await coresys.backups.do_backup_partial(
-        addons=["local_ssh"]
+        apps=["local_ssh"]
     )
 
-    install_addon_ssh.ingress_panel = True
-    await install_addon_ssh.save_persist()
+    install_app_ssh.ingress_panel = True
+    await install_app_ssh.save_persist()
     backup_with_ingress: Backup = await coresys.backups.do_backup_partial(
-        addons=["local_ssh"]
+        apps=["local_ssh"]
     )
 
     async def mock_is_running(*_) -> bool:
@@ -1579,94 +1579,86 @@ async def test_restore_only_reloads_ingress_on_change(
 
     with (
         patch.object(HomeAssistantCore, "is_running", new=mock_is_running),
-        patch.object(AddonModel, "_validate_availability"),
-        patch.object(DockerAddon, "attach"),
+        patch.object(AppModel, "_validate_availability"),
+        patch.object(DockerApp, "attach"),
         patch.object(HomeAssistantAPI, "make_request") as make_request,
     ):
         make_request.return_value.__aenter__.return_value.status = 200
 
         # Has ingress before and after - not called
         await coresys.backups.do_restore_partial(
-            backup_with_ingress, addons=["local_ssh"]
+            backup_with_ingress, apps=["local_ssh"]
         )
         make_request.assert_not_called()
 
         # Restore removes ingress - tell Home Assistant
-        await coresys.backups.do_restore_partial(
-            backup_no_ingress, addons=["local_ssh"]
-        )
+        await coresys.backups.do_restore_partial(backup_no_ingress, apps=["local_ssh"])
         make_request.assert_called_once_with(
             "delete", "api/hassio_push/panel/local_ssh"
         )
 
         # No ingress before or after - not called
         make_request.reset_mock()
-        await coresys.backups.do_restore_partial(
-            backup_no_ingress, addons=["local_ssh"]
-        )
+        await coresys.backups.do_restore_partial(backup_no_ingress, apps=["local_ssh"])
         make_request.assert_not_called()
 
         # Restore adds ingress - tell Home Assistant
         await coresys.backups.do_restore_partial(
-            backup_with_ingress, addons=["local_ssh"]
+            backup_with_ingress, apps=["local_ssh"]
         )
         make_request.assert_called_once_with("post", "api/hassio_push/panel/local_ssh")
 
 
 @pytest.mark.usefixtures("supervisor_internet", "tmp_supervisor_data", "path_extern")
-async def test_restore_new_addon(coresys: CoreSys, install_addon_example: Addon):
+async def test_restore_new_app(coresys: CoreSys, install_app_example: App):
     """Test restore installing new app."""
     await coresys.core.set_state(CoreState.RUNNING)
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
 
-    assert not install_addon_example.path_data.exists()
-    assert not install_addon_example.path_config.exists()
+    assert not install_app_example.path_data.exists()
+    assert not install_app_example.path_config.exists()
 
-    backup: Backup = await coresys.backups.do_backup_partial(addons=["local_example"])
-    await coresys.addons.uninstall("local_example")
-    assert "local_example" not in coresys.addons.local
+    backup: Backup = await coresys.backups.do_backup_partial(apps=["local_example"])
+    await coresys.apps.uninstall("local_example")
+    assert "local_example" not in coresys.apps.local
 
     with (
-        patch.object(AddonModel, "_validate_availability"),
-        patch.object(DockerAddon, "attach"),
+        patch.object(AppModel, "_validate_availability"),
+        patch.object(DockerApp, "attach"),
     ):
-        assert await coresys.backups.do_restore_partial(
-            backup, addons=["local_example"]
-        )
+        assert await coresys.backups.do_restore_partial(backup, apps=["local_example"])
 
-    assert "local_example" in coresys.addons.local
-    assert install_addon_example.path_data.exists()
-    assert install_addon_example.path_config.exists()
+    assert "local_example" in coresys.apps.local
+    assert install_app_example.path_data.exists()
+    assert install_app_example.path_config.exists()
 
 
 @pytest.mark.usefixtures("supervisor_internet", "tmp_supervisor_data", "path_extern")
 async def test_restore_preserves_data_config(
-    coresys: CoreSys, install_addon_example: Addon
+    coresys: CoreSys, install_app_example: App
 ):
     """Test restore preserves data and config."""
     await coresys.core.set_state(CoreState.RUNNING)
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
 
-    install_addon_example.path_data.mkdir()
-    (test_data := install_addon_example.path_data / "data.txt").touch()
-    install_addon_example.path_config.mkdir()
-    (test_config := install_addon_example.path_config / "config.yaml").touch()
+    install_app_example.path_data.mkdir()
+    (test_data := install_app_example.path_data / "data.txt").touch()
+    install_app_example.path_config.mkdir()
+    (test_config := install_app_example.path_config / "config.yaml").touch()
 
-    backup: Backup = await coresys.backups.do_backup_partial(addons=["local_example"])
-    (test_config2 := install_addon_example.path_config / "config2.yaml").touch()
+    backup: Backup = await coresys.backups.do_backup_partial(apps=["local_example"])
+    (test_config2 := install_app_example.path_config / "config2.yaml").touch()
 
-    await coresys.addons.uninstall("local_example")
-    assert not install_addon_example.path_data.exists()
-    assert install_addon_example.path_config.exists()
+    await coresys.apps.uninstall("local_example")
+    assert not install_app_example.path_data.exists()
+    assert install_app_example.path_config.exists()
     assert test_config2.exists()
 
     with (
-        patch.object(AddonModel, "_validate_availability"),
-        patch.object(DockerAddon, "attach"),
+        patch.object(AppModel, "_validate_availability"),
+        patch.object(DockerApp, "attach"),
     ):
-        assert await coresys.backups.do_restore_partial(
-            backup, addons=["local_example"]
-        )
+        assert await coresys.backups.do_restore_partial(backup, apps=["local_example"])
 
     assert test_data.exists()
     assert test_config.exists()
@@ -2057,25 +2049,25 @@ async def test_backup_remove_one_location_of_multiple(coresys: CoreSys):
 
 
 @pytest.mark.usefixtures("tmp_supervisor_data", "supervisor_internet")
-async def test_addon_backup_excludes(coresys: CoreSys, install_addon_example: Addon):
+async def test_app_backup_excludes(coresys: CoreSys, install_app_example: App):
     """Test backup excludes option for apps."""
     await coresys.core.set_state(CoreState.RUNNING)
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
 
-    install_addon_example.path_data.mkdir(parents=True)
-    (test1 := install_addon_example.path_data / "test1").touch()
-    (test_dir := install_addon_example.path_data / "test_dir").mkdir()
+    install_app_example.path_data.mkdir(parents=True)
+    (test1 := install_app_example.path_data / "test1").touch()
+    (test_dir := install_app_example.path_data / "test_dir").mkdir()
     (test2 := test_dir / "test2").touch()
     (test3 := test_dir / "test3").touch()
 
-    install_addon_example.data["backup_exclude"] = ["test1", "*/test2"]
-    backup = await coresys.backups.do_backup_partial(addons=["local_example"])
+    install_app_example.data["backup_exclude"] = ["test1", "*/test2"]
+    backup = await coresys.backups.do_backup_partial(apps=["local_example"])
     test1.unlink()
     test2.unlink()
     test3.unlink()
     test_dir.rmdir()
 
-    await coresys.backups.do_restore_partial(backup, addons=["local_example"])
+    await coresys.backups.do_restore_partial(backup, apps=["local_example"])
     assert not test1.exists()
     assert not test2.exists()
     assert test_dir.is_dir()
@@ -2195,29 +2187,29 @@ async def test_get_upload_path_for_mount_location(coresys: CoreSys):
 
 
 @pytest.mark.usefixtures(
-    "supervisor_internet", "tmp_supervisor_data", "path_extern", "install_addon_example"
+    "supervisor_internet", "tmp_supervisor_data", "path_extern", "install_app_example"
 )
-async def test_backup_addon_skips_uninstalled(
+async def test_backup_app_skips_uninstalled(
     coresys: CoreSys, caplog: pytest.LogCaptureFixture
 ):
     """Test restore installing new app."""
     await coresys.core.set_state(CoreState.RUNNING)
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
-    assert "local_example" in coresys.addons.local
-    orig_store_addons = Backup.store_addons
+    assert "local_example" in coresys.apps.local
+    orig_store_apps = Backup.store_apps
 
-    async def mock_store_addons(*args, **kwargs):
+    async def mock_store_apps(*args, **kwargs):
         # Mock an uninstall during the backup process
-        await coresys.addons.uninstall("local_example")
-        await orig_store_addons(*args, **kwargs)
+        await coresys.apps.uninstall("local_example")
+        await orig_store_apps(*args, **kwargs)
 
-    with patch.object(Backup, "store_addons", new=mock_store_addons):
+    with patch.object(Backup, "store_apps", new=mock_store_apps):
         backup: Backup = await coresys.backups.do_backup_partial(
-            addons=["local_example"], folders=["ssl"]
+            apps=["local_example"], folders=["ssl"]
         )
 
-    assert "local_example" not in coresys.addons.local
-    assert not backup.addons
+    assert "local_example" not in coresys.apps.local
+    assert not backup.apps
     assert (
         "Skipping backup of app local_example because it has been uninstalled"
         in caplog.text

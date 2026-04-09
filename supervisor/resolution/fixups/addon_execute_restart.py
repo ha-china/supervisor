@@ -3,7 +3,7 @@
 import logging
 
 from ...coresys import CoreSys
-from ...exceptions import AddonsError, ResolutionFixupError
+from ...exceptions import AppsError, ResolutionFixupError
 from ..const import ContextType, IssueType, SuggestionType
 from .base import FixupBase
 
@@ -12,10 +12,10 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 def setup(coresys: CoreSys) -> FixupBase:
     """Check setup function."""
-    return FixupAddonExecuteRestart(coresys)
+    return FixupAppExecuteRestart(coresys)
 
 
-class FixupAddonExecuteRestart(FixupBase):
+class FixupAppExecuteRestart(FixupBase):
     """Storage class for fixup."""
 
     async def process_fixup(self, reference: str | None = None) -> None:
@@ -23,14 +23,14 @@ class FixupAddonExecuteRestart(FixupBase):
         if not reference:
             return
 
-        if not (addon := self.sys_addons.get_local_only(reference)):
+        if not (app := self.sys_apps.get_local_only(reference)):
             _LOGGER.info("Cannot restart app %s as it does not exist", reference)
             return
 
         # Stop app
         try:
-            await addon.stop()
-        except AddonsError as err:
+            await app.stop()
+        except AppsError as err:
             _LOGGER.error("Could not stop %s due to %s", reference, err)
             raise ResolutionFixupError() from None
 
@@ -38,8 +38,8 @@ class FixupAddonExecuteRestart(FixupBase):
         # Removing the container has already fixed the issue and dismissed it
         # So any errors on startup are just logged. We won't wait on the startup task either
         try:
-            await addon.start()
-        except AddonsError as err:
+            await app.start()
+        except AppsError as err:
             _LOGGER.error("Could not restart %s due to %s", reference, err)
 
     @property

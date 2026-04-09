@@ -8,7 +8,7 @@ from aiohttp import hdrs, web
 from aiohttp.test_utils import TestClient, TestServer
 import pytest
 
-from supervisor.addons.addon import Addon
+from supervisor.addons.addon import App
 from supervisor.coresys import CoreSys
 
 
@@ -108,7 +108,7 @@ async def test_ingress_proxy_no_content_type_for_empty_body_responses(
     """Test that empty body responses don't get Content-Type header."""
 
     # Create a mock app backend server that returns various status codes
-    async def mock_addon_handler(request: web.Request) -> web.Response:
+    async def mock_app_handler(request: web.Request) -> web.Response:
         """Mock app handler that returns different status codes based on path."""
         path = request.path
 
@@ -140,9 +140,9 @@ async def test_ingress_proxy_no_content_type_for_empty_body_responses(
 
     # Create test server for mock app
     app = web.Application()
-    app.router.add_route("*", "/{tail:.*}", mock_addon_handler)
-    addon_server = TestServer(app)
-    await addon_server.start_server()
+    app.router.add_route("*", "/{tail:.*}", mock_app_handler)
+    app_server = TestServer(app)
+    await app_server.start_server()
 
     try:
         # Create ingress session
@@ -151,15 +151,15 @@ async def test_ingress_proxy_no_content_type_for_empty_body_responses(
         session = result["data"]["session"]
 
         # Create a mock app
-        mock_addon = MagicMock(spec=Addon)
-        mock_addon.slug = "test_addon"
-        mock_addon.ip_address = addon_server.host
-        mock_addon.ingress_port = addon_server.port
-        mock_addon.ingress_stream = False
+        mock_app = MagicMock(spec=App)
+        mock_app.slug = "test_addon"
+        mock_app.ip_address = app_server.host
+        mock_app.ingress_port = app_server.port
+        mock_app.ingress_stream = False
 
         # Generate an ingress token and register the app
         ingress_token = coresys.ingress.create_session()
-        with patch.object(coresys.ingress, "get", return_value=mock_addon):
+        with patch.object(coresys.ingress, "get", return_value=mock_app):
             # Test 204 No Content - should NOT have Content-Type
             resp = await api_client.get(
                 f"/ingress/{ingress_token}/204",
@@ -222,4 +222,4 @@ async def test_ingress_proxy_no_content_type_for_empty_body_responses(
             assert body == b'{"key": "value"}'
 
     finally:
-        await addon_server.close()
+        await app_server.close()

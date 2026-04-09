@@ -3,7 +3,7 @@
 from datetime import timedelta
 import logging
 
-from ...const import AddonState, CoreState
+from ...const import AppState, CoreState
 from ...coresys import CoreSys
 from ...exceptions import PwnedConnectivityError, PwnedError, PwnedSecret
 from ...jobs.const import JobCondition, JobThrottle
@@ -16,10 +16,10 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 def setup(coresys: CoreSys) -> CheckBase:
     """Check setup function."""
-    return CheckAddonPwned(coresys)
+    return CheckAppPwned(coresys)
 
 
-class CheckAddonPwned(CheckBase):
+class CheckAppPwned(CheckBase):
     """CheckAppPwned class for check."""
 
     @Job(
@@ -35,8 +35,8 @@ class CheckAddonPwned(CheckBase):
             return
         await self.sys_homeassistant.secrets.reload()
 
-        for addon in self.sys_addons.installed:
-            secrets = addon.pwned
+        for app in self.sys_apps.installed:
+            secrets = app.pwned
             if not secrets:
                 continue
 
@@ -49,7 +49,7 @@ class CheckAddonPwned(CheckBase):
                     return
                 except PwnedSecret:
                     # Check possible suggestion
-                    if addon.state == AddonState.STARTED:
+                    if app.state == AppState.STARTED:
                         suggestions = [SuggestionType.EXECUTE_STOP]
                     else:
                         suggestions = None
@@ -57,7 +57,7 @@ class CheckAddonPwned(CheckBase):
                     self.sys_resolution.create_issue(
                         IssueType.PWNED,
                         ContextType.ADDON,
-                        reference=addon.slug,
+                        reference=app.slug,
                         suggestions=suggestions,
                     )
                     break
@@ -71,11 +71,11 @@ class CheckAddonPwned(CheckBase):
             return False
 
         # Uninstalled
-        if not (addon := self.sys_addons.get_local_only(reference)):
+        if not (app := self.sys_apps.get_local_only(reference)):
             return False
 
         # Not in use anymore
-        secrets = addon.pwned
+        secrets = app.pwned
         if not secrets:
             return False
 

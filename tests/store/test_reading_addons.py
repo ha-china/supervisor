@@ -11,7 +11,7 @@ from supervisor.resolution.data import Issue, Suggestion
 # pylint: disable=protected-access
 
 
-async def test_read_addon_files(coresys: CoreSys):
+async def test_read_app_files(coresys: CoreSys):
     """Test that we are reading app files correctly."""
     with patch(
         "pathlib.Path.glob",
@@ -25,20 +25,20 @@ async def test_read_addon_files(coresys: CoreSys):
             Path(".circleci/config.yml"),
         ],
     ):
-        addon_list = await coresys.store.data._find_addon_configs(Path("test"), {})
+        app_list = await coresys.store.data._find_app_configs(Path("test"), {})
 
-        assert len(addon_list) == 1
-        assert str(addon_list[0]) == "addon/config.yml"
+        assert len(app_list) == 1
+        assert str(app_list[0]) == "addon/config.yml"
 
 
-async def test_reading_addon_files_error(coresys: CoreSys):
+async def test_reading_app_files_error(coresys: CoreSys):
     """Test error trying to read app files."""
     corrupt_repo = Issue(IssueType.CORRUPT_REPOSITORY, ContextType.STORE, "test")
     reset_repo = Suggestion(SuggestionType.EXECUTE_RESET, ContextType.STORE, "test")
 
     with patch("pathlib.Path.glob", side_effect=(err := OSError())):
         err.errno = errno.EBUSY
-        assert (await coresys.store.data._find_addon_configs(Path("test"), {})) is None
+        assert (await coresys.store.data._find_app_configs(Path("test"), {})) is None
         assert corrupt_repo in coresys.resolution.issues
         assert reset_repo in coresys.resolution.suggestions
         assert coresys.core.healthy is True
@@ -47,7 +47,7 @@ async def test_reading_addon_files_error(coresys: CoreSys):
             coresys.resolution.get_issue_if_present(corrupt_repo)
         )
         err.errno = errno.EBADMSG
-        assert (await coresys.store.data._find_addon_configs(Path("test"), {})) is None
+        assert (await coresys.store.data._find_app_configs(Path("test"), {})) is None
         assert corrupt_repo in coresys.resolution.issues
         assert reset_repo not in coresys.resolution.suggestions
         assert coresys.core.healthy is False

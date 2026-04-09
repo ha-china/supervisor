@@ -15,7 +15,7 @@ from aiohttp.web_exceptions import (
 from multidict import CIMultiDict, istr
 import voluptuous as vol
 
-from ..addons.addon import Addon
+from ..addons.addon import App
 from ..const import (
     ATTR_ADMIN,
     ATTR_ENABLE,
@@ -77,35 +77,35 @@ def status_code_must_be_empty_body(code: int) -> bool:
 class APIIngress(CoreSysAttributes):
     """Ingress view to handle app webui routing."""
 
-    def _extract_addon(self, request: web.Request) -> Addon:
+    def _extract_app(self, request: web.Request) -> App:
         """Return app, throw an exception it it doesn't exist."""
         token = request.match_info["token"]
 
         # Find correct app
-        addon = self.sys_ingress.get(token)
-        if not addon:
+        app = self.sys_ingress.get(token)
+        if not app:
             _LOGGER.warning("Ingress for %s not available", token)
             raise HTTPServiceUnavailable()
 
-        return addon
+        return app
 
-    def _create_url(self, addon: Addon, path: str) -> str:
+    def _create_url(self, app: App, path: str) -> str:
         """Create URL to container."""
-        return f"http://{addon.ip_address}:{addon.ingress_port}/{path}"
+        return f"http://{app.ip_address}:{app.ingress_port}/{path}"
 
     @api_process
     async def panels(self, request: web.Request) -> dict[str, Any]:
         """Create a list of panel data."""
-        addons = {}
-        for addon in self.sys_ingress.addons:
-            addons[addon.slug] = {
-                ATTR_TITLE: addon.panel_title,
-                ATTR_ICON: addon.panel_icon,
-                ATTR_ADMIN: addon.panel_admin,
-                ATTR_ENABLE: addon.ingress_panel,
+        apps = {}
+        for app in self.sys_ingress.apps:
+            apps[app.slug] = {
+                ATTR_TITLE: app.panel_title,
+                ATTR_ICON: app.panel_icon,
+                ATTR_ADMIN: app.panel_admin,
+                ATTR_ENABLE: app.ingress_panel,
             }
 
-        return {ATTR_PANELS: addons}
+        return {ATTR_PANELS: apps}
 
     @api_process
     @require_home_assistant
@@ -149,16 +149,16 @@ class APIIngress(CoreSysAttributes):
             raise HTTPUnauthorized()
 
         # Process requests
-        addon = self._extract_addon(request)
+        app = self._extract_app(request)
         path = request.match_info.get("path", "")
         session_data = self.sys_ingress.get_session_data(session)
         try:
             # Websocket
             if _is_websocket(request):
-                return await self._handle_websocket(request, addon, path, session_data)
+                return await self._handle_websocket(request, app, path, session_data)
 
             # Request
-            return await self._handle_request(request, addon, path, session_data)
+            return await self._handle_request(request, app, path, session_data)
 
         except aiohttp.ClientError as err:
             _LOGGER.error("Ingress error: %s", err)
@@ -168,7 +168,7 @@ class APIIngress(CoreSysAttributes):
     async def _handle_websocket(
         self,
         request: web.Request,
-        addon: Addon,
+        app: App,
         path: str,
         session_data: IngressSessionData | None,
     ) -> web.WebSocketResponse:
@@ -190,8 +190,8 @@ class APIIngress(CoreSysAttributes):
         await ws_server.prepare(request)
 
         # Preparing
-        url = self._create_url(addon, path)
-        source_header = _init_header(request, addon, session_data)
+        url = self._create_url(app, path)
+        source_header = _init_header(request, app, session_data)
 
         # Support GET query
         if request.query_string:
@@ -199,7 +199,7 @@ class APIIngress(CoreSysAttributes):
 
         # Start proxy
         try:
-            _LOGGER.debug("Proxing WebSocket to %s, upstream url: %s", addon.slug, url)
+            _LOGGER.debug("Proxing WebSocket to %s, upstream url: %s", app.slug, url)
             async with self.sys_websession.ws_connect(
                 url,
                 headers=source_header,
@@ -217,20 +217,20 @@ class APIIngress(CoreSysAttributes):
                     return_when=asyncio.FIRST_COMPLETED,
                 )
         except TimeoutError:
-            _LOGGER.warning("WebSocket proxy to %s timed out", addon.slug)
+            _LOGGER.warning("WebSocket proxy to %s timed out", app.slug)
 
         return ws_server
 
     async def _handle_request(
         self,
         request: web.Request,
-        addon: Addon,
+        app: App,
         path: str,
         session_data: IngressSessionData | None,
     ) -> web.Response | web.StreamResponse:
         """Ingress route for request."""
-        url = self._create_url(addon, path)
-        source_header = _init_header(request, addon, session_data)
+        url = self._create_url(app, path)
+        source_header = _init_header(request, app, session_data)
 
         # Passing the raw stream breaks requests for some webservers
         # since we just need it for POST requests really, for all other methods
@@ -238,7 +238,7 @@ class APIIngress(CoreSysAttributes):
         # apps needs to add support with that in the configuration
         data = (
             request.content
-            if request.method == "POST" and addon.ingress_stream
+            if request.method == "POST" and app.ingress_stream
             else await request.read()
         )
 
@@ -318,7 +318,7 @@ class APIIngress(CoreSysAttributes):
 
 
 def _init_header(
-    request: web.Request, addon: Addon, session_data: IngressSessionData | None
+    request: web.Request, app: App, session_data: IngressSessionData | None
 ) -> CIMultiDict[str]:
     """Create initial header."""
     headers = CIMultiDict[str]()

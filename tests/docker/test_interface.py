@@ -10,7 +10,7 @@ from aiodocker.containers import DockerContainer
 from awesomeversion import AwesomeVersion
 import pytest
 
-from supervisor.addons.manager import Addon
+from supervisor.addons.manager import App
 from supervisor.const import BusEvent, CoreState, CpuArch
 from supervisor.coresys import CoreSys
 from supervisor.docker.const import ContainerState
@@ -346,17 +346,17 @@ async def test_image_pull_fail(coresys: CoreSys, capture_exception: Mock):
 
 @pytest.mark.usefixtures("path_extern", "tmp_supervisor_data")
 async def test_run_missing_image(
-    coresys: CoreSys, install_addon_ssh: Addon, capture_exception: Mock
+    coresys: CoreSys, install_app_ssh: App, capture_exception: Mock
 ):
     """Test run captures the exception when image is missing."""
     coresys.docker.containers.create.side_effect = [
         aiodocker.DockerError(HTTPStatus.NOT_FOUND, {"message": "missing"}),
         MagicMock(),
     ]
-    install_addon_ssh.data["image"] = "test_image"
+    install_app_ssh.data["image"] = "test_image"
 
     with pytest.raises(DockerNotFound):
-        await install_addon_ssh.instance.run()
+        await install_app_ssh.instance.run()
 
     capture_exception.assert_called_once()
 

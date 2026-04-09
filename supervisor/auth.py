@@ -5,7 +5,7 @@ import hashlib
 import logging
 from typing import Any, TypedDict, cast
 
-from .addons.addon import Addon
+from .addons.addon import App
 from .const import ATTR_PASSWORD, ATTR_USERNAME, FILE_HASSIO_AUTH, HomeAssistantUser
 from .coresys import CoreSys, CoreSysAttributes
 from .exceptions import (
@@ -81,13 +81,13 @@ class Auth(FileConfiguration, CoreSysAttributes):
         await self.save_data()
 
     async def check_login(
-        self, addon: Addon, username: str | None, password: str | None
+        self, app: App, username: str | None, password: str | None
     ) -> bool:
         """Check username login."""
         if username is None or password is None:
             raise AuthInvalidNonStringValueError(_LOGGER.error)
 
-        _LOGGER.info("Auth request from '%s' for '%s'", addon.slug, username)
+        _LOGGER.info("Auth request from '%s' for '%s'", app.slug, username)
 
         # Get from cache
         cache_hit = self._check_cache(username, password)
@@ -99,18 +99,18 @@ class Auth(FileConfiguration, CoreSysAttributes):
 
         # No cache hit
         if cache_hit is None:
-            return await self._backend_login(addon, username, password)
+            return await self._backend_login(app, username, password)
 
         # Home Assistant Core take over 1-2sec to validate it
         # Let's use the cache and update the cache in background
         if username not in self._running:
             self._running[username] = self.sys_create_task(
-                self._backend_login(addon, username, password)
+                self._backend_login(app, username, password)
             )
 
         return cache_hit
 
-    async def _backend_login(self, addon: Addon, username: str, password: str) -> bool:
+    async def _backend_login(self, app: App, username: str, password: str) -> bool:
         """Check username login on core."""
         try:
             async with self.sys_homeassistant.api.make_request(
@@ -119,7 +119,7 @@ class Auth(FileConfiguration, CoreSysAttributes):
                 json=cast(
                     dict[str, Any],
                     BackendAuthRequest(
-                        username=username, password=password, addon=addon.slug
+                        username=username, password=password, addon=app.slug
                     ),
                 ),
             ) as req:

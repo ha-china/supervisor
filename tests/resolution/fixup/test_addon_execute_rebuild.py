@@ -9,12 +9,12 @@ import aiodocker
 from aiodocker.containers import DockerContainer
 import pytest
 
-from supervisor.addons.addon import Addon
+from supervisor.addons.addon import App
 from supervisor.coresys import CoreSys
 from supervisor.docker.interface import DockerInterface
 from supervisor.docker.manager import DockerAPI
 from supervisor.resolution.const import ContextType, IssueType, SuggestionType
-from supervisor.resolution.fixups.addon_execute_rebuild import FixupAddonExecuteRebuild
+from supervisor.resolution.fixups.addon_execute_rebuild import FixupAppExecuteRebuild
 
 
 def make_mock_container_get(
@@ -31,14 +31,14 @@ def make_mock_container_get(
     return mock_container_get
 
 
-@pytest.mark.usefixtures("install_addon_ssh")
+@pytest.mark.usefixtures("install_app_ssh")
 async def test_fixup(docker: DockerAPI, coresys: CoreSys):
     """Test fixup rebuilds app's container."""
     docker.containers.get = make_mock_container_get("running")
 
-    addon_execute_rebuild = FixupAddonExecuteRebuild(coresys)
+    app_execute_rebuild = FixupAppExecuteRebuild(coresys)
 
-    assert addon_execute_rebuild.auto is False
+    assert app_execute_rebuild.auto is False
 
     coresys.resolution.create_issue(
         IssueType.DOCKER_CONFIG,
@@ -46,22 +46,22 @@ async def test_fixup(docker: DockerAPI, coresys: CoreSys):
         reference="local_ssh",
         suggestions=[SuggestionType.EXECUTE_REBUILD],
     )
-    with patch.object(Addon, "restart", return_value=asyncio.sleep(0)) as restart:
-        await addon_execute_rebuild()
+    with patch.object(App, "restart", return_value=asyncio.sleep(0)) as restart:
+        await app_execute_rebuild()
         restart.assert_called_once()
 
     assert not coresys.resolution.issues
     assert not coresys.resolution.suggestions
 
 
-@pytest.mark.usefixtures("install_addon_ssh")
+@pytest.mark.usefixtures("install_app_ssh")
 async def test_fixup_stopped_core(
     docker: DockerAPI, coresys: CoreSys, caplog: pytest.LogCaptureFixture
 ):
     """Test fixup just removes app's container when it is stopped."""
     caplog.clear()
     docker.containers.get = make_mock_container_get("stopped")
-    addon_execute_rebuild = FixupAddonExecuteRebuild(coresys)
+    app_execute_rebuild = FixupAppExecuteRebuild(coresys)
 
     coresys.resolution.create_issue(
         IssueType.DOCKER_CONFIG,
@@ -69,8 +69,8 @@ async def test_fixup_stopped_core(
         reference="local_ssh",
         suggestions=[SuggestionType.EXECUTE_REBUILD],
     )
-    with patch.object(Addon, "restart") as restart:
-        await addon_execute_rebuild()
+    with patch.object(App, "restart") as restart:
+        await app_execute_rebuild()
         restart.assert_not_called()
 
     assert not coresys.resolution.issues
@@ -81,7 +81,7 @@ async def test_fixup_stopped_core(
     assert "App local_ssh is stopped" in caplog.text
 
 
-@pytest.mark.usefixtures("install_addon_ssh")
+@pytest.mark.usefixtures("install_app_ssh")
 async def test_fixup_unknown_core(
     docker: DockerAPI, coresys: CoreSys, caplog: pytest.LogCaptureFixture
 ):
@@ -90,7 +90,7 @@ async def test_fixup_unknown_core(
     docker.containers.get.side_effect = aiodocker.DockerError(
         404, {"message": "missing"}
     )
-    addon_execute_rebuild = FixupAddonExecuteRebuild(coresys)
+    app_execute_rebuild = FixupAppExecuteRebuild(coresys)
 
     coresys.resolution.create_issue(
         IssueType.DOCKER_CONFIG,
@@ -99,10 +99,10 @@ async def test_fixup_unknown_core(
         suggestions=[SuggestionType.EXECUTE_REBUILD],
     )
     with (
-        patch.object(Addon, "restart") as restart,
+        patch.object(App, "restart") as restart,
         patch.object(DockerInterface, "stop") as stop,
     ):
-        await addon_execute_rebuild()
+        await app_execute_rebuild()
         restart.assert_not_called()
         stop.assert_not_called()
 
@@ -111,10 +111,10 @@ async def test_fixup_unknown_core(
     assert "Container for app local_ssh does not exist" in caplog.text
 
 
-async def test_fixup_addon_removed(coresys: CoreSys, caplog: pytest.LogCaptureFixture):
+async def test_fixup_app_removed(coresys: CoreSys, caplog: pytest.LogCaptureFixture):
     """Test fixup does nothing if app has been removed."""
     caplog.clear()
-    addon_execute_rebuild = FixupAddonExecuteRebuild(coresys)
+    app_execute_rebuild = FixupAppExecuteRebuild(coresys)
 
     coresys.resolution.create_issue(
         IssueType.DOCKER_CONFIG,
@@ -122,5 +122,5 @@ async def test_fixup_addon_removed(coresys: CoreSys, caplog: pytest.LogCaptureFi
         reference="local_ssh",
         suggestions=[SuggestionType.EXECUTE_REBUILD],
     )
-    await addon_execute_rebuild()
+    await app_execute_rebuild()
     assert "Cannot rebuild app local_ssh as it is not installed" in caplog.text

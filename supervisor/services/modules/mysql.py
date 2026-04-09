@@ -5,11 +5,11 @@ from typing import Any
 
 import voluptuous as vol
 
-from ...addons.addon import Addon
+from ...addons.addon import App
 from ...exceptions import ServicesError
 from ...validate import network_port
 from ..const import (
-    ATTR_ADDON,
+    ATTR_APP,
     ATTR_HOST,
     ATTR_PASSWORD,
     ATTR_PORT,
@@ -31,7 +31,7 @@ SCHEMA_SERVICE_MYSQL = vol.Schema(
     }
 )
 
-SCHEMA_CONFIG_MYSQL = SCHEMA_SERVICE_MYSQL.extend({vol.Required(ATTR_ADDON): str})
+SCHEMA_CONFIG_MYSQL = SCHEMA_SERVICE_MYSQL.extend({vol.Required(ATTR_APP): str})
 
 
 class MySQLService(ServiceInterface):
@@ -57,23 +57,23 @@ class MySQLService(ServiceInterface):
         """Return list of app slug they have enable that."""
         if not self.enabled:
             return []
-        return [self._data[ATTR_ADDON]]
+        return [self._data[ATTR_APP]]
 
-    async def set_service_data(self, addon: Addon, data: dict[str, Any]) -> None:
+    async def set_service_data(self, app: App, data: dict[str, Any]) -> None:
         """Write the data into service object."""
         if self.enabled:
             raise ServicesError(
-                f"There is already a MySQL service in use from {self._data[ATTR_ADDON]}",
+                f"There is already a MySQL service in use from {self._data[ATTR_APP]}",
                 _LOGGER.error,
             )
 
         self._data.update(data)
-        self._data[ATTR_ADDON] = addon.slug
+        self._data[ATTR_APP] = app.slug
 
-        _LOGGER.info("Set %s as service provider for MySQL", addon.slug)
+        _LOGGER.info("Set %s as service provider for MySQL", app.slug)
         await self.save()
 
-    async def del_service_data(self, addon: Addon) -> None:
+    async def del_service_data(self, app: App) -> None:
         """Remove the data from service object."""
         if not self.enabled:
             raise ServicesError("Can't remove not exists services", _LOGGER.warning)

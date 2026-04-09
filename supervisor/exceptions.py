@@ -97,7 +97,7 @@ class APIInternalServerError(APIError):
     status = 500
 
 
-class APIAddonNotInstalled(APIError):
+class APIAppNotInstalled(APIError):
     """Not installed app requested at apps API."""
 
 
@@ -345,15 +345,15 @@ class AudioJobError(AudioError, PluginJobError):
 # Apps
 
 
-class AddonsError(HassioError):
+class AppsError(HassioError):
     """Apps exception."""
 
 
-class AddonConfigurationError(AddonsError):
+class AppConfigurationError(AppsError):
     """Error with app configuration."""
 
 
-class AddonConfigurationInvalidError(AddonConfigurationError, APIError):
+class AppConfigurationInvalidError(AppConfigurationError, APIError):
     """Raise if invalid configuration provided for app."""
 
     error_key = "addon_configuration_invalid_error"
@@ -363,15 +363,15 @@ class AddonConfigurationInvalidError(AddonConfigurationError, APIError):
         self,
         logger: Callable[..., None] | None = None,
         *,
-        addon: str,
+        app: str,
         validation_error: str,
     ) -> None:
         """Initialize exception."""
-        self.extra_fields = {"addon": addon, "validation_error": validation_error}
+        self.extra_fields = {"addon": app, "validation_error": validation_error}
         super().__init__(None, logger)
 
 
-class AddonBootConfigCannotChangeError(AddonsError, APIError):
+class AppBootConfigCannotChangeError(AppsError, APIError):
     """Raise if user attempts to change app boot config when it can't be changed."""
 
     error_key = "addon_boot_config_cannot_change_error"
@@ -380,28 +380,26 @@ class AddonBootConfigCannotChangeError(AddonsError, APIError):
     )
 
     def __init__(
-        self, logger: Callable[..., None] | None = None, *, addon: str, boot_config: str
+        self, logger: Callable[..., None] | None = None, *, app: str, boot_config: str
     ) -> None:
         """Initialize exception."""
-        self.extra_fields = {"addon": addon, "boot_config": boot_config}
+        self.extra_fields = {"addon": app, "boot_config": boot_config}
         super().__init__(None, logger)
 
 
-class AddonNotRunningError(AddonsError, APIError):
+class AppNotRunningError(AppsError, APIError):
     """Raise when an app is not running."""
 
     error_key = "addon_not_running_error"
     message_template = "App {addon} is not running"
 
-    def __init__(
-        self, logger: Callable[..., None] | None = None, *, addon: str
-    ) -> None:
+    def __init__(self, logger: Callable[..., None] | None = None, *, app: str) -> None:
         """Initialize exception."""
-        self.extra_fields = {"addon": addon}
+        self.extra_fields = {"addon": app}
         super().__init__(None, logger)
 
 
-class AddonPortConflict(AddonsError, APIError):
+class AppPortConflict(AppsError, APIError):
     """Raise if app cannot start due to a port conflict."""
 
     error_key = "addon_port_conflict"
@@ -415,11 +413,11 @@ class AddonPortConflict(AddonsError, APIError):
         super().__init__(None, logger)
 
 
-class AddonNotSupportedError(HassioNotSupportedError):
+class AppNotSupportedError(HassioNotSupportedError):
     """App doesn't support a function."""
 
 
-class AddonNotSupportedArchitectureError(AddonNotSupportedError):
+class AppNotSupportedArchitectureError(AppNotSupportedError):
     """App does not support system due to architecture."""
 
     error_key = "addon_not_supported_architecture_error"
@@ -437,7 +435,7 @@ class AddonNotSupportedArchitectureError(AddonNotSupportedError):
         super().__init__(None, logger)
 
 
-class AddonNotSupportedMachineTypeError(AddonNotSupportedError):
+class AppNotSupportedMachineTypeError(AppNotSupportedError):
     """App does not support system due to machine type."""
 
     error_key = "addon_not_supported_machine_type_error"
@@ -455,7 +453,7 @@ class AddonNotSupportedMachineTypeError(AddonNotSupportedError):
         super().__init__(None, logger)
 
 
-class AddonNotSupportedHomeAssistantVersionError(AddonNotSupportedError):
+class AppNotSupportedHomeAssistantVersionError(AppNotSupportedError):
     """App does not support system due to Home Assistant version."""
 
     error_key = "addon_not_supported_home_assistant_version_error"
@@ -473,21 +471,19 @@ class AddonNotSupportedHomeAssistantVersionError(AddonNotSupportedError):
         super().__init__(None, logger)
 
 
-class AddonNotSupportedWriteStdinError(AddonNotSupportedError, APIError):
+class AppNotSupportedWriteStdinError(AppNotSupportedError, APIError):
     """App does not support writing to stdin."""
 
     error_key = "addon_not_supported_write_stdin_error"
     message_template = "App {addon} does not support writing to stdin"
 
-    def __init__(
-        self, logger: Callable[..., None] | None = None, *, addon: str
-    ) -> None:
+    def __init__(self, logger: Callable[..., None] | None = None, *, app: str) -> None:
         """Initialize exception."""
-        self.extra_fields = {"addon": addon}
+        self.extra_fields = {"addon": app}
         super().__init__(None, logger)
 
 
-class AddonBuildDockerfileMissingError(AddonNotSupportedError, APIError):
+class AppBuildDockerfileMissingError(AppNotSupportedError, APIError):
     """Raise when app build invalid because dockerfile is missing."""
 
     error_key = "addon_build_dockerfile_missing_error"
@@ -497,15 +493,13 @@ class AddonBuildDockerfileMissingError(AddonNotSupportedError, APIError):
         "corruption. Otherwise please report this to the app developer."
     )
 
-    def __init__(
-        self, logger: Callable[..., None] | None = None, *, addon: str
-    ) -> None:
+    def __init__(self, logger: Callable[..., None] | None = None, *, app: str) -> None:
         """Initialize exception."""
-        self.extra_fields = {"addon": addon, "repair_command": "ha supervisor repair"}
+        self.extra_fields = {"addon": app, "repair_command": "ha supervisor repair"}
         super().__init__(None, logger)
 
 
-class AddonBuildArchitectureNotSupportedError(AddonNotSupportedError, APIError):
+class AppBuildArchitectureNotSupportedError(AppNotSupportedError, APIError):
     """Raise when app cannot be built on system because it doesn't support its architecture."""
 
     error_key = "addon_build_architecture_not_supported_error"
@@ -518,34 +512,32 @@ class AddonBuildArchitectureNotSupportedError(AddonNotSupportedError, APIError):
         self,
         logger: Callable[..., None] | None = None,
         *,
-        addon: str,
-        addon_arch_list: list[str],
+        app: str,
+        app_arch_list: list[str],
         system_arch_list: list[str],
     ) -> None:
         """Initialize exception."""
         self.extra_fields = {
-            "addon": addon,
-            "addon_arches": ", ".join(addon_arch_list),
+            "addon": app,
+            "addon_arches": ", ".join(app_arch_list),
             "system_arches": ", ".join(system_arch_list),
         }
         super().__init__(None, logger)
 
 
-class AddonUnknownError(AddonsError, APIUnknownSupervisorError):
+class AppUnknownError(AppsError, APIUnknownSupervisorError):
     """Raise when unknown error occurs taking an action for an app."""
 
     error_key = "addon_unknown_error"
     message_template = "An unknown error occurred with app {addon}"
 
-    def __init__(
-        self, logger: Callable[..., None] | None = None, *, addon: str
-    ) -> None:
+    def __init__(self, logger: Callable[..., None] | None = None, *, app: str) -> None:
         """Initialize exception."""
-        self.extra_fields = {"addon": addon}
+        self.extra_fields = {"addon": app}
         super().__init__(logger)
 
 
-class AddonBuildFailedUnknownError(AddonsError, APIUnknownSupervisorError):
+class AppBuildFailedUnknownError(AppsError, APIUnknownSupervisorError):
     """Raise when the build failed for an app due to an unknown error."""
 
     error_key = "addon_build_failed_unknown_error"
@@ -553,15 +545,13 @@ class AddonBuildFailedUnknownError(AddonsError, APIUnknownSupervisorError):
         "An unknown error occurred while trying to build the image for app {addon}"
     )
 
-    def __init__(
-        self, logger: Callable[..., None] | None = None, *, addon: str
-    ) -> None:
+    def __init__(self, logger: Callable[..., None] | None = None, *, app: str) -> None:
         """Initialize exception."""
-        self.extra_fields = {"addon": addon}
+        self.extra_fields = {"addon": app}
         super().__init__(logger)
 
 
-class AddonsJobError(AddonsError, JobException):
+class AppsJobError(AppsError, JobException):
     """Raise on job errors."""
 
 
@@ -1028,17 +1018,15 @@ class StoreNotFound(StoreError):
     """Raise if slug is not known."""
 
 
-class StoreAddonNotFoundError(StoreError, APINotFound):
+class StoreAppNotFoundError(StoreError, APINotFound):
     """Raise if a requested app is not in the store."""
 
     error_key = "store_addon_not_found_error"
     message_template = "App {addon} does not exist in the store"
 
-    def __init__(
-        self, logger: Callable[..., None] | None = None, *, addon: str
-    ) -> None:
+    def __init__(self, logger: Callable[..., None] | None = None, *, app: str) -> None:
         """Initialize exception."""
-        self.extra_fields = {"addon": addon}
+        self.extra_fields = {"addon": app}
         super().__init__(None, logger)
 
 
@@ -1058,7 +1046,7 @@ class StoreJobError(StoreError, JobException):
     """Raise on job error with git."""
 
 
-class StoreInvalidAddonRepo(StoreError):
+class StoreInvalidAppRepo(StoreError):
     """Raise on invalid app repo."""
 
 
@@ -1117,7 +1105,7 @@ class BackupFatalIOError(BackupError):
     """Raise on write-side I/O errors that leave the backup tar corrupt."""
 
 
-class AddonBackupMetadataInvalidError(BackupError, APIError):
+class AppBackupMetadataInvalidError(BackupError, APIError):
     """Raise if invalid metadata file provided for app in backup."""
 
     error_key = "addon_backup_metadata_invalid_error"
@@ -1129,15 +1117,15 @@ class AddonBackupMetadataInvalidError(BackupError, APIError):
         self,
         logger: Callable[..., None] | None = None,
         *,
-        addon: str,
+        app: str,
         validation_error: str,
     ) -> None:
         """Initialize exception."""
-        self.extra_fields = {"addon": addon, "validation_error": validation_error}
+        self.extra_fields = {"addon": app, "validation_error": validation_error}
         super().__init__(None, logger)
 
 
-class AddonPrePostBackupCommandReturnedError(BackupError, APIError):
+class AppPrePostBackupCommandReturnedError(BackupError, APIError):
     """Raise when app's pre/post backup command returns an error."""
 
     error_key = "addon_pre_post_backup_command_returned_error"
@@ -1148,11 +1136,11 @@ class AddonPrePostBackupCommandReturnedError(BackupError, APIError):
     )
 
     def __init__(
-        self, logger: Callable[..., None] | None = None, *, addon: str, exit_code: int
+        self, logger: Callable[..., None] | None = None, *, app: str, exit_code: int
     ) -> None:
         """Initialize exception."""
         self.extra_fields = {
-            "addon": addon,
+            "addon": app,
             "exit_code": exit_code,
             "debug_logging_command": "ha supervisor options --logging debug",
         }

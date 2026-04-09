@@ -9,7 +9,7 @@ import voluptuous as vol
 
 from ..backups.const import BackupType
 from ..const import (
-    ATTR_ADDONS,
+    ATTR_APPS,
     ATTR_COMPRESSED,
     ATTR_DATE,
     ATTR_DAYS_UNTIL_STALE,
@@ -42,13 +42,13 @@ ALL_FOLDERS = [
 ]
 
 
-def unique_addons(addons_list):
+def unique_apps(apps_list):
     """Validate that an app is unique."""
-    single = {addon[ATTR_SLUG] for addon in addons_list}
+    single = {app[ATTR_SLUG] for app in apps_list}
 
-    if len(single) != len(addons_list):
+    if len(single) != len(apps_list):
         raise vol.Invalid("Invalid app list in backup!") from None
-    return addons_list
+    return apps_list
 
 
 def v1_homeassistant(
@@ -114,7 +114,7 @@ SCHEMA_BACKUP = vol.Schema(
         vol.Optional(ATTR_FOLDERS, default=list): vol.All(
             v1_folderlist, [vol.In(ALL_FOLDERS)], vol.Unique()
         ),
-        vol.Optional(ATTR_ADDONS, default=list): vol.All(
+        vol.Optional(ATTR_APPS, default=list): vol.All(
             [
                 vol.Schema(
                     {
@@ -126,7 +126,7 @@ SCHEMA_BACKUP = vol.Schema(
                     extra=vol.REMOVE_EXTRA,
                 )
             ],
-            unique_addons,
+            unique_apps,
         ),
         vol.Optional(ATTR_REPOSITORIES, default=list): repositories,
         vol.Optional(ATTR_EXTRA, default=dict): dict,

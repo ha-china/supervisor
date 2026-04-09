@@ -9,7 +9,7 @@ from aiodocker.containers import DockerContainer
 from awesomeversion import AwesomeVersion
 import pytest
 
-from supervisor.addons.addon import Addon
+from supervisor.addons.addon import App
 from supervisor.const import ATTR_VERSION_TIMESTAMP, CoreState
 from supervisor.coresys import CoreSys
 from supervisor.exceptions import HomeAssistantError
@@ -300,34 +300,34 @@ async def test_scheduled_reload_updater_triggers_one_supervisor_update(
 
 
 @pytest.mark.usefixtures("tmp_supervisor_data")
-async def test_update_addons_auto_update_success(
+async def test_update_apps_auto_update_success(
     tasks: Tasks,
     coresys: CoreSys,
     ha_ws_client: AsyncMock,
-    install_addon_example: Addon,
+    install_app_example: App,
 ):
     """Test that an eligible app is auto-updated via websocket command."""
     await coresys.core.set_state(CoreState.RUNNING)
 
     # Set up the app as eligible for auto-update
-    install_addon_example.auto_update = True
-    install_addon_example.data_store[ATTR_VERSION_TIMESTAMP] = 0
+    install_app_example.auto_update = True
+    install_app_example.data_store[ATTR_VERSION_TIMESTAMP] = 0
     with patch.object(
-        Addon, "version", new=PropertyMock(return_value=AwesomeVersion("1.0"))
+        App, "version", new=PropertyMock(return_value=AwesomeVersion("1.0"))
     ):
-        assert install_addon_example.need_update is True
-        assert install_addon_example.auto_update_available is True
+        assert install_app_example.need_update is True
+        assert install_app_example.auto_update_available is True
 
         # Make sure all job events from installing the app are cleared
         ha_ws_client.async_send_command.reset_mock()
 
         # pylint: disable-next=protected-access
-        await tasks._update_addons()
+        await tasks._update_apps()
 
         ha_ws_client.async_send_command.assert_any_call(
             {
                 "type": "hassio/update/addon",
-                "addon": install_addon_example.slug,
+                "addon": install_app_example.slug,
                 "backup": True,
             }
         )

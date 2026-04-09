@@ -37,7 +37,7 @@ class AudioApplication:
     stream_type: StreamType
     volume: float
     mute: bool
-    addon: str
+    app: str
 
 
 @dataclass(slots=True, frozen=True)

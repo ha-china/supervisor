@@ -12,13 +12,13 @@ import aiodocker
 import pytest
 
 from supervisor.addons import validate as vd
-from supervisor.addons.addon import Addon
+from supervisor.addons.addon import App
 from supervisor.addons.model import Data
-from supervisor.addons.options import AddonOptions
+from supervisor.addons.options import AppOptions
 from supervisor.const import BusEvent
 from supervisor.coresys import CoreSys
 from supervisor.dbus.agent.cgroup import CGroup
-from supervisor.docker.addon import DockerAddon
+from supervisor.docker.addon import DockerApp
 from supervisor.docker.const import (
     DockerMount,
     MountBindOptions,
@@ -41,7 +41,7 @@ from . import DEV_MOUNT
 def fixture_addonsdata_system() -> dict[str, Data]:
     """Mock AppsData.system."""
     with patch(
-        "supervisor.addons.data.AddonsData.system", new_callable=PropertyMock
+        "supervisor.addons.data.AppsData.system", new_callable=PropertyMock
     ) as mock:
         yield mock
 
@@ -50,17 +50,17 @@ def fixture_addonsdata_system() -> dict[str, Data]:
 def fixture_addonsdata_user() -> dict[str, Data]:
     """Mock AppsData.user."""
     with patch(
-        "supervisor.addons.data.AddonsData.user", new_callable=PropertyMock
+        "supervisor.addons.data.AppsData.user", new_callable=PropertyMock
     ) as mock:
         mock.return_value = MagicMock()
         yield mock
 
 
-def get_docker_addon(
+def get_docker_app(
     coresys: CoreSys,
     addonsdata_system: dict[str, Data],
     config_file: str | dict[str, Any],
-) -> DockerAddon:
+) -> DockerApp:
     """Make and return docker app object."""
     config = (
         load_json_fixture(config_file) if isinstance(config_file, str) else config_file
@@ -69,41 +69,35 @@ def get_docker_addon(
     slug = config.get("slug")
     addonsdata_system.return_value = {slug: config}
 
-    addon = Addon(coresys, config.get("slug"))
-    docker_addon = DockerAddon(coresys, addon)
-    return docker_addon
+    app = App(coresys, config.get("slug"))
+    docker_app = DockerApp(coresys, app)
+    return docker_app
 
 
 @pytest.mark.usefixtures("path_extern")
 def test_base_volumes_included(coresys: CoreSys, addonsdata_system: dict[str, Data]):
     """Dev and data volumes always included."""
-    docker_addon = get_docker_addon(
-        coresys, addonsdata_system, "basic-addon-config.json"
-    )
+    docker_app = get_docker_app(coresys, addonsdata_system, "basic-addon-config.json")
 
     # Dev added as ro with bind-recursive=writable option
-    assert DEV_MOUNT in docker_addon.mounts
+    assert DEV_MOUNT in docker_app.mounts
 
     # Data added as rw
     assert (
         DockerMount(
             type=MountType.BIND,
-            source=docker_addon.addon.path_extern_data.as_posix(),
+            source=docker_app.app.path_extern_data.as_posix(),
             target="/data",
             read_only=False,
         )
-        in docker_addon.mounts
+        in docker_app.mounts
     )
 
 
 @pytest.mark.usefixtures("path_extern")
-def test_addon_map_folder_defaults(
-    coresys: CoreSys, addonsdata_system: dict[str, Data]
-):
+def test_app_map_folder_defaults(coresys: CoreSys, addonsdata_system: dict[str, Data]):
     """Validate defaults for mapped folders in apps."""
-    docker_addon = get_docker_addon(
-        coresys, addonsdata_system, "basic-addon-config.json"
-    )
+    docker_app = get_docker_app(coresys, addonsdata_system, "basic-addon-config.json")
     # Config added and is marked rw
     assert (
         DockerMount(
@@ -112,7 +106,7 @@ def test_addon_map_folder_defaults(
             target="/config",
             read_only=False,
         )
-        in docker_addon.mounts
+        in docker_app.mounts
     )
 
     # SSL added and defaults to ro
@@ -123,7 +117,7 @@ def test_addon_map_folder_defaults(
             target="/ssl",
             read_only=True,
         )
-        in docker_addon.mounts
+        in docker_app.mounts
     )
 
     # Media added and propagation set
@@ -135,7 +129,7 @@ def test_addon_map_folder_defaults(
             read_only=True,
             bind_options=MountBindOptions(propagation=PropagationMode.RSLAVE),
         )
-        in docker_addon.mounts
+        in docker_app.mounts
     )
 
     # Share added and propagation set
@@ -147,21 +141,21 @@ def test_addon_map_folder_defaults(
             read_only=True,
             bind_options=MountBindOptions(propagation=PropagationMode.RSLAVE),
         )
-        in docker_addon.mounts
+        in docker_app.mounts
     )
 
     # Backup not added
-    assert "/backup" not in [mount.target for mount in docker_addon.mounts]
+    assert "/backup" not in [mount.target for mount in docker_app.mounts]
 
 
 @pytest.mark.usefixtures("path_extern")
-def test_addon_map_homeassistant_folder(
+def test_app_map_homeassistant_folder(
     coresys: CoreSys, addonsdata_system: dict[str, Data]
 ):
     """Test mounts for app which maps homeassistant folder."""
     config = load_json_fixture("addon-config-map-addon_config.json")
     config["map"].append("homeassistant_config")
-    docker_addon = get_docker_addon(coresys, addonsdata_system, config)
+    docker_app = get_docker_app(coresys, addonsdata_system, config)
 
     # Home Assistant config folder mounted to /homeassistant, not /config
     assert (
@@ -171,37 +165,37 @@ def test_addon_map_homeassistant_folder(
             target="/homeassistant",
             read_only=True,
         )
-        in docker_addon.mounts
+        in docker_app.mounts
     )
 
 
 @pytest.mark.usefixtures("path_extern")
-def test_addon_map_addon_configs_folder(
+def test_app_map_app_configs_folder(
     coresys: CoreSys, addonsdata_system: dict[str, Data]
 ):
     """Test mounts for app which maps app configs folder."""
     config = load_json_fixture("addon-config-map-addon_config.json")
     config["map"].append("all_addon_configs")
-    docker_addon = get_docker_addon(coresys, addonsdata_system, config)
+    docker_app = get_docker_app(coresys, addonsdata_system, config)
 
     # App configs folder included
     assert (
         DockerMount(
             type=MountType.BIND,
-            source=coresys.config.path_extern_addon_configs.as_posix(),
+            source=coresys.config.path_extern_app_configs.as_posix(),
             target="/addon_configs",
             read_only=True,
         )
-        in docker_addon.mounts
+        in docker_app.mounts
     )
 
 
 @pytest.mark.usefixtures("path_extern")
-def test_addon_map_addon_config_folder(
+def test_app_map_app_config_folder(
     coresys: CoreSys, addonsdata_system: dict[str, Data]
 ):
     """Test mounts for app which maps its own config folder."""
-    docker_addon = get_docker_addon(
+    docker_app = get_docker_app(
         coresys, addonsdata_system, "addon-config-map-addon_config.json"
     )
 
@@ -209,16 +203,16 @@ def test_addon_map_addon_config_folder(
     assert (
         DockerMount(
             type=MountType.BIND,
-            source=docker_addon.addon.path_extern_config.as_posix(),
+            source=docker_app.app.path_extern_config.as_posix(),
             target="/config",
             read_only=True,
         )
-        in docker_addon.mounts
+        in docker_app.mounts
     )
 
 
 @pytest.mark.usefixtures("path_extern")
-def test_addon_map_addon_config_folder_with_custom_target(
+def test_app_map_app_config_folder_with_custom_target(
     coresys: CoreSys, addonsdata_system: dict[str, Data]
 ):
     """Test mounts for app which maps its own config folder and sets target path."""
@@ -227,49 +221,47 @@ def test_addon_map_addon_config_folder_with_custom_target(
     config["map"].append(
         {"type": "addon_config", "read_only": False, "path": "/custom/target/path"}
     )
-    docker_addon = get_docker_addon(coresys, addonsdata_system, config)
+    docker_app = get_docker_app(coresys, addonsdata_system, config)
 
     # App config folder included
     assert (
         DockerMount(
             type=MountType.BIND,
-            source=docker_addon.addon.path_extern_config.as_posix(),
+            source=docker_app.app.path_extern_config.as_posix(),
             target="/custom/target/path",
             read_only=False,
         )
-        in docker_addon.mounts
+        in docker_app.mounts
     )
 
 
 @pytest.mark.usefixtures("path_extern")
-def test_addon_map_data_folder_with_custom_target(
+def test_app_map_data_folder_with_custom_target(
     coresys: CoreSys, addonsdata_system: dict[str, Data]
 ):
     """Test mounts for app which sets target path for data folder."""
     config = load_json_fixture("addon-config-map-addon_config.json")
     config["map"].append({"type": "data", "path": "/custom/data/path"})
-    docker_addon = get_docker_addon(coresys, addonsdata_system, config)
+    docker_app = get_docker_app(coresys, addonsdata_system, config)
 
     # App config folder included
     assert (
         DockerMount(
             type=MountType.BIND,
-            source=docker_addon.addon.path_extern_data.as_posix(),
+            source=docker_app.app.path_extern_data.as_posix(),
             target="/custom/data/path",
             read_only=False,
         )
-        in docker_addon.mounts
+        in docker_app.mounts
     )
 
 
 @pytest.mark.usefixtures("path_extern")
-def test_addon_ignore_on_config_map(
-    coresys: CoreSys, addonsdata_system: dict[str, Data]
-):
+def test_app_ignore_on_config_map(coresys: CoreSys, addonsdata_system: dict[str, Data]):
     """Test mounts for app don't include app config or homeassistant when config included."""
     config = load_json_fixture("basic-addon-config.json")
     config["map"].extend(["addon_config", "homeassistant_config"])
-    docker_addon = get_docker_addon(coresys, addonsdata_system, config)
+    docker_app = get_docker_app(coresys, addonsdata_system, config)
 
     # Config added and is marked rw
     assert (
@@ -279,21 +271,19 @@ def test_addon_ignore_on_config_map(
             target="/config",
             read_only=False,
         )
-        in docker_addon.mounts
+        in docker_app.mounts
     )
 
     # Mount for app's specific config folder omitted since config in map field
-    assert (
-        len([mount for mount in docker_addon.mounts if mount.target == "/config"]) == 1
-    )
+    assert len([mount for mount in docker_app.mounts if mount.target == "/config"]) == 1
     # Home Assistant mount omitted since config in map field
-    assert "/homeassistant" not in [mount.target for mount in docker_addon.mounts]
+    assert "/homeassistant" not in [mount.target for mount in docker_app.mounts]
 
 
 @pytest.mark.usefixtures("path_extern")
-def test_journald_addon(coresys: CoreSys, addonsdata_system: dict[str, Data]):
+def test_journald_app(coresys: CoreSys, addonsdata_system: dict[str, Data]):
     """Validate volume for journald option."""
-    docker_addon = get_docker_addon(
+    docker_app = get_docker_app(
         coresys, addonsdata_system, "journald-addon-config.json"
     )
 
@@ -304,7 +294,7 @@ def test_journald_addon(coresys: CoreSys, addonsdata_system: dict[str, Data]):
             target="/var/log/journal",
             read_only=True,
         )
-        in docker_addon.mounts
+        in docker_app.mounts
     )
     assert (
         DockerMount(
@@ -313,22 +303,20 @@ def test_journald_addon(coresys: CoreSys, addonsdata_system: dict[str, Data]):
             target="/run/log/journal",
             read_only=True,
         )
-        in docker_addon.mounts
+        in docker_app.mounts
     )
 
 
 @pytest.mark.usefixtures("path_extern")
-def test_not_journald_addon(coresys: CoreSys, addonsdata_system: dict[str, Data]):
+def test_not_journald_app(coresys: CoreSys, addonsdata_system: dict[str, Data]):
     """Validate journald option defaults off."""
-    docker_addon = get_docker_addon(
-        coresys, addonsdata_system, "basic-addon-config.json"
-    )
+    docker_app = get_docker_app(coresys, addonsdata_system, "basic-addon-config.json")
 
-    assert "/var/log/journal" not in [mount.target for mount in docker_addon.mounts]
+    assert "/var/log/journal" not in [mount.target for mount in docker_app.mounts]
 
 
 @pytest.mark.usefixtures("path_extern", "tmp_supervisor_data")
-async def test_addon_run_docker_error(
+async def test_app_run_docker_error(
     coresys: CoreSys, addonsdata_system: dict[str, Data]
 ):
     """Test docker error when app is run."""
@@ -336,18 +324,16 @@ async def test_addon_run_docker_error(
     coresys.docker.containers.create.side_effect = aiodocker.DockerError(
         HTTPStatus.NOT_FOUND, {"message": "missing"}
     )
-    docker_addon = get_docker_addon(
-        coresys, addonsdata_system, "basic-addon-config.json"
-    )
+    docker_app = get_docker_app(coresys, addonsdata_system, "basic-addon-config.json")
 
     with (
-        patch.object(DockerAddon, "stop"),
+        patch.object(DockerApp, "stop"),
         patch.object(
-            AddonOptions, "validate", new=PropertyMock(return_value=lambda _: None)
+            AppOptions, "validate", new=PropertyMock(return_value=lambda _: None)
         ),
         pytest.raises(DockerNotFound),
     ):
-        await docker_addon.run()
+        await docker_app.run()
 
     assert (
         Issue(IssueType.MISSING_IMAGE, ContextType.ADDON, reference="test_addon")
@@ -356,44 +342,40 @@ async def test_addon_run_docker_error(
 
 
 @pytest.mark.usefixtures("path_extern", "tmp_supervisor_data")
-async def test_addon_run_add_host_error(
+async def test_app_run_add_host_error(
     coresys: CoreSys, addonsdata_system: dict[str, Data], capture_exception: Mock
 ):
     """Test error adding host when app is run."""
     await coresys.dbus.timedate.connect(coresys.dbus.bus)
-    docker_addon = get_docker_addon(
-        coresys, addonsdata_system, "basic-addon-config.json"
-    )
+    docker_app = get_docker_app(coresys, addonsdata_system, "basic-addon-config.json")
 
     with (
-        patch.object(DockerAddon, "stop"),
+        patch.object(DockerApp, "stop"),
         patch.object(
-            AddonOptions, "validate", new=PropertyMock(return_value=lambda _: None)
+            AppOptions, "validate", new=PropertyMock(return_value=lambda _: None)
         ),
         patch.object(PluginDns, "add_host", side_effect=(err := CoreDNSError())),
     ):
-        await docker_addon.run()
+        await docker_app.run()
 
         capture_exception.assert_called_once_with(err)
 
 
-async def test_addon_stop_delete_host_error(
+async def test_app_stop_delete_host_error(
     coresys: CoreSys, addonsdata_system: dict[str, Data], capture_exception: Mock
 ):
     """Test error deleting host when app is stopped."""
-    docker_addon = get_docker_addon(
-        coresys, addonsdata_system, "basic-addon-config.json"
-    )
+    docker_app = get_docker_app(coresys, addonsdata_system, "basic-addon-config.json")
 
     with (
         patch.object(
-            DockerAddon,
+            DockerApp,
             "ip_address",
             new=PropertyMock(return_value=IPv4Address("172.30.33.1")),
         ),
         patch.object(PluginDns, "delete_host", side_effect=(err := CoreDNSError())),
     ):
-        await docker_addon.stop()
+        await docker_app.stop()
 
         capture_exception.assert_called_once_with(err)
 
@@ -434,9 +416,9 @@ TEST_HW_DEVICE = Device(
         (TEST_SYSFS_PATH, "2", True),
     ],
 )
-async def test_addon_new_device(
+async def test_app_new_device(
     coresys: CoreSys,
-    install_addon_ssh: Addon,
+    install_app_ssh: App,
     container: MagicMock,
     docker: DockerAPI,
     dev_path: str,
@@ -445,16 +427,16 @@ async def test_addon_new_device(
 ):
     """Test new device that is listed in static devices."""
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
-    install_addon_ssh.data["devices"] = [dev_path]
+    install_app_ssh.data["devices"] = [dev_path]
     container.id = 123
     docker._info = replace(docker.info, cgroup=cgroup)  # pylint: disable=protected-access
 
     with (
-        patch.object(Addon, "write_options"),
+        patch.object(App, "write_options"),
         patch.object(OSManager, "available", new=PropertyMock(return_value=is_os)),
         patch.object(CGroup, "add_devices_allowed") as add_devices,
     ):
-        await install_addon_ssh.start()
+        await install_app_ssh.start()
 
         coresys.bus.fire_event(
             BusEvent.HARDWARE_NEW_DEVICE,
@@ -467,20 +449,20 @@ async def test_addon_new_device(
 
 @pytest.mark.usefixtures("path_extern", "tmp_supervisor_data")
 @pytest.mark.parametrize("dev_path", [TEST_DEV_PATH, TEST_SYSFS_PATH])
-async def test_addon_new_device_no_haos(
-    coresys: CoreSys, install_addon_ssh: Addon, docker: DockerAPI, dev_path: str
+async def test_app_new_device_no_haos(
+    coresys: CoreSys, install_app_ssh: App, docker: DockerAPI, dev_path: str
 ):
     """Test new device that is listed in static devices on non HAOS system with CGroup V2."""
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
-    install_addon_ssh.data["devices"] = [dev_path]
+    install_app_ssh.data["devices"] = [dev_path]
     docker._info = replace(docker.info, cgroup="2")  # pylint: disable=protected-access
 
     with (
-        patch.object(Addon, "write_options"),
+        patch.object(App, "write_options"),
         patch.object(OSManager, "available", new=PropertyMock(return_value=False)),
         patch.object(CGroup, "add_devices_allowed") as add_devices,
     ):
-        await install_addon_ssh.start()
+        await install_app_ssh.start()
 
         coresys.bus.fire_event(
             BusEvent.HARDWARE_NEW_DEVICE,
@@ -491,7 +473,7 @@ async def test_addon_new_device_no_haos(
         add_devices.assert_not_called()
 
     # Issue added with hardware event since access cannot be added dynamically
-    assert install_addon_ssh.device_access_missing_issue in coresys.resolution.issues
+    assert install_app_ssh.device_access_missing_issue in coresys.resolution.issues
     assert (
         Suggestion(
             SuggestionType.EXECUTE_RESTART, ContextType.ADDON, reference="local_ssh"
@@ -500,21 +482,21 @@ async def test_addon_new_device_no_haos(
     )
 
     # Stopping and removing the container clears it as access granted on next start
-    await install_addon_ssh.stop()
+    await install_app_ssh.stop()
     assert coresys.resolution.issues == []
     assert coresys.resolution.suggestions == []
 
 
-async def test_ulimits_integration(coresys: CoreSys, install_addon_ssh: Addon):
+async def test_ulimits_integration(coresys: CoreSys, install_app_ssh: App):
     """Test ulimits integration with Docker app."""
-    docker_addon = DockerAddon(coresys, install_addon_ssh)
+    docker_app = DockerApp(coresys, install_app_ssh)
 
     # Test default case (no ulimits, no realtime)
-    assert docker_addon.ulimits is None
+    assert docker_app.ulimits is None
 
     # Test with realtime enabled (should have built-in ulimits)
-    install_addon_ssh.data["realtime"] = True
-    ulimits = docker_addon.ulimits
+    install_app_ssh.data["realtime"] = True
+    ulimits = docker_app.ulimits
     assert ulimits is not None
     assert len(ulimits) == 2
     # Check for rtprio limit
@@ -529,9 +511,9 @@ async def test_ulimits_integration(coresys: CoreSys, install_addon_ssh: Addon):
     assert memlock_limit.hard == 128 * 1024 * 1024
 
     # Test with configurable ulimits (simple format)
-    install_addon_ssh.data["realtime"] = False
-    install_addon_ssh.data["ulimits"] = {"nofile": 65535, "nproc": 32768}
-    ulimits = docker_addon.ulimits
+    install_app_ssh.data["realtime"] = False
+    install_app_ssh.data["ulimits"] = {"nofile": 65535, "nproc": 32768}
+    ulimits = docker_app.ulimits
     assert ulimits is not None
     assert len(ulimits) == 2
 
@@ -546,11 +528,11 @@ async def test_ulimits_integration(coresys: CoreSys, install_addon_ssh: Addon):
     assert nproc_limit.hard == 32768
 
     # Test with configurable ulimits (detailed format)
-    install_addon_ssh.data["ulimits"] = {
+    install_app_ssh.data["ulimits"] = {
         "nofile": {"soft": 20000, "hard": 40000},
         "memlock": {"soft": 67108864, "hard": 134217728},
     }
-    ulimits = docker_addon.ulimits
+    ulimits = docker_app.ulimits
     assert ulimits is not None
     assert len(ulimits) == 2
 
@@ -565,12 +547,12 @@ async def test_ulimits_integration(coresys: CoreSys, install_addon_ssh: Addon):
     assert memlock_limit.hard == 134217728
 
     # Test mixed format and realtime (realtime + custom ulimits)
-    install_addon_ssh.data["realtime"] = True
-    install_addon_ssh.data["ulimits"] = {
+    install_app_ssh.data["realtime"] = True
+    install_app_ssh.data["ulimits"] = {
         "nofile": 65535,
         "core": {"soft": 0, "hard": 0},  # Disable core dumps
     }
-    ulimits = docker_addon.ulimits
+    ulimits = docker_app.ulimits
     assert ulimits is not None
     assert (
         len(ulimits) == 4

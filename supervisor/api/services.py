@@ -48,10 +48,10 @@ class APIServices(CoreSysAttributes):
         """Write data into a service."""
         service = self._extract_service(request)
         body = await api_validate(service.schema, request)
-        addon = request[REQUEST_FROM]
+        app = request[REQUEST_FROM]
 
         _check_access(request, service.slug)
-        await service.set_service_data(addon, body)
+        await service.set_service_data(app, body)
 
     @api_process
     async def get_service(self, request: web.Request) -> dict[str, Any]:
@@ -69,18 +69,18 @@ class APIServices(CoreSysAttributes):
     async def del_service(self, request: web.Request) -> None:
         """Delete data into a service."""
         service = self._extract_service(request)
-        addon = request[REQUEST_FROM]
+        app = request[REQUEST_FROM]
 
         # Access
         _check_access(request, service.slug, True)
-        await service.del_service_data(addon)
+        await service.del_service_data(app)
 
 
 def _check_access(request, service, provide=False):
     """Raise error if the rights are wrong."""
-    addon = request[REQUEST_FROM]
-    if not addon.services_role.get(service):
+    app = request[REQUEST_FROM]
+    if not app.services_role.get(service):
         raise APIForbidden(f"No access to {service} service!")
 
-    if provide and addon.services_role.get(service) != PROVIDE_SERVICE:
+    if provide and app.services_role.get(service) != PROVIDE_SERVICE:
         raise APIForbidden(f"No access to write {service} service!")

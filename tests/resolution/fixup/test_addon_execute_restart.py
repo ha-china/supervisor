@@ -4,15 +4,15 @@ from unittest.mock import patch
 
 import pytest
 
-from supervisor.addons.addon import Addon
-from supervisor.const import AddonState
+from supervisor.addons.addon import App
+from supervisor.const import AppState
 from supervisor.coresys import CoreSys
-from supervisor.docker.addon import DockerAddon
+from supervisor.docker.addon import DockerApp
 from supervisor.docker.interface import DockerInterface
 from supervisor.exceptions import DockerError
 from supervisor.resolution.const import ContextType, IssueType, SuggestionType
 from supervisor.resolution.data import Issue, Suggestion
-from supervisor.resolution.fixups.addon_execute_restart import FixupAddonExecuteRestart
+from supervisor.resolution.fixups.addon_execute_restart import FixupAppExecuteRestart
 
 from tests.const import TEST_ADDON_SLUG
 
@@ -27,14 +27,14 @@ EXECUTE_RESTART_SUGGESTION = Suggestion(
 
 
 @pytest.mark.usefixtures("path_extern")
-async def test_fixup(coresys: CoreSys, install_addon_ssh: Addon):
+async def test_fixup(coresys: CoreSys, install_app_ssh: App):
     """Test fixup restarts app."""
-    install_addon_ssh.state = AddonState.STARTED
-    addon_execute_restart = FixupAddonExecuteRestart(coresys)
-    assert addon_execute_restart.auto is False
+    install_app_ssh.state = AppState.STARTED
+    app_execute_restart = FixupAppExecuteRestart(coresys)
+    assert app_execute_restart.auto is False
 
     async def mock_stop(*args, **kwargs):
-        install_addon_ssh.state = AddonState.STOPPED
+        install_app_ssh.state = AppState.STOPPED
 
     coresys.resolution.add_issue(
         DEVICE_ACCESS_MISSING_ISSUE,
@@ -42,11 +42,11 @@ async def test_fixup(coresys: CoreSys, install_addon_ssh: Addon):
     )
     with (
         patch.object(DockerInterface, "stop") as stop,
-        patch.object(DockerAddon, "run") as run,
-        patch.object(Addon, "_wait_for_startup"),
-        patch.object(Addon, "write_options"),
+        patch.object(DockerApp, "run") as run,
+        patch.object(App, "_wait_for_startup"),
+        patch.object(App, "write_options"),
     ):
-        await addon_execute_restart()
+        await app_execute_restart()
         stop.assert_called_once()
         run.assert_called_once()
 
@@ -56,11 +56,11 @@ async def test_fixup(coresys: CoreSys, install_addon_ssh: Addon):
 
 @pytest.mark.usefixtures("path_extern")
 async def test_fixup_stop_error(
-    coresys: CoreSys, install_addon_ssh: Addon, caplog: pytest.LogCaptureFixture
+    coresys: CoreSys, install_app_ssh: App, caplog: pytest.LogCaptureFixture
 ):
     """Test fixup fails on stop app failure."""
-    install_addon_ssh.state = AddonState.STARTED
-    addon_execute_start = FixupAddonExecuteRestart(coresys)
+    install_app_ssh.state = AppState.STARTED
+    app_execute_start = FixupAppExecuteRestart(coresys)
 
     coresys.resolution.add_issue(
         DEVICE_ACCESS_MISSING_ISSUE,
@@ -68,9 +68,9 @@ async def test_fixup_stop_error(
     )
     with (
         patch.object(DockerInterface, "stop", side_effect=DockerError),
-        patch.object(DockerAddon, "run") as run,
+        patch.object(DockerApp, "run") as run,
     ):
-        await addon_execute_start()
+        await app_execute_start()
         run.assert_not_called()
 
     assert DEVICE_ACCESS_MISSING_ISSUE in coresys.resolution.issues
@@ -80,11 +80,11 @@ async def test_fixup_stop_error(
 
 @pytest.mark.usefixtures("path_extern")
 async def test_fixup_start_error(
-    coresys: CoreSys, install_addon_ssh: Addon, caplog: pytest.LogCaptureFixture
+    coresys: CoreSys, install_app_ssh: App, caplog: pytest.LogCaptureFixture
 ):
     """Test fixup logs a start app failure."""
-    install_addon_ssh.state = AddonState.STARTED
-    addon_execute_start = FixupAddonExecuteRestart(coresys)
+    install_app_ssh.state = AppState.STARTED
+    app_execute_start = FixupAppExecuteRestart(coresys)
 
     coresys.resolution.add_issue(
         DEVICE_ACCESS_MISSING_ISSUE,
@@ -92,10 +92,10 @@ async def test_fixup_start_error(
     )
     with (
         patch.object(DockerInterface, "stop") as stop,
-        patch.object(DockerAddon, "run", side_effect=DockerError),
-        patch.object(Addon, "write_options"),
+        patch.object(DockerApp, "run", side_effect=DockerError),
+        patch.object(App, "write_options"),
     ):
-        await addon_execute_start()
+        await app_execute_start()
         stop.assert_called_once()
 
     assert DEVICE_ACCESS_MISSING_ISSUE not in coresys.resolution.issues
@@ -103,16 +103,16 @@ async def test_fixup_start_error(
     assert "Could not restart local_ssh" in caplog.text
 
 
-async def test_fixup_no_addon(coresys: CoreSys, caplog: pytest.LogCaptureFixture):
+async def test_fixup_no_app(coresys: CoreSys, caplog: pytest.LogCaptureFixture):
     """Test fixup dismisses if app is missing."""
-    addon_execute_start = FixupAddonExecuteRestart(coresys)
+    app_execute_start = FixupAppExecuteRestart(coresys)
 
     coresys.resolution.add_issue(
         DEVICE_ACCESS_MISSING_ISSUE,
         suggestions=[SuggestionType.EXECUTE_RESTART],
     )
-    with patch.object(DockerAddon, "stop") as stop:
-        await addon_execute_start()
+    with patch.object(DockerApp, "stop") as stop:
+        await app_execute_start()
         stop.assert_not_called()
 
     assert not coresys.resolution.issues

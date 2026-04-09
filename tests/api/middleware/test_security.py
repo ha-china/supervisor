@@ -9,7 +9,7 @@ from aiohttp.test_utils import TestClient
 import pytest
 import urllib3
 
-from supervisor.addons.addon import Addon
+from supervisor.addons.addon import App
 from supervisor.api import RestAPI
 from supervisor.const import ROLE_ALL, CoreState
 from supervisor.coresys import CoreSys
@@ -197,23 +197,23 @@ async def test_bad_requests(
 @pytest.mark.usefixtures("plugin_tokens")
 async def test_token_validation(
     api_token_validation: TestClient,
-    install_addon_example: Addon,
+    install_app_example: App,
     request_method: str,
     request_path: str,
     success_roles: set[str],
 ):
     """Test token validation paths."""
-    install_addon_example.persist["access_token"] = "abc123"
-    install_addon_example.data["hassio_api"] = True
+    install_app_example.persist["access_token"] = "abc123"
+    install_app_example.data["hassio_api"] = True
     for role in success_roles:
-        install_addon_example.data["hassio_role"] = role
+        install_app_example.data["hassio_role"] = role
         resp = await getattr(api_token_validation, request_method)(
             request_path, headers={"Authorization": "Bearer abc123"}
         )
         assert resp.status == 200
 
     for role in set(ROLE_ALL) - success_roles:
-        install_addon_example.data["hassio_role"] = role
+        install_app_example.data["hassio_role"] = role
         resp = await getattr(api_token_validation, request_method)(
             request_path, headers={"Authorization": "Bearer abc123"}
         )

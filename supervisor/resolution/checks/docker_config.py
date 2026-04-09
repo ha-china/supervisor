@@ -10,24 +10,24 @@ from ..data import Issue
 from .base import CheckBase
 
 
-def _check_container(container: DockerInterface, addon=None) -> bool:
+def _check_container(container: DockerInterface, app=None) -> bool:
     """Check if container has mount propagation issues requiring recreate.
 
     For apps, only validates mounts explicitly configured (not Docker VOLUMEs).
     For Core/plugins, validates all /media and /share mounts.
     """
     # For apps, check mounts against their actual configured targets
-    if addon is not None:
-        addon_mapping = addon.map_volumes
+    if app is not None:
+        app_mapping = app.map_volumes
         configured_targets = set()
 
         # Get actual target paths from app configuration
-        if MappingType.MEDIA in addon_mapping:
-            target = addon_mapping[MappingType.MEDIA].path or PATH_MEDIA.as_posix()
+        if MappingType.MEDIA in app_mapping:
+            target = app_mapping[MappingType.MEDIA].path or PATH_MEDIA.as_posix()
             configured_targets.add(target)
 
-        if MappingType.SHARE in addon_mapping:
-            target = addon_mapping[MappingType.SHARE].path or PATH_SHARE.as_posix()
+        if MappingType.SHARE in app_mapping:
+            target = app_mapping[MappingType.SHARE].path or PATH_SHARE.as_posix()
             configured_targets.add(target)
 
         if not configured_targets:
@@ -82,11 +82,11 @@ class CheckDockerConfig(CheckBase):
         if _check_container(self.sys_homeassistant.core.instance):
             new_issues.add(Issue(IssueType.DOCKER_CONFIG, ContextType.CORE))
 
-        for addon in self.sys_addons.installed:
-            if _check_container(addon.instance, addon):
+        for app in self.sys_apps.installed:
+            if _check_container(app.instance, app):
                 new_issues.add(
                     Issue(
-                        IssueType.DOCKER_CONFIG, ContextType.ADDON, reference=addon.slug
+                        IssueType.DOCKER_CONFIG, ContextType.ADDON, reference=app.slug
                     )
                 )
 

@@ -1,6 +1,6 @@
 """Helpers to check for deprecated apps."""
 
-from ...const import AddonStage, CoreState
+from ...const import AppStage, CoreState
 from ...coresys import CoreSys
 from ..const import ContextType, IssueType, SuggestionType
 from .base import CheckBase
@@ -8,20 +8,20 @@ from .base import CheckBase
 
 def setup(coresys: CoreSys) -> CheckBase:
     """Check setup function."""
-    return CheckDeprecatedAddon(coresys)
+    return CheckDeprecatedApp(coresys)
 
 
-class CheckDeprecatedAddon(CheckBase):
+class CheckDeprecatedApp(CheckBase):
     """CheckDeprecatedApp class for check."""
 
     async def run_check(self) -> None:
         """Run check if not affected by issue."""
-        for addon in self.sys_addons.installed:
-            if addon.stage == AddonStage.DEPRECATED:
+        for app in self.sys_apps.installed:
+            if app.stage == AppStage.DEPRECATED:
                 self.sys_resolution.create_issue(
                     IssueType.DEPRECATED_ADDON,
                     ContextType.ADDON,
-                    reference=addon.slug,
+                    reference=app.slug,
                     suggestions=[SuggestionType.EXECUTE_REMOVE],
                 )
 
@@ -30,8 +30,8 @@ class CheckDeprecatedAddon(CheckBase):
         if not reference:
             return False
 
-        addon = self.sys_addons.get_local_only(reference)
-        return addon is not None and addon.stage == AddonStage.DEPRECATED
+        app = self.sys_apps.get_local_only(reference)
+        return app is not None and app.stage == AppStage.DEPRECATED
 
     @property
     def issue(self) -> IssueType:

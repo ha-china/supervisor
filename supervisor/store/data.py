@@ -40,12 +40,12 @@ class ProcessedRepository:
     config: dict[str, Any]
 
 
-def _read_addon_translations(addon_path: Path) -> dict:
+def _read_app_translations(app_path: Path) -> dict:
     """Read translations from apps folder.
 
     Should be run in the executor.
     """
-    translations_dir = addon_path / "translations"
+    translations_dir = app_path / "translations"
     translations: dict[str, Any] = {}
 
     if not translations_dir.exists():
@@ -107,19 +107,19 @@ class StoreData(CoreSysAttributes):
         """Initialize data holder."""
         self.coresys: CoreSys = coresys
         self.repositories: dict[str, Any] = {}
-        self.addons: dict[str, dict[str, Any]] = {}
+        self.apps: dict[str, dict[str, Any]] = {}
 
     async def update(self) -> None:
         """Read data from app repository."""
         # read core repository
-        addons = await self._read_addons_folder(
-            self.sys_config.path_addons_core, REPOSITORY_CORE
+        apps = await self._read_apps_folder(
+            self.sys_config.path_apps_core, REPOSITORY_CORE
         )
 
         # read local repository
-        addons.update(
-            await self._read_addons_folder(
-                self.sys_config.path_addons_local, REPOSITORY_LOCAL
+        apps.update(
+            await self._read_apps_folder(
+                self.sys_config.path_apps_local, REPOSITORY_LOCAL
             )
         )
 
@@ -130,38 +130,36 @@ class StoreData(CoreSysAttributes):
         def _read_git_repositories() -> list[ProcessedRepository]:
             return [
                 repo
-                for repository_element in self.sys_config.path_addons_git.iterdir()
+                for repository_element in self.sys_config.path_apps_git.iterdir()
                 if repository_element.is_dir()
                 and (repo := _read_git_repository(repository_element))
             ]
 
         for repo in await self.sys_run_in_executor(_read_git_repositories):
             repositories[repo.slug] = repo.config
-            addons.update(await self._read_addons_folder(repo.path, repo.slug))
+            apps.update(await self._read_apps_folder(repo.path, repo.slug))
 
         self.repositories = repositories
-        self.addons = addons
+        self.apps = apps
 
-    async def _find_addon_configs(
-        self, path: Path, repository: str
-    ) -> list[Path] | None:
+    async def _find_app_configs(self, path: Path, repository: str) -> list[Path] | None:
         """Find apps in the path."""
 
-        def _get_addons_list() -> list[Path]:
+        def _get_apps_list() -> list[Path]:
             # Generate a list without artefact, safe for corruptions
             return [
-                addon
-                for addon in path.glob("**/config.*")
+                app
+                for app in path.glob("**/config.*")
                 if not [
                     part
-                    for part in addon.parts
+                    for part in app.parts
                     if part.startswith(".") or part == "rootfs"
                 ]
-                and addon.suffix in FILE_SUFFIX_CONFIGURATION
+                and app.suffix in FILE_SUFFIX_CONFIGURATION
             ]
 
         try:
-            addon_list = await self.sys_run_in_executor(_get_addons_list)
+            app_list = await self.sys_run_in_executor(_get_apps_list)
         except OSError as err:
             suggestion = None
             self.sys_resolution.check_oserror(err)
@@ -177,48 +175,48 @@ class StoreData(CoreSysAttributes):
                 "Can't process %s because of Filesystem issues: %s", repository, err
             )
             return None
-        return addon_list
+        return app_list
 
-    async def _read_addons_folder(
+    async def _read_apps_folder(
         self, path: Path, repository: str
     ) -> dict[str, dict[str, Any]]:
         """Read data from apps folder."""
-        if not (addon_config_list := await self._find_addon_configs(path, repository)):
+        if not (app_config_list := await self._find_app_configs(path, repository)):
             return {}
 
-        def _process_addons_config() -> dict[str, dict[str, Any]]:
-            addons: dict[str, dict[str, Any]] = {}
-            for addon_config in addon_config_list:
+        def _process_apps_config() -> dict[str, dict[str, Any]]:
+            apps: dict[str, dict[str, Any]] = {}
+            for app_config in app_config_list:
                 try:
-                    addon = read_json_or_yaml_file(addon_config)
+                    app = read_json_or_yaml_file(app_config)
                 except ConfigurationFileError:
                     _LOGGER.warning(
-                        "Can't read %s from repository %s", addon_config, repository
+                        "Can't read %s from repository %s", app_config, repository
                     )
                     continue
 
                 # validate
                 try:
-                    addon = SCHEMA_ADDON_CONFIG(addon)
+                    app = SCHEMA_ADDON_CONFIG(app)
                 except vol.Invalid as ex:
                     _LOGGER.warning(
-                        "Can't read %s: %s", addon_config, humanize_error(addon, ex)
+                        "Can't read %s: %s", app_config, humanize_error(app, ex)
                     )
                     continue
 
                 # Generate slug
-                addon_slug = f"{repository}_{addon[ATTR_SLUG]}"
+                app_slug = f"{repository}_{app[ATTR_SLUG]}"
 
                 # store
-                addon[ATTR_REPOSITORY] = repository
-                addon[ATTR_LOCATION] = str(addon_config.parent)
-                addon[ATTR_TRANSLATIONS] = _read_addon_translations(addon_config.parent)
-                addon[ATTR_VERSION_TIMESTAMP] = addon_config.stat().st_mtime
-                addons[addon_slug] = addon
+                app[ATTR_REPOSITORY] = repository
+                app[ATTR_LOCATION] = str(app_config.parent)
+                app[ATTR_TRANSLATIONS] = _read_app_translations(app_config.parent)
+                app[ATTR_VERSION_TIMESTAMP] = app_config.stat().st_mtime
+                apps[app_slug] = app
 
-            return addons
+            return apps
 
-        return await self.sys_run_in_executor(_process_addons_config)
+        return await self.sys_run_in_executor(_process_apps_config)
 
     def _get_builtin_repositories(self) -> dict[str, dict[str, str]]:
         """Get local built-in repositories into dataset.

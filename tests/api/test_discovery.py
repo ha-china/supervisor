@@ -6,8 +6,8 @@ from unittest.mock import ANY, AsyncMock, MagicMock, patch
 from aiohttp.test_utils import TestClient
 import pytest
 
-from supervisor.addons.addon import Addon
-from supervisor.const import AddonState
+from supervisor.addons.addon import App
+from supervisor.const import AppState
 from supervisor.coresys import CoreSys
 from supervisor.discovery import Message
 
@@ -17,7 +17,7 @@ from tests.const import TEST_ADDON_SLUG
 
 @pytest.mark.parametrize("api_client", ["local_ssh"], indirect=True)
 async def test_api_discovery_forbidden(
-    api_client: TestClient, caplog: pytest.LogCaptureFixture, install_addon_ssh
+    api_client: TestClient, caplog: pytest.LogCaptureFixture, install_app_ssh
 ):
     """Test app sending discovery message for an unregistered service."""
     caplog.clear()
@@ -38,13 +38,13 @@ async def test_api_discovery_forbidden(
 
 
 @pytest.mark.parametrize(
-    "skip_state", [AddonState.ERROR, AddonState.STOPPED, AddonState.STARTUP]
+    "skip_state", [AppState.ERROR, AppState.STOPPED, AppState.STARTUP]
 )
 async def test_api_list_discovery(
     api_client: TestClient,
     coresys: CoreSys,
-    install_addon_ssh: Addon,
-    skip_state: AddonState,
+    install_app_ssh: App,
+    skip_state: AppState,
 ):
     """Test listing discovery messages only returns ones for healthy services."""
     with (
@@ -62,7 +62,7 @@ async def test_api_list_discovery(
         Message(addon="local_ssh", service="adguard", config=ANY, uuid=ANY),
     ]
 
-    install_addon_ssh.state = AddonState.STARTED
+    install_app_ssh.state = AppState.STARTED
     resp = await api_client.get("/discovery")
     assert resp.status == 200
     result = await resp.json()
@@ -75,7 +75,7 @@ async def test_api_list_discovery(
         }
     ]
 
-    install_addon_ssh.state = skip_state
+    install_app_ssh.state = skip_state
     resp = await api_client.get("/discovery")
     assert resp.status == 200
     result = await resp.json()
@@ -86,11 +86,11 @@ async def test_api_list_discovery(
 async def test_api_send_del_discovery(
     api_client: TestClient,
     coresys: CoreSys,
-    install_addon_ssh: Addon,
+    install_app_ssh: App,
     websession: MagicMock,
 ):
     """Test adding and removing discovery."""
-    install_addon_ssh.data["discovery"] = ["test"]
+    install_app_ssh.data["discovery"] = ["test"]
     coresys.homeassistant.api._ensure_access_token = AsyncMock()  # pylint: disable=protected-access
 
     resp = await api_client.post("/discovery", json={"service": "test", "config": {}})
@@ -133,9 +133,9 @@ async def test_api_send_del_discovery(
 
 
 @pytest.mark.parametrize("api_client", [TEST_ADDON_SLUG], indirect=True)
-async def test_api_invalid_discovery(api_client: TestClient, install_addon_ssh: Addon):
+async def test_api_invalid_discovery(api_client: TestClient, install_app_ssh: App):
     """Test invalid discovery messages."""
-    install_addon_ssh.data["discovery"] = ["test"]
+    install_app_ssh.data["discovery"] = ["test"]
 
     resp = await api_client.post("/discovery", json={"service": "test"})
     assert resp.status == 400

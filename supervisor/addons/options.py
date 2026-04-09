@@ -56,7 +56,7 @@ _SCHEMA_LENGTH_PARTS = (
 )
 
 
-class AddonOptions(CoreSysAttributes):
+class AppOptions(CoreSysAttributes):
     """Validate Apps Options."""
 
     def __init__(

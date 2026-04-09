@@ -9,7 +9,7 @@ from pathlib import Path, PurePath
 from awesomeversion import AwesomeVersion
 
 from .const import (
-    ATTR_ADDONS_CUSTOM_LIST,
+    ATTR_APPS_CUSTOM_LIST,
     ATTR_COUNTRY,
     ATTR_DEBUG,
     ATTR_DEBUG_BLOCK,
@@ -241,42 +241,42 @@ class CoreConfig(FileConfiguration):
         return self.path_supervisor / HASSIO_SSL
 
     @property
-    def path_addons_core(self) -> Path:
+    def path_apps_core(self) -> Path:
         """Return git path for core Apps."""
         return self.path_supervisor / ADDONS_CORE
 
     @property
-    def path_addons_git(self) -> Path:
+    def path_apps_git(self) -> Path:
         """Return path for Git App."""
         return self.path_supervisor / ADDONS_GIT
 
     @property
-    def path_addons_local(self) -> Path:
+    def path_apps_local(self) -> Path:
         """Return path for custom Apps."""
         return self.path_supervisor / ADDONS_LOCAL
 
     @property
-    def path_extern_addons_local(self) -> PurePath:
+    def path_extern_apps_local(self) -> PurePath:
         """Return path for custom Apps."""
         return PurePath(self.path_extern_supervisor, ADDONS_LOCAL)
 
     @property
-    def path_addons_data(self) -> Path:
+    def path_apps_data(self) -> Path:
         """Return root App data folder."""
         return self.path_supervisor / ADDONS_DATA
 
     @property
-    def path_extern_addons_data(self) -> PurePath:
+    def path_extern_apps_data(self) -> PurePath:
         """Return root app data folder external for Docker."""
         return PurePath(self.path_extern_supervisor, ADDONS_DATA)
 
     @property
-    def path_addon_configs(self) -> Path:
+    def path_app_configs(self) -> Path:
         """Return root App configs folder."""
         return self.path_supervisor / ADDON_CONFIGS
 
     @property
-    def path_extern_addon_configs(self) -> PurePath:
+    def path_extern_app_configs(self) -> PurePath:
         """Return root App configs folder external for Docker."""
         return PurePath(self.path_extern_supervisor, ADDON_CONFIGS)
 
@@ -411,23 +411,23 @@ class CoreConfig(FileConfiguration):
         return PurePath(self.path_extern_supervisor, CID_FILES)
 
     @property
-    def addons_repositories(self) -> list[str]:
+    def apps_repositories(self) -> list[str]:
         """Return list of custom App repositories."""
-        return self._data[ATTR_ADDONS_CUSTOM_LIST]
+        return self._data[ATTR_APPS_CUSTOM_LIST]
 
-    def add_addon_repository(self, repo: str) -> None:
+    def add_app_repository(self, repo: str) -> None:
         """Add a custom repository to list."""
-        if repo in self._data[ATTR_ADDONS_CUSTOM_LIST]:
+        if repo in self._data[ATTR_APPS_CUSTOM_LIST]:
             return
 
-        self._data[ATTR_ADDONS_CUSTOM_LIST].append(repo)
+        self._data[ATTR_APPS_CUSTOM_LIST].append(repo)
 
-    def drop_addon_repository(self, repo: str) -> None:
+    def drop_app_repository(self, repo: str) -> None:
         """Remove a custom repository from list."""
-        if repo not in self._data[ATTR_ADDONS_CUSTOM_LIST]:
+        if repo not in self._data[ATTR_APPS_CUSTOM_LIST]:
             return
 
-        self._data[ATTR_ADDONS_CUSTOM_LIST].remove(repo)
+        self._data[ATTR_APPS_CUSTOM_LIST].remove(repo)
 
     def local_to_extern_path(self, path: PurePath) -> PurePath:
         """Translate a path relative to supervisor data in the container to its extern path."""

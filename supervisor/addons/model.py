@@ -82,19 +82,19 @@ from ..const import (
     SECURITY_DEFAULT,
     SECURITY_DISABLE,
     SECURITY_PROFILE,
-    AddonBoot,
-    AddonBootConfig,
-    AddonStage,
-    AddonStartup,
+    AppBoot,
+    AppBootConfig,
+    AppStage,
+    AppStartup,
     CpuArch,
 )
 from ..coresys import CoreSys
 from ..docker.const import Capabilities
 from ..exceptions import (
-    AddonNotSupportedArchitectureError,
-    AddonNotSupportedError,
-    AddonNotSupportedHomeAssistantVersionError,
-    AddonNotSupportedMachineTypeError,
+    AppNotSupportedArchitectureError,
+    AppNotSupportedError,
+    AppNotSupportedHomeAssistantVersionError,
+    AppNotSupportedMachineTypeError,
     HassioArchNotFound,
 )
 from ..jobs.const import JOB_GROUP_ADDON
@@ -107,10 +107,10 @@ from .const import (
     ATTR_BREAKING_VERSIONS,
     ATTR_PATH,
     ATTR_READ_ONLY,
-    AddonBackupMode,
+    AppBackupMode,
     MappingType,
 )
-from .options import AddonOptions, UiOptions
+from .options import AppOptions, UiOptions
 from .validate import RE_SERVICE
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -118,7 +118,7 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 Data = dict[str, Any]
 
 
-class AddonModel(JobGroup, ABC):
+class AppModel(JobGroup, ABC):
     """App Data layout."""
 
     def __init__(self, coresys: CoreSys, slug: str):
@@ -158,14 +158,14 @@ class AddonModel(JobGroup, ABC):
         return self.data[ATTR_OPTIONS]
 
     @property
-    def boot_config(self) -> AddonBootConfig:
+    def boot_config(self) -> AppBootConfig:
         """Return boot config."""
         return self.data[ATTR_BOOT]
 
     @property
-    def boot(self) -> AddonBoot:
+    def boot(self) -> AppBoot:
         """Return boot config with prio local settings unless config is forced."""
-        return AddonBoot(self.data[ATTR_BOOT])
+        return AppBoot(self.data[ATTR_BOOT])
 
     @property
     def auto_update(self) -> bool | None:
@@ -248,7 +248,7 @@ class AddonModel(JobGroup, ABC):
         return True
 
     @property
-    def startup(self) -> AddonStartup:
+    def startup(self) -> AppStartup:
         """Return startup type of app."""
         return self.data[ATTR_STARTUP]
 
@@ -260,7 +260,7 @@ class AddonModel(JobGroup, ABC):
         return False
 
     @property
-    def stage(self) -> AddonStage:
+    def stage(self) -> AppStage:
         """Return stage mode of app."""
         return self.data[ATTR_STAGE]
 
@@ -417,7 +417,7 @@ class AddonModel(JobGroup, ABC):
         return self.data.get(ATTR_BACKUP_POST)
 
     @property
-    def backup_mode(self) -> AddonBackupMode:
+    def backup_mode(self) -> AppBackupMode:
         """Return if backup is hot/cold."""
         return self.data[ATTR_BACKUP]
 
@@ -637,13 +637,13 @@ class AddonModel(JobGroup, ABC):
         return Path(self.path_location, "apparmor.txt")
 
     @property
-    def schema(self) -> AddonOptions:
+    def schema(self) -> AppOptions:
         """Return App options validation object."""
         raw_schema = self.data[ATTR_SCHEMA]
         if isinstance(raw_schema, bool):
             raw_schema = {}
 
-        return AddonOptions(self.coresys, raw_schema, self.name, self.slug)
+        return AppOptions(self.coresys, raw_schema, self.name, self.slug)
 
     @property
     def schema_ui(self) -> list[dict[Any, Any]] | None:
@@ -701,7 +701,7 @@ class AddonModel(JobGroup, ABC):
 
     def __eq__(self, other: Any) -> bool:
         """Compare app objects."""
-        if not isinstance(other, AddonModel):
+        if not isinstance(other, AppModel):
             return False
         return self.slug == other.slug
 
@@ -715,7 +715,7 @@ class AddonModel(JobGroup, ABC):
         """Validate if app is available for current system."""
         # Architecture
         if not self.sys_arch.is_supported(config[ATTR_ARCH]):
-            raise AddonNotSupportedArchitectureError(
+            raise AppNotSupportedArchitectureError(
                 logger, slug=self.slug, architectures=config[ATTR_ARCH]
             )
 
@@ -724,7 +724,7 @@ class AddonModel(JobGroup, ABC):
         if machine and (
             f"!{self.sys_machine}" in machine or self.sys_machine not in machine
         ):
-            raise AddonNotSupportedMachineTypeError(
+            raise AppNotSupportedMachineTypeError(
                 logger, slug=self.slug, machine_types=machine
             )
 
@@ -734,7 +734,7 @@ class AddonModel(JobGroup, ABC):
             if version and not version_is_new_enough(
                 self.sys_homeassistant.version, version
             ):
-                raise AddonNotSupportedHomeAssistantVersionError(
+                raise AppNotSupportedHomeAssistantVersionError(
                     logger, slug=self.slug, version=str(version)
                 )
 
@@ -742,7 +742,7 @@ class AddonModel(JobGroup, ABC):
         """Return True if this app is available on this platform."""
         try:
             self._validate_availability(config)
-        except AddonNotSupportedError:
+        except AppNotSupportedError:
             return False
 
         return True

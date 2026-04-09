@@ -25,13 +25,13 @@ async def test_api_info(api_client):
 
 
 async def test_api_available_updates(
-    install_addon_ssh,
+    install_app_ssh,
     api_client,
     coresys: CoreSys,
 ):
     """Test available_updates."""
-    installed_addon = coresys.addons.get(TEST_ADDON_SLUG)
-    installed_addon.persist["version"] = "1.2.3"
+    installed_app = coresys.apps.get(TEST_ADDON_SLUG)
+    installed_app.persist["version"] = "1.2.3"
 
     async def available_updates():
         return (await (await api_client.get("/available_updates")).json())["data"][

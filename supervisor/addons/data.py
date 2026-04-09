@@ -12,15 +12,15 @@ from ..const import (
     FILE_HASSIO_ADDONS,
 )
 from ..coresys import CoreSys, CoreSysAttributes
-from ..store.addon import AddonStore
+from ..store.addon import AppStore
 from ..utils.common import FileConfiguration
-from .addon import Addon
+from .addon import App
 from .validate import SCHEMA_ADDONS_FILE
 
 Config = dict[str, Any]
 
 
-class AddonsData(FileConfiguration, CoreSysAttributes):
+class AppsData(FileConfiguration, CoreSysAttributes):
     """Hold data for installed Apps inside Supervisor."""
 
     def __init__(self, coresys: CoreSys):
@@ -38,28 +38,26 @@ class AddonsData(FileConfiguration, CoreSysAttributes):
         """Return local app data."""
         return self._data[ATTR_SYSTEM]
 
-    async def install(self, addon: AddonStore) -> None:
+    async def install(self, app: AppStore) -> None:
         """Set app as installed."""
-        self.system[addon.slug] = deepcopy(addon.data)
-        self.user[addon.slug] = {
+        self.system[app.slug] = deepcopy(app.data)
+        self.user[app.slug] = {
             ATTR_OPTIONS: {},
-            ATTR_VERSION: addon.version,
-            ATTR_IMAGE: addon.image,
+            ATTR_VERSION: app.version,
+            ATTR_IMAGE: app.image,
         }
         await self.save_data()
 
-    async def uninstall(self, addon: Addon) -> None:
+    async def uninstall(self, app: App) -> None:
         """Set app as uninstalled."""
-        self.system.pop(addon.slug, None)
-        self.user.pop(addon.slug, None)
+        self.system.pop(app.slug, None)
+        self.user.pop(app.slug, None)
         await self.save_data()
 
-    async def update(self, addon: AddonStore) -> None:
+    async def update(self, app: AppStore) -> None:
         """Update version of app."""
-        self.system[addon.slug] = deepcopy(addon.data)
-        self.user[addon.slug].update(
-            {ATTR_VERSION: addon.version, ATTR_IMAGE: addon.image}
-        )
+        self.system[app.slug] = deepcopy(app.data)
+        self.user[app.slug].update({ATTR_VERSION: app.version, ATTR_IMAGE: app.image})
         await self.save_data()
 
     async def restore(

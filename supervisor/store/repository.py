@@ -58,15 +58,15 @@ class Repository(CoreSysAttributes, ABC):
         """Create builtin repository."""
         if builtin == BuiltinRepository.LOCAL:
             slug = REPOSITORY_LOCAL
-            local_path = coresys.config.path_addons_local
+            local_path = coresys.config.path_apps_local
             return RepositoryLocal(coresys, local_path, slug)
         elif builtin == BuiltinRepository.CORE:
             slug = REPOSITORY_CORE
-            local_path = coresys.config.path_addons_core
+            local_path = coresys.config.path_apps_core
         else:
             # For other builtin repositories (URL-based)
             slug = get_hash_from_repository(builtin.value)
-            local_path = coresys.config.path_addons_git / slug
+            local_path = coresys.config.path_apps_git / slug
         return RepositoryGitBuiltin(
             coresys, builtin.value, local_path, slug, builtin.git_url
         )
@@ -75,7 +75,7 @@ class Repository(CoreSysAttributes, ABC):
     def _create_custom(coresys: CoreSys, repository: str) -> RepositoryCustom:
         """Create custom repository."""
         slug = get_hash_from_repository(repository)
-        local_path = coresys.config.path_addons_git / slug
+        local_path = coresys.config.path_apps_git / slug
         return RepositoryCustom(coresys, repository, local_path, slug)
 
     def __repr__(self) -> str:

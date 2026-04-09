@@ -425,7 +425,7 @@ async def test_disk_usage_api(api_client: TestClient, coresys: CoreSys):
         mock_dir_sizes.return_value = [
             {
                 "id": "addons_data",
-                "label": "Addons Data",
+                "label": "Apps Data",
                 "used_bytes": 100000000,
                 "children": [
                     {"id": "addon1", "label": "addon1", "used_bytes": 50000000}
@@ -433,7 +433,7 @@ async def test_disk_usage_api(api_client: TestClient, coresys: CoreSys):
             },
             {
                 "id": "addons_config",
-                "label": "Addons Config",
+                "label": "Apps Config",
                 "used_bytes": 200000000,
                 "children": [
                     {"id": "media1", "label": "media1", "used_bytes": 100000000}
@@ -542,8 +542,8 @@ async def test_disk_usage_api(api_client: TestClient, coresys: CoreSys):
         call_args = mock_dir_sizes.call_args
         assert call_args[0][1] == 1  # max_depth parameter
         paths_dict = call_args[0][0]  # paths dictionary
-        assert paths_dict["addons_data"] == coresys.config.path_addons_data
-        assert paths_dict["addons_config"] == coresys.config.path_addon_configs
+        assert paths_dict["addons_data"] == coresys.config.path_apps_data
+        assert paths_dict["addons_config"] == coresys.config.path_app_configs
         assert paths_dict["media"] == coresys.config.path_media
         assert paths_dict["share"] == coresys.config.path_share
         assert paths_dict["backup"] == coresys.config.path_backup
@@ -565,7 +565,7 @@ async def test_disk_usage_api_with_custom_depth(
         mock_dir_sizes.return_value = [
             {
                 "id": "addons_data",
-                "label": "Addons Data",
+                "label": "Apps Data",
                 "used_bytes": 100000000,
                 "children": [
                     {
@@ -584,7 +584,7 @@ async def test_disk_usage_api_with_custom_depth(
             },
             {
                 "id": "addons_config",
-                "label": "Addons Config",
+                "label": "Apps Config",
                 "used_bytes": 100000000,
                 "children": [
                     {
@@ -721,12 +721,12 @@ async def test_disk_usage_api_invalid_depth(api_client: TestClient, coresys: Cor
         mock_dir_sizes.return_value = [
             {
                 "id": "addons_data",
-                "label": "Addons Data",
+                "label": "Apps Data",
                 "used_bytes": 100000000,
             },
             {
                 "id": "addons_config",
-                "label": "Addons Config",
+                "label": "Apps Config",
                 "used_bytes": 100000000,
             },
             {
@@ -783,12 +783,12 @@ async def test_disk_usage_api_empty_directories(
         mock_dir_sizes.return_value = [
             {
                 "id": "addons_data",
-                "label": "Addons Data",
+                "label": "Apps Data",
                 "used_bytes": 0,
             },
             {
                 "id": "addons_config",
-                "label": "Addons Config",
+                "label": "Apps Config",
                 "used_bytes": 0,
             },
             {

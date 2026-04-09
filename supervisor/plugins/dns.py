@@ -336,7 +336,7 @@ class PluginDns(PluginBase):
         # Reset loop protection
         self._loop = False
 
-        await self.sys_addons.sync_dns()
+        await self.sys_apps.sync_dns()
 
     async def watchdog_container(self, event: DockerContainerStateEvent) -> None:
         """Check for loop on failure before processing state change event."""

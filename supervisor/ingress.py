@@ -5,7 +5,7 @@ import logging
 import random
 import secrets
 
-from .addons.addon import Addon
+from .addons.addon import App
 from .const import (
     ATTR_PORTS,
     ATTR_SESSION,
@@ -33,11 +33,11 @@ class Ingress(FileConfiguration, CoreSysAttributes):
         self.coresys: CoreSys = coresys
         self.tokens: dict[str, str] = {}
 
-    def get(self, token: str) -> Addon | None:
+    def get(self, token: str) -> App | None:
         """Return app they have this ingress token."""
         if token not in self.tokens:
             return None
-        return self.sys_addons.get_local_only(self.tokens[token])
+        return self.sys_apps.get_local_only(self.tokens[token])
 
     def get_session_data(self, session_id: str) -> IngressSessionData | None:
         """Return complementary data of current session or None."""
@@ -61,14 +61,14 @@ class Ingress(FileConfiguration, CoreSysAttributes):
         return self._data[ATTR_PORTS]
 
     @property
-    def addons(self) -> list[Addon]:
+    def apps(self) -> list[App]:
         """Return list of ingress Apps."""
-        addons = []
-        for addon in self.sys_addons.installed:
-            if not addon.with_ingress:
+        apps = []
+        for app in self.sys_apps.installed:
+            if not app.with_ingress:
                 continue
-            addons.append(addon)
-        return addons
+            apps.append(app)
+        return apps
 
     async def load(self) -> None:
         """Update internal data."""
@@ -119,9 +119,9 @@ class Ingress(FileConfiguration, CoreSysAttributes):
         self.tokens.clear()
 
         # Read all ingress token and build a map
-        for addon in self.addons:
-            if addon.ingress_token:
-                self.tokens[addon.ingress_token] = addon.slug
+        for app in self.apps:
+            if app.ingress_token:
+                self.tokens[app.ingress_token] = app.slug
 
     def create_session(self, data: IngressSessionData | None = None) -> str:
         """Create new session."""
@@ -158,10 +158,10 @@ class Ingress(FileConfiguration, CoreSysAttributes):
 
         return True
 
-    async def get_dynamic_port(self, addon_slug: str) -> int:
+    async def get_dynamic_port(self, app_slug: str) -> int:
         """Get/Create a dynamic port from range."""
-        if addon_slug in self.ports:
-            return self.ports[addon_slug]
+        if app_slug in self.ports:
+            return self.ports[app_slug]
 
         port = None
         while (
@@ -172,32 +172,32 @@ class Ingress(FileConfiguration, CoreSysAttributes):
             port = random.randint(62000, 65500)
 
         # Save port for next time
-        self.ports[addon_slug] = port
+        self.ports[app_slug] = port
         await self.save_data()
         return port
 
-    async def del_dynamic_port(self, addon_slug: str) -> None:
+    async def del_dynamic_port(self, app_slug: str) -> None:
         """Remove a previously assigned dynamic port."""
-        if addon_slug not in self.ports:
+        if app_slug not in self.ports:
             return
 
-        del self.ports[addon_slug]
+        del self.ports[app_slug]
         await self.save_data()
 
-    async def update_hass_panel(self, addon: Addon):
+    async def update_hass_panel(self, app: App):
         """Update the ingress panel registration in Home Assistant."""
-        method = "post" if addon.ingress_panel else "delete"
+        method = "post" if app.ingress_panel else "delete"
         try:
             async with self.sys_homeassistant.api.make_request(
-                method, f"api/hassio_push/panel/{addon.slug}"
+                method, f"api/hassio_push/panel/{app.slug}"
             ) as resp:
                 if resp.status in (200, 201):
-                    _LOGGER.info("Update Ingress as panel for %s", addon.slug)
+                    _LOGGER.info("Update Ingress as panel for %s", app.slug)
                 else:
                     _LOGGER.warning(
                         "Failed to update the Ingress panel for %s with %i",
-                        addon.slug,
+                        app.slug,
                         resp.status,
                     )
         except HomeAssistantAPIError as err:
-            _LOGGER.error("Panel update request failed for %s: %s", addon.slug, err)
+            _LOGGER.error("Panel update request failed for %s: %s", app.slug, err)

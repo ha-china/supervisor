@@ -12,14 +12,14 @@ from aiohttp.test_utils import TestClient
 from awesomeversion import AwesomeVersion
 import pytest
 
-from supervisor.addons.addon import Addon
+from supervisor.addons.addon import App
 from supervisor.backups.backup import Backup, BackupLocation
 from supervisor.const import CoreState
 from supervisor.coresys import CoreSys
 from supervisor.docker.manager import DockerAPI
 from supervisor.exceptions import (
-    AddonPrePostBackupCommandReturnedError,
-    AddonsError,
+    AppPrePostBackupCommandReturnedError,
+    AppsError,
     BackupInvalidError,
     HomeAssistantBackupError,
 )
@@ -359,7 +359,7 @@ async def test_api_backup_restore_background(
         ),
     ],
 )
-@pytest.mark.usefixtures("install_addon_ssh", "path_extern")
+@pytest.mark.usefixtures("install_app_ssh", "path_extern")
 async def test_api_backup_errors(
     api_client: TestClient,
     coresys: CoreSys,
@@ -375,9 +375,7 @@ async def test_api_backup_errors(
 
     assert coresys.jobs.jobs == []
 
-    with patch.object(
-        Addon, "backup", side_effect=(err := AddonsError("Backup error"))
-    ):
+    with patch.object(App, "backup", side_effect=(err := AppsError("Backup error"))):
         resp = await api_client.post(
             f"/backups/new/{backup_type}",
             json={"name": f"{backup_type} backup"} | options,
@@ -423,7 +421,7 @@ async def test_api_backup_errors(
             "backup",
             side_effect=HomeAssistantBackupError("Backup error"),
         ),
-        patch.object(Addon, "backup"),
+        patch.object(App, "backup"),
     ):
         resp = await api_client.post(
             f"/backups/new/{backup_type}",
@@ -580,7 +578,7 @@ async def test_reload(
     assert backup.locations == [location]
 
 
-@pytest.mark.usefixtures("install_addon_ssh")
+@pytest.mark.usefixtures("install_app_ssh")
 @pytest.mark.parametrize("api_client", [TEST_ADDON_SLUG], indirect=True)
 async def test_cloud_backup_core_only(api_client: TestClient, mock_full_backup: Backup):
     """Test only core can access cloud backup location."""
@@ -1017,21 +1015,21 @@ async def test_download_backup_from_invalid_location(api_client: TestClient):
 
 
 @pytest.mark.usefixtures("tmp_supervisor_data")
-async def test_partial_backup_all_addons(
+async def test_partial_backup_all_apps(
     api_client: TestClient,
     coresys: CoreSys,
-    install_addon_ssh: Addon,
+    install_app_ssh: App,
 ):
     """Test backup including extra metdata."""
     await coresys.core.set_state(CoreState.RUNNING)
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
 
-    with patch.object(Backup, "store_addons") as store_addons:
+    with patch.object(Backup, "store_apps") as store_apps:
         resp = await api_client.post(
             "/backups/new/partial", json={"name": "All addons test", "addons": "ALL"}
         )
         assert resp.status == 200
-        store_addons.assert_called_once_with([install_addon_ssh])
+        store_apps.assert_called_once_with([install_app_ssh])
 
 
 @pytest.mark.parametrize("local_location", [None, "", ".local"])
@@ -1497,7 +1495,7 @@ async def test_immediate_list_after_missing_file_restore(
 
 
 @pytest.mark.parametrize("command", ["backup_pre", "backup_post"])
-@pytest.mark.usefixtures("install_addon_example", "tmp_supervisor_data")
+@pytest.mark.usefixtures("install_app_example", "tmp_supervisor_data")
 async def test_pre_post_backup_command_error(
     api_client: TestClient, coresys: CoreSys, container: DockerContainer, command: str
 ):
@@ -1509,7 +1507,7 @@ async def test_pre_post_backup_command_error(
     container.show.return_value["State"]["Running"] = True
     container.exec.return_value.inspect.return_value = {"ExitCode": 1}
 
-    with patch.object(Addon, command, new=PropertyMock(return_value="test")):
+    with patch.object(App, command, new=PropertyMock(return_value="test")):
         resp = await api_client.post(
             "/backups/new/partial", json={"addons": ["local_example"]}
         )
@@ -1525,7 +1523,7 @@ async def test_pre_post_backup_command_error(
 
     assert job
     assert job.done is True
-    assert job.errors[0].type_ == AddonPrePostBackupCommandReturnedError
+    assert job.errors[0].type_ == AppPrePostBackupCommandReturnedError
     assert job.errors[0].message == (
         "Pre-/Post backup command for app local_example returned error code: "
         "1. Please report this to the app developer. Enable debug "

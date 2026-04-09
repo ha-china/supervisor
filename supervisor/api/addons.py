@@ -9,12 +9,12 @@ from aiohttp import web
 import voluptuous as vol
 from voluptuous.humanize import humanize_error
 
-from ..addons.addon import Addon
+from ..addons.addon import App
 from ..addons.utils import rating_security
 from ..const import (
-    ATTR_ADDONS,
     ATTR_ADVANCED,
     ATTR_APPARMOR,
+    ATTR_APPS,
     ATTR_ARCH,
     ATTR_AUDIO,
     ATTR_AUDIO_INPUT,
@@ -94,19 +94,19 @@ from ..const import (
     ATTR_WATCHDOG,
     ATTR_WEBUI,
     REQUEST_FROM,
-    AddonBoot,
-    AddonBootConfig,
+    AppBoot,
+    AppBootConfig,
 )
 from ..coresys import CoreSysAttributes
 from ..docker.stats import DockerStats
 from ..exceptions import (
-    AddonBootConfigCannotChangeError,
-    AddonConfigurationInvalidError,
-    AddonNotSupportedWriteStdinError,
-    APIAddonNotInstalled,
+    APIAppNotInstalled,
     APIError,
     APIForbidden,
     APINotFound,
+    AppBootConfigCannotChangeError,
+    AppConfigurationInvalidError,
+    AppNotSupportedWriteStdinError,
     PwnedError,
     PwnedSecret,
 )
@@ -121,7 +121,7 @@ SCHEMA_VERSION = vol.Schema({vol.Optional(ATTR_VERSION): str})
 # pylint: disable=no-value-for-parameter
 SCHEMA_OPTIONS = vol.Schema(
     {
-        vol.Optional(ATTR_BOOT): vol.Coerce(AddonBoot),
+        vol.Optional(ATTR_BOOT): vol.Coerce(AppBoot),
         vol.Optional(ATTR_NETWORK): vol.Maybe(docker_ports),
         vol.Optional(ATTR_AUTO_UPDATE): vol.Boolean(),
         vol.Optional(ATTR_AUDIO_OUTPUT): vol.Maybe(str),
@@ -157,56 +157,56 @@ class OptionsValidateResponse(TypedDict):
     pwned: bool | None
 
 
-class APIAddons(CoreSysAttributes):
+class APIApps(CoreSysAttributes):
     """Handle RESTful API for app functions."""
 
-    def get_addon_for_request(self, request: web.Request) -> Addon:
+    def get_app_for_request(self, request: web.Request) -> App:
         """Return app, throw an exception if it doesn't exist."""
-        addon_slug: str = request.match_info["addon"]
+        app_slug: str = request.match_info["app"]
 
         # Lookup itself
-        if addon_slug == "self":
-            addon = request.get(REQUEST_FROM)
-            if not isinstance(addon, Addon):
-                raise APIError("Self is not an Addon")
-            return addon
+        if app_slug == "self":
+            app = request.get(REQUEST_FROM)
+            if not isinstance(app, App):
+                raise APIError("Self is not an App")
+            return app
 
-        addon = self.sys_addons.get(addon_slug)
-        if not addon:
-            raise APINotFound(f"App {addon_slug} does not exist")
-        if not isinstance(addon, Addon) or not addon.is_installed:
-            raise APIAddonNotInstalled("App is not installed")
+        app = self.sys_apps.get(app_slug)
+        if not app:
+            raise APINotFound(f"App {app_slug} does not exist")
+        if not isinstance(app, App) or not app.is_installed:
+            raise APIAppNotInstalled("App is not installed")
 
-        return addon
+        return app
 
     @api_process
-    async def list_addons(self, request: web.Request) -> dict[str, Any]:
+    async def list_apps(self, request: web.Request) -> dict[str, Any]:
         """Return all apps or repositories."""
-        data_addons = [
+        data_apps = [
             {
-                ATTR_NAME: addon.name,
-                ATTR_SLUG: addon.slug,
-                ATTR_DESCRIPTON: addon.description,
-                ATTR_ADVANCED: addon.advanced,  # Deprecated 2026.03
-                ATTR_STAGE: addon.stage,
-                ATTR_VERSION: addon.version,
-                ATTR_VERSION_LATEST: addon.latest_version,
-                ATTR_UPDATE_AVAILABLE: addon.need_update,
-                ATTR_AVAILABLE: addon.available,
-                ATTR_DETACHED: addon.is_detached,
-                ATTR_HOMEASSISTANT: addon.homeassistant_version,
-                ATTR_STATE: addon.state,
-                ATTR_REPOSITORY: addon.repository,
-                ATTR_BUILD: addon.need_build,
-                ATTR_URL: addon.url,
-                ATTR_ICON: addon.with_icon,
-                ATTR_LOGO: addon.with_logo,
-                ATTR_SYSTEM_MANAGED: addon.system_managed,
+                ATTR_NAME: app.name,
+                ATTR_SLUG: app.slug,
+                ATTR_DESCRIPTON: app.description,
+                ATTR_ADVANCED: app.advanced,  # Deprecated 2026.03
+                ATTR_STAGE: app.stage,
+                ATTR_VERSION: app.version,
+                ATTR_VERSION_LATEST: app.latest_version,
+                ATTR_UPDATE_AVAILABLE: app.need_update,
+                ATTR_AVAILABLE: app.available,
+                ATTR_DETACHED: app.is_detached,
+                ATTR_HOMEASSISTANT: app.homeassistant_version,
+                ATTR_STATE: app.state,
+                ATTR_REPOSITORY: app.repository,
+                ATTR_BUILD: app.need_build,
+                ATTR_URL: app.url,
+                ATTR_ICON: app.with_icon,
+                ATTR_LOGO: app.with_logo,
+                ATTR_SYSTEM_MANAGED: app.system_managed,
             }
-            for addon in self.sys_addons.installed
+            for app in self.sys_apps.installed
         ]
 
-        return {ATTR_ADDONS: data_addons}
+        return {ATTR_APPS: data_apps}
 
     @api_process
     async def reload(self, request: web.Request) -> None:
@@ -215,83 +215,82 @@ class APIAddons(CoreSysAttributes):
 
     async def info(self, request: web.Request) -> dict[str, Any]:
         """Return app information."""
-        addon: Addon = self.get_addon_for_request(request)
+        app: App = self.get_app_for_request(request)
 
         data = {
-            ATTR_NAME: addon.name,
-            ATTR_SLUG: addon.slug,
-            ATTR_HOSTNAME: addon.hostname,
-            ATTR_DNS: addon.dns,
-            ATTR_DESCRIPTON: addon.description,
-            ATTR_LONG_DESCRIPTION: await addon.long_description(),
-            ATTR_ADVANCED: addon.advanced,  # Deprecated 2026.03
-            ATTR_STAGE: addon.stage,
-            ATTR_REPOSITORY: addon.repository,
-            ATTR_VERSION_LATEST: addon.latest_version,
-            ATTR_PROTECTED: addon.protected,
-            ATTR_RATING: rating_security(addon),
-            ATTR_BOOT_CONFIG: addon.boot_config,
-            ATTR_BOOT: addon.boot,
-            ATTR_OPTIONS: addon.options,
-            ATTR_SCHEMA: addon.schema_ui,
-            ATTR_ARCH: addon.supported_arch,
-            ATTR_MACHINE: addon.supported_machine,
-            ATTR_HOMEASSISTANT: addon.homeassistant_version,
-            ATTR_URL: addon.url,
-            ATTR_DETACHED: addon.is_detached,
-            ATTR_AVAILABLE: addon.available,
-            ATTR_BUILD: addon.need_build,
-            ATTR_NETWORK: addon.ports,
-            ATTR_NETWORK_DESCRIPTION: addon.ports_description,
-            ATTR_HOST_NETWORK: addon.host_network,
-            ATTR_HOST_PID: addon.host_pid,
-            ATTR_HOST_IPC: addon.host_ipc,
-            ATTR_HOST_UTS: addon.host_uts,
-            ATTR_HOST_DBUS: addon.host_dbus,
-            ATTR_PRIVILEGED: addon.privileged,
-            ATTR_FULL_ACCESS: addon.with_full_access,
-            ATTR_APPARMOR: addon.apparmor,
-            ATTR_ICON: addon.with_icon,
-            ATTR_LOGO: addon.with_logo,
-            ATTR_CHANGELOG: addon.with_changelog,
-            ATTR_DOCUMENTATION: addon.with_documentation,
-            ATTR_STDIN: addon.with_stdin,
-            ATTR_HASSIO_API: addon.access_hassio_api,
-            ATTR_HASSIO_ROLE: addon.hassio_role,
-            ATTR_AUTH_API: addon.access_auth_api,
-            ATTR_HOMEASSISTANT_API: addon.access_homeassistant_api,
-            ATTR_GPIO: addon.with_gpio,
-            ATTR_USB: addon.with_usb,
-            ATTR_UART: addon.with_uart,
-            ATTR_KERNEL_MODULES: addon.with_kernel_modules,
-            ATTR_DEVICETREE: addon.with_devicetree,
-            ATTR_UDEV: addon.with_udev,
-            ATTR_DOCKER_API: addon.access_docker_api,
-            ATTR_VIDEO: addon.with_video,
-            ATTR_AUDIO: addon.with_audio,
-            ATTR_STARTUP: addon.startup,
-            ATTR_SERVICES: _pretty_services(addon),
-            ATTR_DISCOVERY: addon.discovery,
-            ATTR_TRANSLATIONS: addon.translations,
-            ATTR_INGRESS: addon.with_ingress,
-            ATTR_SIGNED: addon.signed,
-            ATTR_STATE: addon.state,
-            ATTR_WEBUI: addon.webui,
-            ATTR_INGRESS_ENTRY: addon.ingress_entry,
-            ATTR_INGRESS_URL: addon.ingress_url,
-            ATTR_INGRESS_PORT: addon.ingress_port,
-            ATTR_INGRESS_PANEL: addon.ingress_panel,
-            ATTR_AUDIO_INPUT: addon.audio_input,
-            ATTR_AUDIO_OUTPUT: addon.audio_output,
-            ATTR_AUTO_UPDATE: addon.auto_update,
-            ATTR_IP_ADDRESS: str(addon.ip_address),
-            ATTR_VERSION: addon.version,
-            ATTR_UPDATE_AVAILABLE: addon.need_update,
-            ATTR_WATCHDOG: addon.watchdog,
-            ATTR_DEVICES: addon.static_devices
-            + [device.path for device in addon.devices],
-            ATTR_SYSTEM_MANAGED: addon.system_managed,
-            ATTR_SYSTEM_MANAGED_CONFIG_ENTRY: addon.system_managed_config_entry,
+            ATTR_NAME: app.name,
+            ATTR_SLUG: app.slug,
+            ATTR_HOSTNAME: app.hostname,
+            ATTR_DNS: app.dns,
+            ATTR_DESCRIPTON: app.description,
+            ATTR_LONG_DESCRIPTION: await app.long_description(),
+            ATTR_ADVANCED: app.advanced,  # Deprecated 2026.03
+            ATTR_STAGE: app.stage,
+            ATTR_REPOSITORY: app.repository,
+            ATTR_VERSION_LATEST: app.latest_version,
+            ATTR_PROTECTED: app.protected,
+            ATTR_RATING: rating_security(app),
+            ATTR_BOOT_CONFIG: app.boot_config,
+            ATTR_BOOT: app.boot,
+            ATTR_OPTIONS: app.options,
+            ATTR_SCHEMA: app.schema_ui,
+            ATTR_ARCH: app.supported_arch,
+            ATTR_MACHINE: app.supported_machine,
+            ATTR_HOMEASSISTANT: app.homeassistant_version,
+            ATTR_URL: app.url,
+            ATTR_DETACHED: app.is_detached,
+            ATTR_AVAILABLE: app.available,
+            ATTR_BUILD: app.need_build,
+            ATTR_NETWORK: app.ports,
+            ATTR_NETWORK_DESCRIPTION: app.ports_description,
+            ATTR_HOST_NETWORK: app.host_network,
+            ATTR_HOST_PID: app.host_pid,
+            ATTR_HOST_IPC: app.host_ipc,
+            ATTR_HOST_UTS: app.host_uts,
+            ATTR_HOST_DBUS: app.host_dbus,
+            ATTR_PRIVILEGED: app.privileged,
+            ATTR_FULL_ACCESS: app.with_full_access,
+            ATTR_APPARMOR: app.apparmor,
+            ATTR_ICON: app.with_icon,
+            ATTR_LOGO: app.with_logo,
+            ATTR_CHANGELOG: app.with_changelog,
+            ATTR_DOCUMENTATION: app.with_documentation,
+            ATTR_STDIN: app.with_stdin,
+            ATTR_HASSIO_API: app.access_hassio_api,
+            ATTR_HASSIO_ROLE: app.hassio_role,
+            ATTR_AUTH_API: app.access_auth_api,
+            ATTR_HOMEASSISTANT_API: app.access_homeassistant_api,
+            ATTR_GPIO: app.with_gpio,
+            ATTR_USB: app.with_usb,
+            ATTR_UART: app.with_uart,
+            ATTR_KERNEL_MODULES: app.with_kernel_modules,
+            ATTR_DEVICETREE: app.with_devicetree,
+            ATTR_UDEV: app.with_udev,
+            ATTR_DOCKER_API: app.access_docker_api,
+            ATTR_VIDEO: app.with_video,
+            ATTR_AUDIO: app.with_audio,
+            ATTR_STARTUP: app.startup,
+            ATTR_SERVICES: _pretty_services(app),
+            ATTR_DISCOVERY: app.discovery,
+            ATTR_TRANSLATIONS: app.translations,
+            ATTR_INGRESS: app.with_ingress,
+            ATTR_SIGNED: app.signed,
+            ATTR_STATE: app.state,
+            ATTR_WEBUI: app.webui,
+            ATTR_INGRESS_ENTRY: app.ingress_entry,
+            ATTR_INGRESS_URL: app.ingress_url,
+            ATTR_INGRESS_PORT: app.ingress_port,
+            ATTR_INGRESS_PANEL: app.ingress_panel,
+            ATTR_AUDIO_INPUT: app.audio_input,
+            ATTR_AUDIO_OUTPUT: app.audio_output,
+            ATTR_AUTO_UPDATE: app.auto_update,
+            ATTR_IP_ADDRESS: str(app.ip_address),
+            ATTR_VERSION: app.version,
+            ATTR_UPDATE_AVAILABLE: app.need_update,
+            ATTR_WATCHDOG: app.watchdog,
+            ATTR_DEVICES: app.static_devices + [device.path for device in app.devices],
+            ATTR_SYSTEM_MANAGED: app.system_managed,
+            ATTR_SYSTEM_MANAGED_CONFIG_ENTRY: app.system_managed_config_entry,
         }
 
         return data
@@ -299,7 +298,7 @@ class APIAddons(CoreSysAttributes):
     @api_process
     async def options(self, request: web.Request) -> None:
         """Store user options for app."""
-        addon = self.get_addon_for_request(request)
+        app = self.get_app_for_request(request)
 
         # Update secrets for validation
         await self.sys_homeassistant.secrets.reload()
@@ -309,61 +308,61 @@ class APIAddons(CoreSysAttributes):
         if ATTR_OPTIONS in body:
             # None resets options to defaults, otherwise validate the options
             if body[ATTR_OPTIONS] is None:
-                addon.options = None
+                app.options = None
             else:
                 try:
-                    addon.options = addon.schema(body[ATTR_OPTIONS])
+                    app.options = app.schema(body[ATTR_OPTIONS])
                 except vol.Invalid as ex:
-                    raise AddonConfigurationInvalidError(
-                        addon=addon.slug,
+                    raise AppConfigurationInvalidError(
+                        app=app.slug,
                         validation_error=humanize_error(body[ATTR_OPTIONS], ex),
                     ) from None
         if ATTR_BOOT in body:
-            if addon.boot_config == AddonBootConfig.MANUAL_ONLY:
-                raise AddonBootConfigCannotChangeError(
-                    addon=addon.slug, boot_config=addon.boot_config.value
+            if app.boot_config == AppBootConfig.MANUAL_ONLY:
+                raise AppBootConfigCannotChangeError(
+                    app=app.slug, boot_config=app.boot_config.value
                 )
-            addon.boot = body[ATTR_BOOT]
+            app.boot = body[ATTR_BOOT]
         if ATTR_AUTO_UPDATE in body:
-            addon.auto_update = body[ATTR_AUTO_UPDATE]
+            app.auto_update = body[ATTR_AUTO_UPDATE]
         if ATTR_NETWORK in body:
-            addon.ports = body[ATTR_NETWORK]
+            app.ports = body[ATTR_NETWORK]
         if ATTR_AUDIO_INPUT in body:
-            addon.audio_input = body[ATTR_AUDIO_INPUT]
+            app.audio_input = body[ATTR_AUDIO_INPUT]
         if ATTR_AUDIO_OUTPUT in body:
-            addon.audio_output = body[ATTR_AUDIO_OUTPUT]
+            app.audio_output = body[ATTR_AUDIO_OUTPUT]
         if ATTR_INGRESS_PANEL in body:
-            addon.ingress_panel = body[ATTR_INGRESS_PANEL]
-            await self.sys_ingress.update_hass_panel(addon)
+            app.ingress_panel = body[ATTR_INGRESS_PANEL]
+            await self.sys_ingress.update_hass_panel(app)
         if ATTR_WATCHDOG in body:
-            addon.watchdog = body[ATTR_WATCHDOG]
+            app.watchdog = body[ATTR_WATCHDOG]
 
-        await addon.save_persist()
+        await app.save_persist()
 
     @api_process
     async def sys_options(self, request: web.Request) -> None:
         """Store system options for an app."""
-        addon = self.get_addon_for_request(request)
+        app = self.get_app_for_request(request)
 
         # Validate/Process Body
         body = await api_validate(SCHEMA_SYS_OPTIONS, request)
         if ATTR_SYSTEM_MANAGED in body:
-            addon.system_managed = body[ATTR_SYSTEM_MANAGED]
+            app.system_managed = body[ATTR_SYSTEM_MANAGED]
         if ATTR_SYSTEM_MANAGED_CONFIG_ENTRY in body:
-            addon.system_managed_config_entry = body[ATTR_SYSTEM_MANAGED_CONFIG_ENTRY]
+            app.system_managed_config_entry = body[ATTR_SYSTEM_MANAGED_CONFIG_ENTRY]
 
-        await addon.save_persist()
+        await app.save_persist()
 
     @api_process
     async def options_validate(self, request: web.Request) -> OptionsValidateResponse:
         """Validate user options for app."""
-        addon = self.get_addon_for_request(request)
+        app = self.get_app_for_request(request)
         data = OptionsValidateResponse(message="", valid=True, pwned=False)
 
-        options = await request.json(loads=json_loads) or addon.options
+        options = await request.json(loads=json_loads) or app.options
 
         # Validate config
-        options_schema = addon.schema
+        options_schema = app.schema
         try:
             options_schema.validate(options)
         except vol.Invalid as ex:
@@ -396,36 +395,36 @@ class APIAddons(CoreSysAttributes):
     @api_process
     async def options_config(self, request: web.Request) -> dict[str, Any]:
         """Validate user options for app."""
-        slug: str = request.match_info["addon"]
+        slug: str = request.match_info["app"]
         if slug != "self":
             raise APIForbidden("This can be only read by the app itself!")
-        addon = self.get_addon_for_request(request)
+        app = self.get_app_for_request(request)
 
         # Lookup/reload secrets
         await self.sys_homeassistant.secrets.reload()
         try:
-            return addon.schema.validate(addon.options)
+            return app.schema.validate(app.options)
         except vol.Invalid:
             raise APIError("Invalid configuration data for the app") from None
 
     @api_process
     async def security(self, request: web.Request) -> None:
         """Store security options for app."""
-        addon = self.get_addon_for_request(request)
+        app = self.get_app_for_request(request)
         body: dict[str, Any] = await api_validate(SCHEMA_SECURITY, request)
 
         if ATTR_PROTECTED in body:
-            _LOGGER.warning("Changing protected flag for %s!", addon.slug)
-            addon.protected = body[ATTR_PROTECTED]
+            _LOGGER.warning("Changing protected flag for %s!", app.slug)
+            app.protected = body[ATTR_PROTECTED]
 
-        await addon.save_persist()
+        await app.save_persist()
 
     @api_process
     async def stats(self, request: web.Request) -> dict[str, Any]:
         """Return resource information."""
-        addon = self.get_addon_for_request(request)
+        app = self.get_app_for_request(request)
 
-        stats: DockerStats = await addon.stats()
+        stats: DockerStats = await app.stats()
 
         return {
             ATTR_CPU_PERCENT: stats.cpu_percent,
@@ -441,56 +440,54 @@ class APIAddons(CoreSysAttributes):
     @api_process
     async def uninstall(self, request: web.Request) -> None:
         """Uninstall app."""
-        addon = self.get_addon_for_request(request)
+        app = self.get_app_for_request(request)
         body: dict[str, Any] = await api_validate(SCHEMA_UNINSTALL, request)
         await asyncio.shield(
-            self.sys_addons.uninstall(
-                addon.slug, remove_config=body[ATTR_REMOVE_CONFIG]
-            )
+            self.sys_apps.uninstall(app.slug, remove_config=body[ATTR_REMOVE_CONFIG])
         )
 
     @api_process
     async def start(self, request: web.Request) -> None:
         """Start app."""
-        addon = self.get_addon_for_request(request)
-        if start_task := await asyncio.shield(addon.start()):
+        app = self.get_app_for_request(request)
+        if start_task := await asyncio.shield(app.start()):
             await start_task
 
     @api_process
     def stop(self, request: web.Request) -> Awaitable[None]:
         """Stop app."""
-        addon = self.get_addon_for_request(request)
-        return asyncio.shield(addon.stop())
+        app = self.get_app_for_request(request)
+        return asyncio.shield(app.stop())
 
     @api_process
     async def restart(self, request: web.Request) -> None:
         """Restart app."""
-        addon: Addon = self.get_addon_for_request(request)
-        if start_task := await asyncio.shield(addon.restart()):
+        app: App = self.get_app_for_request(request)
+        if start_task := await asyncio.shield(app.restart()):
             await start_task
 
     @api_process
     async def rebuild(self, request: web.Request) -> None:
         """Rebuild local build app."""
-        addon = self.get_addon_for_request(request)
+        app = self.get_app_for_request(request)
         body: dict[str, Any] = await api_validate(SCHEMA_REBUILD, request)
 
         if start_task := await asyncio.shield(
-            self.sys_addons.rebuild(addon.slug, force=body[ATTR_FORCE])
+            self.sys_apps.rebuild(app.slug, force=body[ATTR_FORCE])
         ):
             await start_task
 
     @api_process
     async def stdin(self, request: web.Request) -> None:
         """Write to stdin of app."""
-        addon = self.get_addon_for_request(request)
-        if not addon.with_stdin:
-            raise AddonNotSupportedWriteStdinError(_LOGGER.error, addon=addon.slug)
+        app = self.get_app_for_request(request)
+        if not app.with_stdin:
+            raise AppNotSupportedWriteStdinError(_LOGGER.error, app=app.slug)
 
         data = await request.read()
-        await asyncio.shield(addon.write_stdin(data))
+        await asyncio.shield(app.write_stdin(data))
 
 
-def _pretty_services(addon: Addon) -> list[str]:
+def _pretty_services(app: App) -> list[str]:
     """Return a simplified services role list."""
-    return [f"{name}:{access}" for name, access in addon.services_role.items()]
+    return [f"{name}:{access}" for name, access in app.services_role.items()]

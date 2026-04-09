@@ -357,8 +357,8 @@ class APIHost(CoreSysAttributes):
         known_paths = await self.sys_run_in_executor(
             disk.get_dir_sizes,
             {
-                "addons_data": self.sys_config.path_addons_data,
-                "addons_config": self.sys_config.path_addon_configs,
+                "addons_data": self.sys_config.path_apps_data,
+                "addons_config": self.sys_config.path_app_configs,
                 "media": self.sys_config.path_media,
                 "share": self.sys_config.path_share,
                 "backup": self.sys_config.path_backup,

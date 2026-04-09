@@ -6,25 +6,25 @@ from unittest.mock import patch
 import aiodocker
 import pytest
 
-from supervisor.addons.addon import Addon
+from supervisor.addons.addon import App
 from supervisor.coresys import CoreSys
-from supervisor.docker.addon import DockerAddon
+from supervisor.docker.addon import DockerApp
 from supervisor.docker.interface import DockerInterface
 from supervisor.docker.manager import DockerAPI
 from supervisor.exceptions import DockerError
 from supervisor.resolution.const import ContextType, IssueType, SuggestionType
-from supervisor.resolution.fixups.addon_execute_repair import FixupAddonExecuteRepair
+from supervisor.resolution.fixups.addon_execute_repair import FixupAppExecuteRepair
 
 
-async def test_fixup(docker: DockerAPI, coresys: CoreSys, install_addon_ssh: Addon):
+async def test_fixup(docker: DockerAPI, coresys: CoreSys, install_app_ssh: App):
     """Test fixup rebuilds app's container."""
     docker.images.inspect.side_effect = aiodocker.DockerError(
         HTTPStatus.NOT_FOUND, {"message": "missing"}
     )
-    install_addon_ssh.data["image"] = "test_image"
+    install_app_ssh.data["image"] = "test_image"
 
-    addon_execute_repair = FixupAddonExecuteRepair(coresys)
-    assert addon_execute_repair.auto is True
+    app_execute_repair = FixupAppExecuteRepair(coresys)
+    assert app_execute_repair.auto is True
 
     coresys.resolution.create_issue(
         IssueType.MISSING_IMAGE,
@@ -33,7 +33,7 @@ async def test_fixup(docker: DockerAPI, coresys: CoreSys, install_addon_ssh: Add
         suggestions=[SuggestionType.EXECUTE_REPAIR],
     )
     with patch.object(DockerInterface, "install") as install:
-        await addon_execute_repair()
+        await app_execute_repair()
         install.assert_called_once()
 
     assert not coresys.resolution.issues
@@ -41,15 +41,15 @@ async def test_fixup(docker: DockerAPI, coresys: CoreSys, install_addon_ssh: Add
 
 
 async def test_fixup_max_auto_attempts(
-    docker: DockerAPI, coresys: CoreSys, install_addon_ssh: Addon
+    docker: DockerAPI, coresys: CoreSys, install_app_ssh: App
 ):
     """Test fixup stops being auto-applied after 5 failures."""
     docker.images.inspect.side_effect = aiodocker.DockerError(
         HTTPStatus.NOT_FOUND, {"message": "missing"}
     )
-    install_addon_ssh.data["image"] = "test_image"
+    install_app_ssh.data["image"] = "test_image"
 
-    addon_execute_repair = FixupAddonExecuteRepair(coresys)
+    app_execute_repair = FixupAppExecuteRepair(coresys)
 
     coresys.resolution.create_issue(
         IssueType.MISSING_IMAGE,
@@ -59,17 +59,17 @@ async def test_fixup_max_auto_attempts(
     )
     with patch.object(DockerInterface, "install", side_effect=DockerError):
         for _ in range(5):
-            assert addon_execute_repair.auto is True
+            assert app_execute_repair.auto is True
             with pytest.raises(DockerError):
-                await addon_execute_repair()
+                await app_execute_repair()
 
-    assert addon_execute_repair.auto is False
+    assert app_execute_repair.auto is False
 
 
-async def test_fixup_no_addon(coresys: CoreSys):
+async def test_fixup_no_app(coresys: CoreSys):
     """Test fixup dismisses if app is missing."""
-    addon_execute_repair = FixupAddonExecuteRepair(coresys)
-    assert addon_execute_repair.auto is True
+    app_execute_repair = FixupAppExecuteRepair(coresys)
+    assert app_execute_repair.auto is True
 
     coresys.resolution.create_issue(
         IssueType.MISSING_IMAGE,
@@ -78,17 +78,17 @@ async def test_fixup_no_addon(coresys: CoreSys):
         suggestions=[SuggestionType.EXECUTE_REPAIR],
     )
 
-    with patch.object(DockerAddon, "install") as install:
-        await addon_execute_repair()
+    with patch.object(DockerApp, "install") as install:
+        await app_execute_repair()
         install.assert_not_called()
 
 
 async def test_fixup_image_exists(
-    docker: DockerAPI, coresys: CoreSys, install_addon_ssh: Addon
+    docker: DockerAPI, coresys: CoreSys, install_app_ssh: App
 ):
     """Test fixup dismisses if image exists."""
-    addon_execute_repair = FixupAddonExecuteRepair(coresys)
-    assert addon_execute_repair.auto is True
+    app_execute_repair = FixupAppExecuteRepair(coresys)
+    assert app_execute_repair.auto is True
 
     coresys.resolution.create_issue(
         IssueType.MISSING_IMAGE,
@@ -97,6 +97,6 @@ async def test_fixup_image_exists(
         suggestions=[SuggestionType.EXECUTE_REPAIR],
     )
 
-    with patch.object(DockerAddon, "install") as install:
-        await addon_execute_repair()
+    with patch.object(DockerApp, "install") as install:
+        await app_execute_repair()
         install.assert_not_called()

@@ -34,8 +34,8 @@ from ..coresys import CoreSys, CoreSysAttributes
 from ..docker.const import DOCKER_HUB, DOCKER_HUB_LEGACY, DockerMount, MountType
 from ..docker.interface import MAP_ARCH
 from ..exceptions import (
-    AddonBuildArchitectureNotSupportedError,
-    AddonBuildDockerfileMissingError,
+    AppBuildArchitectureNotSupportedError,
+    AppBuildDockerfileMissingError,
     ConfigurationFileError,
     HassioArchNotFound,
 )
@@ -43,50 +43,50 @@ from ..utils.common import find_one_filetype, read_json_or_yaml_file
 from .validate import SCHEMA_BUILD_CONFIG
 
 if TYPE_CHECKING:
-    from .manager import AnyAddon
+    from .manager import AnyApp
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
-class AddonBuild(CoreSysAttributes):
+class AppBuild(CoreSysAttributes):
     """Handle build options for apps."""
 
-    def __init__(self, coresys: CoreSys, addon: AnyAddon, data: dict[str, Any]) -> None:
+    def __init__(self, coresys: CoreSys, app: AnyApp, data: dict[str, Any]) -> None:
         """Initialize Supervisor app builder."""
         self.coresys: CoreSys = coresys
-        self.addon = addon
+        self.app = app
         self._build_config: dict[str, Any] = data
 
     @classmethod
-    async def create(cls, coresys: CoreSys, addon: AnyAddon) -> Self:
+    async def create(cls, coresys: CoreSys, app: AnyApp) -> Self:
         """Create an AppBuild by reading the build configuration from disk."""
-        data = await coresys.run_in_executor(cls._read_build_config, addon)
+        data = await coresys.run_in_executor(cls._read_build_config, app)
 
         if data:
             _LOGGER.warning(
                 "App %s uses build.yaml which is deprecated. "
                 "Move build parameters into the Dockerfile directly.",
-                addon.slug,
+                app.slug,
             )
 
             if data[ATTR_SQUASH]:
                 _LOGGER.warning(
                     "Ignoring squash build option for %s as Docker BuildKit"
                     " does not support it.",
-                    addon.slug,
+                    app.slug,
                 )
 
-        return cls(coresys, addon, data or {})
+        return cls(coresys, app, data or {})
 
     @staticmethod
-    def _read_build_config(addon: AnyAddon) -> dict[str, Any] | None:
+    def _read_build_config(app: AnyApp) -> dict[str, Any] | None:
         """Find and read the build configuration file.
 
         Must be run in executor.
         """
         try:
             build_file = find_one_filetype(
-                addon.path_location, "build", FILE_SUFFIX_CONFIGURATION
+                app.path_location, "build", FILE_SUFFIX_CONFIGURATION
             )
         except ConfigurationFileError:
             # No build config file found, assuming modernized build
@@ -98,13 +98,13 @@ class AddonBuild(CoreSysAttributes):
         except ConfigurationFileError as ex:
             _LOGGER.exception(
                 "Error reading %s build config (%s), using defaults",
-                addon.slug,
+                app.slug,
                 ex,
             )
             build_config = SCHEMA_BUILD_CONFIG({})
         except vol.Invalid as ex:
             _LOGGER.warning(
-                "Error parsing %s build config (%s), using defaults", addon.slug, ex
+                "Error parsing %s build config (%s), using defaults", app.slug, ex
             )
             build_config = SCHEMA_BUILD_CONFIG({})
 
@@ -118,7 +118,7 @@ class AddonBuild(CoreSysAttributes):
     @cached_property
     def arch(self) -> CpuArch:
         """Return arch of the app."""
-        return self.sys_arch.match([self.addon.arch])
+        return self.sys_arch.match([self.app.arch])
 
     @property
     def base_image(self) -> str | None:
@@ -134,7 +134,7 @@ class AddonBuild(CoreSysAttributes):
         # Dict - per-arch base images in build config
         if self.arch not in self._build_config[ATTR_BUILD_FROM]:
             raise HassioArchNotFound(
-                f"App {self.addon.slug} is not supported on {self.arch}"
+                f"App {self.app.slug} is not supported on {self.arch}"
             )
         return self._build_config[ATTR_BUILD_FROM][self.arch]
 
@@ -153,9 +153,9 @@ class AddonBuild(CoreSysAttributes):
 
         Must be run in executor.
         """
-        if self.addon.path_location.joinpath(f"Dockerfile.{self.arch}").exists():
-            return self.addon.path_location.joinpath(f"Dockerfile.{self.arch}")
-        return self.addon.path_location.joinpath("Dockerfile")
+        if self.app.path_location.joinpath(f"Dockerfile.{self.arch}").exists():
+            return self.app.path_location.joinpath(f"Dockerfile.{self.arch}")
+        return self.app.path_location.joinpath("Dockerfile")
 
     async def is_valid(self) -> None:
         """Return true if the build env is valid."""
@@ -163,21 +163,19 @@ class AddonBuild(CoreSysAttributes):
         def build_is_valid() -> bool:
             return all(
                 [
-                    self.addon.path_location.is_dir(),
+                    self.app.path_location.is_dir(),
                     self.get_dockerfile().is_file(),
                 ]
             )
 
         try:
             if not await self.sys_run_in_executor(build_is_valid):
-                raise AddonBuildDockerfileMissingError(
-                    _LOGGER.error, addon=self.addon.slug
-                )
+                raise AppBuildDockerfileMissingError(_LOGGER.error, app=self.app.slug)
         except HassioArchNotFound:
-            raise AddonBuildArchitectureNotSupportedError(
+            raise AppBuildArchitectureNotSupportedError(
                 _LOGGER.error,
-                addon=self.addon.slug,
-                addon_arch_list=self.addon.supported_arch,
+                app=self.app.slug,
+                app_arch_list=self.app.supported_arch,
                 system_arch_list=[arch.value for arch in self.sys_arch.supported],
             ) from None
 
@@ -213,7 +211,7 @@ class AddonBuild(CoreSysAttributes):
         self, version: AwesomeVersion, image_tag: str, docker_config_path: Path | None
     ) -> dict[str, Any]:
         """Create a dict with Docker run args."""
-        dockerfile_path = self.get_dockerfile().relative_to(self.addon.path_location)
+        dockerfile_path = self.get_dockerfile().relative_to(self.app.path_location)
 
         build_cmd = [
             "docker",
@@ -244,8 +242,8 @@ class AddonBuild(CoreSysAttributes):
         if description := self._fix_label("description"):
             labels[LABEL_DESCRIPTION] = description
 
-        if self.addon.url:
-            labels[LABEL_URL] = self.addon.url
+        if self.app.url:
+            labels[LABEL_URL] = self.app.url
 
         for key, value in labels.items():
             build_cmd.extend(["--label", f"{key}={value}"])
@@ -263,9 +261,7 @@ class AddonBuild(CoreSysAttributes):
             build_cmd.extend(["--build-arg", f"{key}={value}"])
 
         # The app path will be mounted from the host system
-        addon_extern_path = self.sys_config.local_to_extern_path(
-            self.addon.path_location
-        )
+        app_extern_path = self.sys_config.local_to_extern_path(self.app.path_location)
 
         mounts = [
             DockerMount(
@@ -276,7 +272,7 @@ class AddonBuild(CoreSysAttributes):
             ),
             DockerMount(
                 type=MountType.BIND,
-                source=addon_extern_path.as_posix(),
+                source=app_extern_path.as_posix(),
                 target="/addon",
                 read_only=True,
             ),
@@ -304,5 +300,5 @@ class AddonBuild(CoreSysAttributes):
 
     def _fix_label(self, label_name: str) -> str:
         """Remove characters they are not supported."""
-        label = getattr(self.addon, label_name, "")
+        label = getattr(self.app, label_name, "")
         return label.replace("'", "")

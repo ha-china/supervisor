@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import voluptuous as vol
 
-from supervisor.addons.options import AddonOptions, UiOptions
+from supervisor.addons.options import AppOptions, UiOptions
 from supervisor.hardware.data import Device
 
 MOCK_ADDON_NAME = "Mock Add-on"
@@ -14,14 +14,14 @@ MOCK_ADDON_SLUG = "mock_addon"
 
 def test_simple_schema(coresys):
     """Test with simple schema."""
-    assert AddonOptions(
+    assert AppOptions(
         coresys,
         {"name": "str", "password": "password", "fires": "bool", "alias": "str?"},
         MOCK_ADDON_NAME,
         MOCK_ADDON_SLUG,
     )({"name": "Pascal", "password": "1234", "fires": True, "alias": "test"})
 
-    assert AddonOptions(
+    assert AppOptions(
         coresys,
         {"name": "str", "password": "password", "fires": "bool", "alias": "str?"},
         MOCK_ADDON_NAME,
@@ -29,7 +29,7 @@ def test_simple_schema(coresys):
     )({"name": "Pascal", "password": "1234", "fires": True})
 
     with pytest.raises(vol.error.Invalid):
-        AddonOptions(
+        AppOptions(
             coresys,
             {"name": "str", "password": "password", "fires": "bool", "alias": "str?"},
             MOCK_ADDON_NAME,
@@ -37,7 +37,7 @@ def test_simple_schema(coresys):
         )({"name": "Pascal", "password": "1234", "fires": "hah"})
 
     with pytest.raises(vol.error.Invalid):
-        AddonOptions(
+        AppOptions(
             coresys,
             {"name": "str", "password": "password", "fires": "bool", "alias": "str?"},
             MOCK_ADDON_NAME,
@@ -47,7 +47,7 @@ def test_simple_schema(coresys):
 
 def test_simple_schema_integers(coresys):
     """Test integer limits."""
-    assert AddonOptions(
+    assert AppOptions(
         coresys,
         {"name": "str", "password": "password", "pos": "int(0,10)", "neg": "int(-5,0)"},
         MOCK_ADDON_NAME,
@@ -55,7 +55,7 @@ def test_simple_schema_integers(coresys):
     )({"name": "Pascal", "password": "1234", "pos": 5, "neg": "-4"})
 
     with pytest.raises(vol.error.Invalid):
-        assert AddonOptions(
+        assert AppOptions(
             coresys,
             {
                 "name": "str",
@@ -70,7 +70,7 @@ def test_simple_schema_integers(coresys):
 
 def test_simple_schema_floats(coresys):
     """Test float limits."""
-    assert AddonOptions(
+    assert AppOptions(
         coresys,
         {
             "name": "str",
@@ -83,7 +83,7 @@ def test_simple_schema_floats(coresys):
     )({"name": "Pascal", "password": "1234", "pos": 5.0, "neg": "-4.0"})
 
     with pytest.raises(vol.error.Invalid):
-        assert AddonOptions(
+        assert AppOptions(
             coresys,
             {
                 "name": "str",
@@ -96,7 +96,7 @@ def test_simple_schema_floats(coresys):
         )({"name": "Pascal", "password": "1234", "pos": 11.0, "neg": "-6.0"})
 
     with pytest.raises(vol.error.Invalid):
-        assert AddonOptions(
+        assert AppOptions(
             coresys,
             {"name": "str", "password": "password", "float": "float(-1.0,-.)"},
             MOCK_ADDON_NAME,
@@ -106,7 +106,7 @@ def test_simple_schema_floats(coresys):
 
 def test_complex_schema_list(coresys):
     """Test with complex list schema."""
-    assert AddonOptions(
+    assert AppOptions(
         coresys,
         {"name": "str", "password": "password", "extend": ["str"]},
         MOCK_ADDON_NAME,
@@ -114,7 +114,7 @@ def test_complex_schema_list(coresys):
     )({"name": "Pascal", "password": "1234", "extend": ["test", "blu"]})
 
     with pytest.raises(vol.error.Invalid):
-        AddonOptions(
+        AppOptions(
             coresys,
             {"name": "str", "password": "password", "extend": ["str"]},
             MOCK_ADDON_NAME,
@@ -122,7 +122,7 @@ def test_complex_schema_list(coresys):
         )({"name": "Pascal", "password": "1234", "extend": ["test", 1]})
 
     with pytest.raises(vol.error.Invalid):
-        AddonOptions(
+        AppOptions(
             coresys,
             {"name": "str", "password": "password", "extend": ["str"]},
             MOCK_ADDON_NAME,
@@ -132,14 +132,14 @@ def test_complex_schema_list(coresys):
 
 def test_optional_schema_list(coresys):
     """Test with an optional list schema."""
-    assert AddonOptions(
+    assert AppOptions(
         coresys,
         {"name": "str", "password": "password", "extend": ["str?"]},
         MOCK_ADDON_NAME,
         MOCK_ADDON_SLUG,
     )({"name": "Pascal", "password": "1234"})
 
-    assert AddonOptions(
+    assert AppOptions(
         coresys,
         {"name": "str", "password": "password", "extend": ["str?"]},
         MOCK_ADDON_NAME,
@@ -147,14 +147,14 @@ def test_optional_schema_list(coresys):
     )({"name": "Pascal", "password": "1234", "extend": []})
 
     with pytest.raises(vol.error.Invalid):
-        AddonOptions(
+        AppOptions(
             coresys,
             {"name": "str", "password": "password", "extend": ["str"]},
             MOCK_ADDON_NAME,
             MOCK_ADDON_SLUG,
         )({"name": "Pascal", "password": "1234"})
 
-    assert AddonOptions(
+    assert AppOptions(
         coresys,
         {"name": "str", "password": "password", "extend": ["str"]},
         MOCK_ADDON_NAME,
@@ -164,7 +164,7 @@ def test_optional_schema_list(coresys):
 
 def test_complex_schema_dict(coresys):
     """Test with complex dict schema."""
-    assert AddonOptions(
+    assert AppOptions(
         coresys,
         {"name": "str", "password": "password", "extend": {"test": "int"}},
         MOCK_ADDON_NAME,
@@ -172,7 +172,7 @@ def test_complex_schema_dict(coresys):
     )({"name": "Pascal", "password": "1234", "extend": {"test": 1}})
 
     with pytest.raises(vol.error.Invalid):
-        AddonOptions(
+        AppOptions(
             coresys,
             {"name": "str", "password": "password", "extend": {"test": "int"}},
             MOCK_ADDON_NAME,
@@ -180,7 +180,7 @@ def test_complex_schema_dict(coresys):
         )({"name": "Pascal", "password": "1234", "extend": {"wrong": 1}})
 
     with pytest.raises(vol.error.Invalid):
-        AddonOptions(
+        AppOptions(
             coresys,
             {"name": "str", "password": "password", "extend": ["str"]},
             MOCK_ADDON_NAME,
@@ -190,7 +190,7 @@ def test_complex_schema_dict(coresys):
 
 def test_complex_schema_dict_and_list(coresys):
     """Test with complex dict/list nested schema."""
-    assert AddonOptions(
+    assert AppOptions(
         coresys,
         {
             "name": "str",
@@ -218,7 +218,7 @@ def test_complex_schema_dict_and_list(coresys):
     )
 
     with pytest.raises(vol.error.Invalid):
-        assert AddonOptions(
+        assert AppOptions(
             coresys,
             {
                 "name": "str",
@@ -292,7 +292,7 @@ def test_simple_device_schema(coresys):
     ):
         coresys.hardware.update_device(device)
 
-    data_device_path = AddonOptions(
+    data_device_path = AppOptions(
         coresys,
         {"name": "str", "password": "password", "input": "device"},
         MOCK_ADDON_NAME,
@@ -300,7 +300,7 @@ def test_simple_device_schema(coresys):
     )({"name": "Pascal", "password": "1234", "input": "/dev/ttyUSB0"})
     assert data_device_path["input"] == "/dev/ttyUSB0"
 
-    data = AddonOptions(
+    data = AppOptions(
         coresys,
         {"name": "str", "password": "password", "input": "device"},
         MOCK_ADDON_NAME,
@@ -308,7 +308,7 @@ def test_simple_device_schema(coresys):
     )({"name": "Pascal", "password": "1234", "input": "/dev/serial/by-id/xyx"})
     assert data["input"] == "/dev/serial/by-id/xyx"
 
-    assert AddonOptions(
+    assert AppOptions(
         coresys,
         {"name": "str", "password": "password", "input": "device(subsystem=tty)"},
         MOCK_ADDON_NAME,
@@ -316,7 +316,7 @@ def test_simple_device_schema(coresys):
     )({"name": "Pascal", "password": "1234", "input": "/dev/ttyACM0"})
 
     with pytest.raises(vol.error.Invalid):
-        assert AddonOptions(
+        assert AppOptions(
             coresys,
             {"name": "str", "password": "password", "input": "device"},
             MOCK_ADDON_NAME,
@@ -324,7 +324,7 @@ def test_simple_device_schema(coresys):
         )({"name": "Pascal", "password": "1234", "input": "/dev/not_exists"})
 
     with pytest.raises(vol.error.Invalid):
-        assert AddonOptions(
+        assert AppOptions(
             coresys,
             {"name": "str", "password": "password", "input": "device(subsystem=tty)"},
             MOCK_ADDON_NAME,
@@ -335,7 +335,7 @@ def test_simple_device_schema(coresys):
 def test_device_schema_wrong_type(coresys):
     """Test device option rejects non-string values."""
     with pytest.raises(vol.error.Invalid):
-        AddonOptions(
+        AppOptions(
             coresys,
             {"name": "str", "input": "device(subsystem=tty)"},
             MOCK_ADDON_NAME,
@@ -343,7 +343,7 @@ def test_device_schema_wrong_type(coresys):
         )({"name": "Pascal", "input": {"baudrate": 115200, "flow_control": True}})
 
     with pytest.raises(vol.error.Invalid):
-        AddonOptions(
+        AppOptions(
             coresys,
             {"name": "str", "input": "device"},
             MOCK_ADDON_NAME,
@@ -353,7 +353,7 @@ def test_device_schema_wrong_type(coresys):
 
 def test_simple_schema_password(coresys):
     """Test with simple schema password pwned."""
-    validate = AddonOptions(
+    validate = AppOptions(
         coresys,
         {"name": "str", "password": "password", "fires": "bool", "alias": "str?"},
         MOCK_ADDON_NAME,
@@ -572,9 +572,7 @@ def test_ui_simple_device_schema_no_filter(coresys):
 
 def test_log_entry(coresys, caplog):
     """Test log entry when no option match in schema."""
-    options = AddonOptions(coresys, {}, MOCK_ADDON_NAME, MOCK_ADDON_SLUG)(
-        {"test": "str"}
-    )
+    options = AppOptions(coresys, {}, MOCK_ADDON_NAME, MOCK_ADDON_SLUG)({"test": "str"})
     assert isinstance(options, dict)
     assert not options
     assert (

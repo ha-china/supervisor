@@ -12,10 +12,10 @@ MAX_AUTO_ATTEMPTS = 5
 
 def setup(coresys: CoreSys) -> FixupBase:
     """Check setup function."""
-    return FixupAddonExecuteRepair(coresys)
+    return FixupAppExecuteRepair(coresys)
 
 
-class FixupAddonExecuteRepair(FixupBase):
+class FixupAppExecuteRepair(FixupBase):
     """Storage class for fixup."""
 
     def __init__(self, coresys: CoreSys) -> None:
@@ -28,15 +28,15 @@ class FixupAddonExecuteRepair(FixupBase):
         if not reference:
             return
 
-        addon = self.sys_addons.get_local_only(reference)
-        if not addon:
+        app = self.sys_apps.get_local_only(reference)
+        if not app:
             _LOGGER.info(
                 "Cannot repair app %s as it is not installed, dismissing suggestion",
                 reference,
             )
             return
 
-        if await addon.instance.exists():
+        if await app.instance.exists():
             _LOGGER.info(
                 "App %s does not need repair, dismissing suggestion", reference
             )
@@ -44,7 +44,7 @@ class FixupAddonExecuteRepair(FixupBase):
 
         _LOGGER.info("Installing image for app %s", reference)
         self.attempts += 1
-        await addon.instance.install(addon.version)
+        await app.instance.install(app.version)
 
     @property
     def suggestion(self) -> SuggestionType:

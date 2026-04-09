@@ -256,25 +256,23 @@ class SecurityMiddleware(CoreSysAttributes):
             request_from = self.sys_plugins.observer
 
         # App
-        addon = None
+        app = None
         if supervisor_token and not request_from:
-            addon = self.sys_addons.from_token(supervisor_token)
+            app = self.sys_apps.from_token(supervisor_token)
 
         # Check App API access
-        if addon and ADDONS_API_BYPASS.match(request.path):
-            _LOGGER.debug("Passthrough %s from %s", request.path, addon.slug)
-            request_from = addon
-        elif addon and addon.access_hassio_api:
+        if app and ADDONS_API_BYPASS.match(request.path):
+            _LOGGER.debug("Passthrough %s from %s", request.path, app.slug)
+            request_from = app
+        elif app and app.access_hassio_api:
             # Check Role
-            if ADDONS_ROLE_ACCESS[addon.hassio_role].match(request.path):
-                _LOGGER.info("%s access from %s", request.path, addon.slug)
-                request_from = addon
+            if ADDONS_ROLE_ACCESS[app.hassio_role].match(request.path):
+                _LOGGER.info("%s access from %s", request.path, app.slug)
+                request_from = app
             else:
-                _LOGGER.warning("%s no role for %s", request.path, addon.slug)
-        elif addon:
-            _LOGGER.warning(
-                "%s missing API permission for %s", addon.slug, request.path
-            )
+                _LOGGER.warning("%s no role for %s", request.path, app.slug)
+        elif app:
+            _LOGGER.warning("%s missing API permission for %s", app.slug, request.path)
 
         if request_from:
             request[REQUEST_FROM] = request_from

@@ -19,7 +19,7 @@ from ..backups.backup import Backup
 from ..backups.const import LOCATION_CLOUD_BACKUP, LOCATION_TYPE
 from ..backups.validate import ALL_FOLDERS, FOLDER_HOMEASSISTANT, days_until_stale
 from ..const import (
-    ATTR_ADDONS,
+    ATTR_APPS,
     ATTR_BACKUPS,
     ATTR_COMPRESSED,
     ATTR_CONTENT,
@@ -102,7 +102,7 @@ SCHEMA_RESTORE_FULL = vol.Schema(
 SCHEMA_RESTORE_PARTIAL = SCHEMA_RESTORE_FULL.extend(
     {
         vol.Optional(ATTR_HOMEASSISTANT): vol.Boolean(),
-        vol.Optional(ATTR_ADDONS): vol.All([str], vol.Unique()),
+        vol.Optional(ATTR_APPS): vol.All([str], vol.Unique()),
         vol.Optional(ATTR_FOLDERS): SCHEMA_FOLDERS,
     }
 )
@@ -122,9 +122,7 @@ SCHEMA_BACKUP_FULL = vol.Schema(
 
 SCHEMA_BACKUP_PARTIAL = SCHEMA_BACKUP_FULL.extend(
     {
-        vol.Optional(ATTR_ADDONS): vol.Or(
-            ALL_ADDONS_FLAG, vol.All([str], vol.Unique())
-        ),
+        vol.Optional(ATTR_APPS): vol.Or(ALL_ADDONS_FLAG, vol.All([str], vol.Unique())),
         vol.Optional(ATTR_FOLDERS): SCHEMA_FOLDERS,
         vol.Optional(ATTR_HOMEASSISTANT): vol.Boolean(),
     }
@@ -172,7 +170,7 @@ class APIBackups(CoreSysAttributes):
                 ATTR_COMPRESSED: backup.compressed,
                 ATTR_CONTENT: {
                     ATTR_HOMEASSISTANT: backup.homeassistant_version is not None,
-                    ATTR_ADDONS: backup.addon_list,
+                    ATTR_APPS: backup.app_list,
                     ATTR_FOLDERS: backup.folders,
                 },
             }
@@ -220,14 +218,14 @@ class APIBackups(CoreSysAttributes):
         """Return backup info."""
         backup = self._extract_slug(request)
 
-        data_addons = []
-        for addon_data in backup.addons:
-            data_addons.append(
+        data_apps = []
+        for app_data in backup.apps:
+            data_apps.append(
                 {
-                    ATTR_SLUG: addon_data[ATTR_SLUG],
-                    ATTR_NAME: addon_data[ATTR_NAME],
-                    ATTR_VERSION: addon_data[ATTR_VERSION],
-                    ATTR_SIZE: addon_data[ATTR_SIZE],
+                    ATTR_SLUG: app_data[ATTR_SLUG],
+                    ATTR_NAME: app_data[ATTR_NAME],
+                    ATTR_VERSION: app_data[ATTR_VERSION],
+                    ATTR_SIZE: app_data[ATTR_SIZE],
                 }
             )
 
@@ -245,7 +243,7 @@ class APIBackups(CoreSysAttributes):
             ATTR_HOMEASSISTANT: backup.homeassistant_version,
             ATTR_LOCATION: backup.location,
             ATTR_LOCATIONS: backup.locations,
-            ATTR_ADDONS: data_addons,
+            ATTR_APPS: data_apps,
             ATTR_REPOSITORIES: backup.repositories,
             ATTR_FOLDERS: backup.folders,
             ATTR_HOMEASSISTANT_EXCLUDE_DATABASE: backup.homeassistant_exclude_database,
@@ -334,8 +332,8 @@ class APIBackups(CoreSysAttributes):
             if locations:
                 body[ATTR_ADDITIONAL_LOCATIONS] = locations
 
-        if body.get(ATTR_ADDONS) == ALL_ADDONS_FLAG:
-            body[ATTR_ADDONS] = list(self.sys_addons.local)
+        if body.get(ATTR_APPS) == ALL_ADDONS_FLAG:
+            body[ATTR_APPS] = list(self.sys_apps.local)
 
         background = body.pop(ATTR_BACKGROUND)
         backup_task, job_id = await background_task(

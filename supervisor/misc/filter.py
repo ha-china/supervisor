@@ -11,7 +11,7 @@ from sentry_sdk.types import Event, Hint
 
 from ..const import DOCKER_IPV4_NETWORK_MASK, HEADER_TOKEN, HEADER_TOKEN_OLD, CoreState
 from ..coresys import CoreSys
-from ..exceptions import AddonConfigurationError
+from ..exceptions import AppConfigurationError
 
 RE_URL: re.Pattern = re.compile(r"(\w+:\/\/)(.*\.\w+)(.*)")
 
@@ -46,7 +46,7 @@ def filter_data(coresys: CoreSys, event: Event, hint: Hint) -> Event | None:
     # Ignore some  exceptions
     if "exc_info" in hint:
         _, exc_value, _ = hint["exc_info"]
-        if isinstance(exc_value, (AddonConfigurationError)):
+        if isinstance(exc_value, (AppConfigurationError)):
             return None
 
     # Ignore issue if system is not supported or diagnostics is disabled
@@ -83,9 +83,9 @@ def filter_data(coresys: CoreSys, event: Event, hint: Hint) -> Event | None:
         return event
 
     # List installed apps
-    installed_addons = [
-        {"slug": addon.slug, "repository": addon.repository, "name": addon.name}
-        for addon in coresys.addons.installed
+    installed_apps = [
+        {"slug": app.slug, "repository": app.repository, "name": app.name}
+        for app in coresys.apps.installed
     ]
 
     # Update information
@@ -93,7 +93,7 @@ def filter_data(coresys: CoreSys, event: Event, hint: Hint) -> Event | None:
         {
             "supervisor": {
                 "channel": coresys.updater.channel,
-                "installed_addons": installed_addons,
+                "installed_addons": installed_apps,
             },
             "host": {
                 "arch": str(coresys.arch.default),

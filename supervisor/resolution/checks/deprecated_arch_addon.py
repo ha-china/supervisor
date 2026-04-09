@@ -1,6 +1,6 @@
 """Helpers to check for apps using deprecated compatibility entries."""
 
-from ...const import AddonStage, CoreState
+from ...const import AppStage, CoreState
 from ...coresys import CoreSys
 from ..const import ContextType, IssueType, SuggestionType
 from .base import CheckBase
@@ -8,25 +8,25 @@ from .base import CheckBase
 
 def setup(coresys: CoreSys) -> CheckBase:
     """Check setup function."""
-    return CheckDeprecatedArchAddon(coresys)
+    return CheckDeprecatedArchApp(coresys)
 
 
-class CheckDeprecatedArchAddon(CheckBase):
+class CheckDeprecatedArchApp(CheckBase):
     """CheckDeprecatedArchApp class for check."""
 
     async def run_check(self) -> None:
         """Run check if not affected by issue."""
-        for addon in self.sys_addons.installed:
-            if addon.stage == AddonStage.DEPRECATED:
+        for app in self.sys_apps.installed:
+            if app.stage == AppStage.DEPRECATED:
                 continue
 
-            if (addon.has_deprecated_arch and not addon.has_supported_arch) or (
-                addon.has_deprecated_machine and not addon.has_supported_machine
+            if (app.has_deprecated_arch and not app.has_supported_arch) or (
+                app.has_deprecated_machine and not app.has_supported_machine
             ):
                 self.sys_resolution.create_issue(
                     IssueType.DEPRECATED_ARCH_ADDON,
                     ContextType.ADDON,
-                    reference=addon.slug,
+                    reference=app.slug,
                     suggestions=[SuggestionType.EXECUTE_REMOVE],
                 )
 
@@ -35,13 +35,13 @@ class CheckDeprecatedArchAddon(CheckBase):
         if not reference:
             return False
 
-        addon = self.sys_addons.get_local_only(reference)
+        app = self.sys_apps.get_local_only(reference)
         return (
-            addon is not None
-            and addon.stage != AddonStage.DEPRECATED
+            app is not None
+            and app.stage != AppStage.DEPRECATED
             and (
-                (addon.has_deprecated_arch and not addon.has_supported_arch)
-                or (addon.has_deprecated_machine and not addon.has_supported_machine)
+                (app.has_deprecated_arch and not app.has_supported_arch)
+                or (app.has_deprecated_machine and not app.has_supported_machine)
             )
         )
 

@@ -12,7 +12,7 @@ import warnings
 
 from colorlog import ColoredFormatter
 
-from .addons.manager import AddonManager
+from .addons.manager import AppManager
 from .api import RestAPI
 from .arch import CpuArchManager
 from .auth import Auth
@@ -78,7 +78,7 @@ async def initialize_coresys() -> CoreSys:
     coresys.api = RestAPI(coresys)
     coresys.supervisor = Supervisor(coresys)
     coresys.homeassistant = await HomeAssistant(coresys).load_config()
-    coresys.addons = await AddonManager(coresys).load_config()
+    coresys.apps = await AppManager(coresys).load_config()
     coresys.backups = await BackupManager(coresys).load_config()
     coresys.host = await HostManager(coresys).post_init()
     coresys.hardware = await HardwareManager.create(coresys)
@@ -131,25 +131,25 @@ def initialize_system(coresys: CoreSys) -> None:
         config.path_ssl.mkdir()
 
     # Supervisor app data folder
-    if not config.path_addons_data.is_dir():
+    if not config.path_apps_data.is_dir():
         _LOGGER.debug(
-            "Creating Supervisor app data folder at '%s'", config.path_addons_data
+            "Creating Supervisor app data folder at '%s'", config.path_apps_data
         )
-        config.path_addons_data.mkdir(parents=True)
+        config.path_apps_data.mkdir(parents=True)
 
-    if not config.path_addons_local.is_dir():
+    if not config.path_apps_local.is_dir():
         _LOGGER.debug(
             "Creating Supervisor app local repository folder at '%s'",
-            config.path_addons_local,
+            config.path_apps_local,
         )
-        config.path_addons_local.mkdir(parents=True)
+        config.path_apps_local.mkdir(parents=True)
 
-    if not config.path_addons_git.is_dir():
+    if not config.path_apps_git.is_dir():
         _LOGGER.debug(
             "Creating Supervisor app git repositories folder at '%s'",
-            config.path_addons_git,
+            config.path_apps_git,
         )
-        config.path_addons_git.mkdir(parents=True)
+        config.path_apps_git.mkdir(parents=True)
 
     # Supervisor tmp folder
     if not config.path_tmp.is_dir():
@@ -220,12 +220,12 @@ def initialize_system(coresys: CoreSys) -> None:
         config.path_emergency.mkdir()
 
     # App Configs folder
-    if not config.path_addon_configs.is_dir():
+    if not config.path_app_configs.is_dir():
         _LOGGER.debug(
             "Creating Supervisor app configs folder at '%s'",
-            config.path_addon_configs,
+            config.path_app_configs,
         )
-        config.path_addon_configs.mkdir()
+        config.path_app_configs.mkdir()
 
     if not config.path_cid_files.is_dir():
         _LOGGER.debug("Creating Docker cidfiles folder at '%s'", config.path_cid_files)

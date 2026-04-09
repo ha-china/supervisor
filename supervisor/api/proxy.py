@@ -15,7 +15,7 @@ from aiohttp.web_exceptions import HTTPBadGateway, HTTPUnauthorized
 from ..coresys import CoreSysAttributes
 from ..exceptions import APIError, HomeAssistantAPIError, HomeAssistantAuthError
 from ..utils.json import json_dumps
-from ..utils.logging import AddonLoggerAdapter
+from ..utils.logging import AppLoggerAdapter
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -80,13 +80,13 @@ class APIProxy(CoreSysAttributes):
         else:
             supervisor_token = request.headers.get(HEADER_HA_ACCESS, "")
 
-        addon = self.sys_addons.from_token(supervisor_token)
-        if not addon:
+        app = self.sys_apps.from_token(supervisor_token)
+        if not app:
             _LOGGER.warning("Unknown Home Assistant API access!")
-        elif not addon.access_homeassistant_api:
-            _LOGGER.warning("Not permitted API access: %s", addon.slug)
+        elif not app.access_homeassistant_api:
+            _LOGGER.warning("Not permitted API access: %s", app.slug)
         else:
-            _LOGGER.debug("%s access from %s", request.path, addon.slug)
+            _LOGGER.debug("%s access from %s", request.path, app.slug)
             return
 
         raise HTTPUnauthorized()
@@ -193,7 +193,7 @@ class APIProxy(CoreSysAttributes):
         self,
         source: web.WebSocketResponse | ClientWebSocketResponse,
         target: web.WebSocketResponse | ClientWebSocketResponse,
-        logger: AddonLoggerAdapter,
+        logger: AppLoggerAdapter,
     ) -> None:
         """Proxy a message from client to server or vice versa."""
         while not source.closed and not target.closed:
@@ -236,7 +236,7 @@ class APIProxy(CoreSysAttributes):
         # init server
         server = web.WebSocketResponse(heartbeat=30)
         await server.prepare(request)
-        addon_name = None
+        app_name = None
 
         # handle authentication
         try:
@@ -250,9 +250,9 @@ class APIProxy(CoreSysAttributes):
             supervisor_token = response.get("api_password") or response.get(
                 "access_token"
             )
-            addon = self.sys_addons.from_token(supervisor_token)
+            app = self.sys_apps.from_token(supervisor_token)
 
-            if not addon or not addon.access_homeassistant_api:
+            if not app or not app.access_homeassistant_api:
                 _LOGGER.warning("Unauthorized WebSocket access!")
                 await server.send_json(
                     {"type": "auth_invalid", "message": "Invalid access"},
@@ -260,8 +260,8 @@ class APIProxy(CoreSysAttributes):
                 )
                 return server
 
-            addon_name = addon.slug
-            _LOGGER.info("WebSocket access from %s", addon_name)
+            app_name = app.slug
+            _LOGGER.info("WebSocket access from %s", app_name)
 
             await server.send_json(
                 {"type": "auth_ok", "ha_version": self.sys_homeassistant.version},
@@ -285,7 +285,7 @@ class APIProxy(CoreSysAttributes):
         except APIError:
             return server
 
-        logger = AddonLoggerAdapter(_LOGGER, {"addon_name": addon_name})
+        logger = AppLoggerAdapter(_LOGGER, {"addon_name": app_name})
         logger.info("Home Assistant WebSocket API proxy running")
 
         client_task = self.sys_create_task(self._proxy_message(client, server, logger))

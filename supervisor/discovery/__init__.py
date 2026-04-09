@@ -15,7 +15,7 @@ from ..utils.common import FileConfiguration
 from .validate import SCHEMA_DISCOVERY_CONFIG
 
 if TYPE_CHECKING:
-    from ..addons.addon import Addon
+    from ..addons.addon import App
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -71,10 +71,10 @@ class Discovery(CoreSysAttributes, FileConfiguration):
         """Return list of available discovery messages."""
         return list(self.message_obj.values())
 
-    async def send(self, addon: Addon, service: str, config: dict[str, Any]) -> Message:
+    async def send(self, app: App, service: str, config: dict[str, Any]) -> Message:
         """Send a discovery message to Home Assistant."""
         # Create message
-        message = Message(addon.slug, service, config)
+        message = Message(app.slug, service, config)
 
         # Already exists?
         for exists_msg in self.list_messages:
@@ -84,12 +84,12 @@ class Discovery(CoreSysAttributes, FileConfiguration):
                 message = exists_msg
                 message.config = config
             else:
-                _LOGGER.debug("Duplicate discovery message from %s", addon.slug)
+                _LOGGER.debug("Duplicate discovery message from %s", app.slug)
                 return exists_msg
             break
 
         _LOGGER.info(
-            "Sending discovery to Home Assistant %s from %s", service, addon.slug
+            "Sending discovery to Home Assistant %s from %s", service, app.slug
         )
         self.message_obj[message.uuid] = message
         await self.save()

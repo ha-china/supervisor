@@ -96,7 +96,7 @@ async def test_reset(coresys: CoreSys):
     coresys.plugins.dns.servers = ["dns://1.1.1.1", "dns://8.8.8.8"]
     coresys.plugins.dns.fallback = False
     coresys.plugins.dns._loop = True  # pylint: disable=protected-access
-    assert len(coresys.addons.installed) == 0
+    assert len(coresys.apps.installed) == 0
 
     with (
         patch.object(type(coresys.plugins.dns.hosts), "unlink") as unlink,

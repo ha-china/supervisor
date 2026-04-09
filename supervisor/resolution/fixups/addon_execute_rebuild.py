@@ -12,10 +12,10 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 def setup(coresys: CoreSys) -> FixupBase:
     """Check setup function."""
-    return FixupAddonExecuteRebuild(coresys)
+    return FixupAppExecuteRebuild(coresys)
 
 
-class FixupAddonExecuteRebuild(FixupBase):
+class FixupAppExecuteRebuild(FixupBase):
     """Storage class for fixup."""
 
     async def process_fixup(self, reference: str | None = None) -> None:
@@ -23,15 +23,15 @@ class FixupAddonExecuteRebuild(FixupBase):
         if not reference:
             return
 
-        addon = self.sys_addons.get_local_only(reference)
-        if not addon:
+        app = self.sys_apps.get_local_only(reference)
+        if not app:
             _LOGGER.info(
                 "Cannot rebuild app %s as it is not installed, dismissing suggestion",
                 reference,
             )
             return
 
-        state = await addon.instance.current_state()
+        state = await app.instance.current_state()
         if state == ContainerState.UNKNOWN:
             _LOGGER.info(
                 "Container for app %s does not exist, it will be rebuilt when started next",
@@ -42,9 +42,9 @@ class FixupAddonExecuteRebuild(FixupBase):
                 "App %s is stopped, removing its container so it rebuilds when started next",
                 reference,
             )
-            await addon.stop()
+            await app.stop()
         else:
-            await (await addon.restart())
+            await (await app.restart())
 
     @property
     def suggestion(self) -> SuggestionType:

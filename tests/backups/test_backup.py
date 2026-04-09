@@ -10,12 +10,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 from securetar import AddFileError, InvalidPasswordError, SecureTarReadError
 
-from supervisor.addons.addon import Addon
+from supervisor.addons.addon import App
 from supervisor.backups.backup import Backup, BackupLocation
 from supervisor.backups.const import BackupType
 from supervisor.coresys import CoreSys
 from supervisor.exceptions import (
-    AddonsError,
+    AppsError,
     BackupError,
     BackupFatalIOError,
     BackupFileExistError,
@@ -75,32 +75,30 @@ async def test_new_backup_exists_error(coresys: CoreSys, tmp_path: Path):
             pass
 
 
-async def test_backup_error_addon(
-    coresys: CoreSys, install_addon_ssh: Addon, tmp_path: Path
-):
+async def test_backup_error_app(coresys: CoreSys, install_app_ssh: App, tmp_path: Path):
     """Test if errors during app backup is correctly recorded in jobs."""
     backup_file = tmp_path / "my_backup.tar"
     backup = Backup(coresys, backup_file, "test", None)
     backup.new("test", "2023-07-21T21:05:00.000000+00:00", BackupType.FULL)
 
-    install_addon_ssh.backup = MagicMock(
-        side_effect=(err := AddonsError("Fake app backup error"))
+    install_app_ssh.backup = MagicMock(
+        side_effect=(err := AppsError("Fake app backup error"))
     )
 
     async with backup.create():
         # Validate that the app exception is collected in the main job
-        backup_store_addons_job, backup_task = coresys.jobs.schedule_job(
-            backup.store_addons, JobSchedulerOptions(), [install_addon_ssh]
+        backup_store_apps_job, backup_task = coresys.jobs.schedule_job(
+            backup.store_apps, JobSchedulerOptions(), [install_app_ssh]
         )
         await backup_task
-        assert len(backup_store_addons_job.errors) == 1
-        assert str(err) in backup_store_addons_job.errors[0].message
+        assert len(backup_store_apps_job.errors) == 1
+        assert str(err) in backup_store_apps_job.errors[0].message
 
         # Check backup_addon_restore child job has the same error
         child_jobs = [
             job
             for job in coresys.jobs.jobs
-            if job.parent_id == backup_store_addons_job.uuid
+            if job.parent_id == backup_store_apps_job.uuid
         ]
         assert len(child_jobs) == 1
         assert child_jobs[0].errors[0].message == str(err)
@@ -163,8 +161,8 @@ async def test_backup_oserror_folder_propagates(
             await backup.store_folders(["media"])
 
 
-async def test_backup_fatal_error_addon_propagates(
-    coresys: CoreSys, install_addon_ssh: Addon, tmp_path: Path
+async def test_backup_fatal_error_app_propagates(
+    coresys: CoreSys, install_app_ssh: App, tmp_path: Path
 ):
     """Test that BackupFatalIOError during app backup propagates out of store_addons.
 
@@ -175,11 +173,11 @@ async def test_backup_fatal_error_addon_propagates(
     backup = Backup(coresys, backup_file, "test", None)
     backup.new("test", "2023-07-21T21:05:00.000000+00:00", BackupType.FULL)
 
-    install_addon_ssh.backup = MagicMock(side_effect=BackupFatalIOError("Disk full"))
+    install_app_ssh.backup = MagicMock(side_effect=BackupFatalIOError("Disk full"))
 
     with pytest.raises(BackupFatalIOError):
         async with backup.create():
-            await backup.store_addons([install_addon_ssh])
+            await backup.store_apps([install_app_ssh])
 
 
 async def test_backup_oserror_close_suppressed_on_error(

@@ -6,16 +6,16 @@ from typing import Any
 from aiohttp import web
 import voluptuous as vol
 
-from ..addons.addon import Addon
+from ..addons.addon import App
 from ..const import (
-    ATTR_ADDON,
+    ATTR_APP,
     ATTR_CONFIG,
     ATTR_DISCOVERY,
     ATTR_SERVICE,
     ATTR_SERVICES,
     ATTR_UUID,
     REQUEST_FROM,
-    AddonState,
+    AppState,
 )
 from ..coresys import CoreSysAttributes
 from ..discovery import Message
@@ -49,25 +49,25 @@ class APIDiscovery(CoreSysAttributes):
         # Get available discovery
         discovery = [
             {
-                ATTR_ADDON: message.addon,
+                ATTR_APP: message.addon,
                 ATTR_SERVICE: message.service,
                 ATTR_UUID: message.uuid,
                 ATTR_CONFIG: message.config,
             }
             for message in self.sys_discovery.list_messages
             if (
-                discovered := self.sys_addons.get_local_only(
+                discovered := self.sys_apps.get_local_only(
                     message.addon,
                 )
             )
-            and discovered.state == AddonState.STARTED
+            and discovered.state == AppState.STARTED
         ]
 
         # Get available services/apps
         services: dict[str, list[str]] = {}
-        for addon in self.sys_addons.all:
-            for name in addon.discovery:
-                services.setdefault(name, []).append(addon.slug)
+        for app in self.sys_apps.all:
+            for name in app.discovery:
+                services.setdefault(name, []).append(app.slug)
 
         return {ATTR_DISCOVERY: discovery, ATTR_SERVICES: services}
 
@@ -75,14 +75,14 @@ class APIDiscovery(CoreSysAttributes):
     async def set_discovery(self, request: web.Request) -> dict[str, str]:
         """Write data into a discovery pipeline."""
         body = await api_validate(SCHEMA_DISCOVERY, request)
-        addon: Addon = request[REQUEST_FROM]
+        app: App = request[REQUEST_FROM]
         service = body[ATTR_SERVICE]
 
         # Access?
-        if body[ATTR_SERVICE] not in addon.discovery:
+        if body[ATTR_SERVICE] not in app.discovery:
             _LOGGER.error(
                 "App %s attempted to send discovery for service %s which is not listed in its config. Please report this to the maintainer of the app",
-                addon.name,
+                app.name,
                 service,
             )
             raise APIForbidden(
@@ -90,7 +90,7 @@ class APIDiscovery(CoreSysAttributes):
             )
 
         # Process discovery message
-        message = await self.sys_discovery.send(addon, **body)
+        message = await self.sys_discovery.send(app, **body)
 
         return {ATTR_UUID: message.uuid}
 
@@ -101,7 +101,7 @@ class APIDiscovery(CoreSysAttributes):
         message = self._extract_message(request)
 
         return {
-            ATTR_ADDON: message.addon,
+            ATTR_APP: message.addon,
             ATTR_SERVICE: message.service,
             ATTR_UUID: message.uuid,
             ATTR_CONFIG: message.config,
@@ -111,10 +111,10 @@ class APIDiscovery(CoreSysAttributes):
     async def del_discovery(self, request: web.Request) -> None:
         """Delete data into a discovery message."""
         message = self._extract_message(request)
-        addon = request[REQUEST_FROM]
+        app = request[REQUEST_FROM]
 
         # Permission
-        if message.addon != addon.slug:
+        if message.addon != app.slug:
             raise APIForbidden("Can't remove discovery message")
 
         await self.sys_discovery.remove(message)

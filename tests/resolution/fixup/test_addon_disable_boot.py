@@ -1,40 +1,40 @@
 """Test fixup app disable boot."""
 
-from supervisor.addons.addon import Addon
-from supervisor.const import AddonBoot
+from supervisor.addons.addon import App
+from supervisor.const import AppBoot
 from supervisor.coresys import CoreSys
 from supervisor.resolution.const import SuggestionType
-from supervisor.resolution.fixups.addon_disable_boot import FixupAddonDisableBoot
+from supervisor.resolution.fixups.addon_disable_boot import FixupAppDisableBoot
 
 from tests.addons.test_manager import BOOT_FAIL_ISSUE
 
 
-async def test_fixup(coresys: CoreSys, install_addon_ssh: Addon):
+async def test_fixup(coresys: CoreSys, install_app_ssh: App):
     """Test fixup disables boot."""
-    install_addon_ssh.boot = AddonBoot.AUTO
-    addon_disable_boot = FixupAddonDisableBoot(coresys)
-    assert addon_disable_boot.auto is False
+    install_app_ssh.boot = AppBoot.AUTO
+    app_disable_boot = FixupAppDisableBoot(coresys)
+    assert app_disable_boot.auto is False
 
     coresys.resolution.add_issue(
         BOOT_FAIL_ISSUE,
         suggestions=[SuggestionType.DISABLE_BOOT],
     )
-    await addon_disable_boot()
+    await app_disable_boot()
 
-    assert install_addon_ssh.boot == AddonBoot.MANUAL
+    assert install_app_ssh.boot == AppBoot.MANUAL
     assert not coresys.resolution.issues
     assert not coresys.resolution.suggestions
 
 
-async def test_fixup_no_addon(coresys: CoreSys):
+async def test_fixup_no_app(coresys: CoreSys):
     """Test fixup dismisses if app is missing."""
-    addon_disable_boot = FixupAddonDisableBoot(coresys)
+    app_disable_boot = FixupAppDisableBoot(coresys)
 
     coresys.resolution.add_issue(
         BOOT_FAIL_ISSUE,
         suggestions=[SuggestionType.DISABLE_BOOT],
     )
-    await addon_disable_boot()
+    await app_disable_boot()
 
     assert not coresys.resolution.issues
     assert not coresys.resolution.suggestions

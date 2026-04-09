@@ -4,7 +4,7 @@ import pytest
 import voluptuous as vol
 
 from supervisor.addons import validate as vd
-from supervisor.addons.const import AddonBackupMode
+from supervisor.addons.const import AppBackupMode
 
 from ..common import load_json_fixture
 
@@ -85,7 +85,7 @@ def test_migration_backup():
     """Migrate snapshot to backup."""
     config = load_json_fixture("basic-addon-config.json")
 
-    config["snapshot"] = AddonBackupMode.HOT
+    config["snapshot"] = AppBackupMode.HOT
     config["snapshot_pre"] = "pre_command"
     config["snapshot_post"] = "post_command"
     config["snapshot_exclude"] = ["excludeed"]
@@ -97,7 +97,7 @@ def test_migration_backup():
     assert valid_config.get("snapshot_post") is None
     assert valid_config.get("snapshot_exclude") is None
 
-    assert valid_config["backup"] == AddonBackupMode.HOT
+    assert valid_config["backup"] == AppBackupMode.HOT
     assert valid_config["backup_pre"] == "pre_command"
     assert valid_config["backup_post"] == "post_command"
     assert valid_config["backup_exclude"] == ["excludeed"]

@@ -7,11 +7,11 @@ def test_local_store(coresys: CoreSys, test_repository) -> None:
     """Test loading from local store."""
     assert coresys.store.get("local")
 
-    assert "local_ssh" in coresys.addons.store
+    assert "local_ssh" in coresys.apps.store
 
 
 def test_core_store(coresys: CoreSys, test_repository) -> None:
     """Test loading from core store."""
     assert coresys.store.get("core")
 
-    assert "core_samba" in coresys.addons.store
+    assert "core_samba" in coresys.apps.store

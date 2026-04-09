@@ -14,7 +14,7 @@ from aiohttp.http_websocket import WSMessage, WSMsgType
 from aiohttp.test_utils import TestClient
 import pytest
 
-from supervisor.addons.addon import Addon
+from supervisor.addons.addon import App
 from supervisor.api.proxy import APIProxy
 from supervisor.const import ATTR_ACCESS_TOKEN
 from supervisor.homeassistant.api import HomeAssistantAPI
@@ -128,12 +128,12 @@ def fixture_proxy_ws_client(
 async def test_proxy_message(
     proxy_ws_client: WebSocketGenerator,
     ha_ws_server: MockHAServerWebSocket,
-    install_addon_ssh: Addon,
+    install_app_ssh: App,
 ):
     """Test proxy a message to and from Home Assistant."""
-    install_addon_ssh.persist[ATTR_ACCESS_TOKEN] = "abc123"
+    install_app_ssh.persist[ATTR_ACCESS_TOKEN] = "abc123"
     client: MockHAClientWebSocket = await proxy_ws_client(
-        install_addon_ssh.supervisor_token
+        install_app_ssh.supervisor_token
     )
 
     await client.send_json_auto_id({"hello": "world"})
@@ -150,12 +150,12 @@ async def test_proxy_message(
 async def test_proxy_binary_message(
     proxy_ws_client: WebSocketGenerator,
     ha_ws_server: MockHAServerWebSocket,
-    install_addon_ssh: Addon,
+    install_app_ssh: App,
 ):
     """Test proxy a binary message to and from Home Assistant."""
-    install_addon_ssh.persist[ATTR_ACCESS_TOKEN] = "abc123"
+    install_app_ssh.persist[ATTR_ACCESS_TOKEN] = "abc123"
     client: MockHAClientWebSocket = await proxy_ws_client(
-        install_addon_ssh.supervisor_token
+        install_app_ssh.supervisor_token
     )
 
     await client.send_bytes(b"hello world")
@@ -172,12 +172,12 @@ async def test_proxy_binary_message(
 async def test_proxy_large_message(
     proxy_ws_client: WebSocketGenerator,
     ha_ws_server: MockHAServerWebSocket,
-    install_addon_ssh: Addon,
+    install_app_ssh: App,
 ):
     """Test too large message handled gracefully."""
-    install_addon_ssh.persist[ATTR_ACCESS_TOKEN] = "abc123"
+    install_app_ssh.persist[ATTR_ACCESS_TOKEN] = "abc123"
     client: MockHAClientWebSocket = await proxy_ws_client(
-        install_addon_ssh.supervisor_token
+        install_app_ssh.supervisor_token
     )
 
     # Test message over size limit of 4MB
@@ -191,10 +191,10 @@ async def test_proxy_large_message(
 
 @pytest.mark.parametrize("auth_token", ["abc123", "bad"])
 async def test_proxy_invalid_auth(
-    api_client: TestClient, install_addon_example: Addon, auth_token: str
+    api_client: TestClient, install_app_example: App, auth_token: str
 ):
     """Test invalid access token or app with no access."""
-    install_addon_example.persist[ATTR_ACCESS_TOKEN] = "abc123"
+    install_app_example.persist[ATTR_ACCESS_TOKEN] = "abc123"
     websocket = await api_client.ws_connect("/core/websocket")
     auth_resp = await websocket.receive_json()
     assert auth_resp["type"] == "auth_required"
@@ -207,11 +207,11 @@ async def test_proxy_invalid_auth(
 
 async def test_proxy_auth_abort_log(
     api_client: TestClient,
-    install_addon_example: Addon,
+    install_app_example: App,
     caplog: pytest.LogCaptureFixture,
 ):
     """Test WebSocket closed during authentication gets logged."""
-    install_addon_example.persist[ATTR_ACCESS_TOKEN] = "abc123"
+    install_app_example.persist[ATTR_ACCESS_TOKEN] = "abc123"
     websocket = await api_client.ws_connect("/core/websocket")
     auth_resp = await websocket.receive_json()
     assert auth_resp["type"] == "auth_required"
@@ -226,13 +226,13 @@ async def test_proxy_auth_abort_log(
 @pytest.mark.parametrize("path", ["", "mock_path"])
 async def test_api_proxy_get_request(
     api_client: TestClient,
-    install_addon_example: Addon,
+    install_app_example: App,
     request: pytest.FixtureRequest,
     path: str,
 ):
     """Test the API proxy request using patch for make_request."""
-    install_addon_example.persist[ATTR_ACCESS_TOKEN] = "abc123"
-    install_addon_example.data["homeassistant_api"] = True
+    install_app_example.persist[ATTR_ACCESS_TOKEN] = "abc123"
+    install_app_example.data["homeassistant_api"] = True
 
     request.param = "local_example"
 
@@ -261,13 +261,13 @@ async def test_api_proxy_get_request(
 )
 async def test_api_proxy_post_request(
     api_client: TestClient,
-    install_addon_example: Addon,
+    install_app_example: App,
     request: pytest.FixtureRequest,
     path: str,
 ):
     """Test the API proxy POST request."""
-    install_addon_example.persist[ATTR_ACCESS_TOKEN] = "abc123"
-    install_addon_example.data["homeassistant_api"] = True
+    install_app_example.persist[ATTR_ACCESS_TOKEN] = "abc123"
+    install_app_example.data["homeassistant_api"] = True
 
     request.param = "local_example"
 
@@ -298,13 +298,13 @@ async def test_api_proxy_post_request(
 )
 async def test_api_proxy_delete_request(
     api_client: TestClient,
-    install_addon_example: Addon,
+    install_app_example: App,
     request: pytest.FixtureRequest,
     path: str,
 ):
     """Test the API proxy DELETE request."""
-    install_addon_example.persist[ATTR_ACCESS_TOKEN] = "abc123"
-    install_addon_example.data["homeassistant_api"] = True
+    install_app_example.persist[ATTR_ACCESS_TOKEN] = "abc123"
+    install_app_example.data["homeassistant_api"] = True
 
     request.param = "local_example"
 
@@ -330,11 +330,11 @@ async def test_api_proxy_delete_request(
 
 async def test_api_proxy_mcp_headers_forwarded(
     api_client: TestClient,
-    install_addon_example: Addon,
+    install_app_example: App,
 ):
     """Test that MCP headers are forwarded to Home Assistant."""
-    install_addon_example.persist[ATTR_ACCESS_TOKEN] = "abc123"
-    install_addon_example.data["homeassistant_api"] = True
+    install_app_example.persist[ATTR_ACCESS_TOKEN] = "abc123"
+    install_app_example.data["homeassistant_api"] = True
 
     with patch.object(HomeAssistantAPI, "make_request") as make_request:
         # Mock the response from make_request
@@ -369,11 +369,11 @@ async def test_api_proxy_mcp_headers_forwarded(
 
 async def test_api_proxy_streaming_response(
     api_client: TestClient,
-    install_addon_example: Addon,
+    install_app_example: App,
 ):
     """Test that streaming responses (text/event-stream) are handled properly."""
-    install_addon_example.persist[ATTR_ACCESS_TOKEN] = "abc123"
-    install_addon_example.data["homeassistant_api"] = True
+    install_app_example.persist[ATTR_ACCESS_TOKEN] = "abc123"
+    install_app_example.data["homeassistant_api"] = True
 
     async def mock_content_iter():
         """Mock async iterator for streaming content."""
@@ -416,11 +416,11 @@ async def test_api_proxy_streaming_response(
 
 async def test_api_proxy_streaming_response_client_payload_error(
     api_client: TestClient,
-    install_addon_example: Addon,
+    install_app_example: App,
 ):
     """Test that client payload errors during streaming are handled gracefully."""
-    install_addon_example.persist[ATTR_ACCESS_TOKEN] = "abc123"
-    install_addon_example.data["homeassistant_api"] = True
+    install_app_example.persist[ATTR_ACCESS_TOKEN] = "abc123"
+    install_app_example.data["homeassistant_api"] = True
 
     async def mock_content_iter_error():
         yield b"data: event1\n\n"

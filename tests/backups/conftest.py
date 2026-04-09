@@ -21,17 +21,17 @@ def fixture_backup_mock():
         backup_instance = MagicMock()
         backup_mock.return_value = backup_instance
 
-        backup_instance.store_addons = AsyncMock(return_value=None)
+        backup_instance.store_apps = AsyncMock(return_value=None)
         backup_instance.store_folders = AsyncMock(return_value=None)
         backup_instance.store_homeassistant = AsyncMock(return_value=None)
-        backup_instance.store_addons = AsyncMock(return_value=None)
+        backup_instance.store_apps = AsyncMock(return_value=None)
         backup_instance.store_supervisor_config = AsyncMock(return_value=None)
         backup_instance.restore_folders = AsyncMock(return_value=True)
         backup_instance.restore_homeassistant = AsyncMock(return_value=None)
-        backup_instance.restore_addons = AsyncMock(return_value=(True, []))
+        backup_instance.restore_apps = AsyncMock(return_value=(True, []))
         backup_instance.restore_repositories = AsyncMock(return_value=None)
         backup_instance.restore_supervisor_config = AsyncMock(return_value=(True, []))
-        backup_instance.remove_delta_addons = AsyncMock(return_value=True)
+        backup_instance.remove_delta_apps = AsyncMock(return_value=True)
 
         yield backup_mock
 
@@ -42,7 +42,7 @@ def partial_backup_mock(backup_mock):
     backup_instance = backup_mock.return_value
     backup_instance.sys_type = BackupType.PARTIAL
     backup_instance.folders = []
-    backup_instance.addon_list = [TEST_ADDON_SLUG]
+    backup_instance.app_list = [TEST_ADDON_SLUG]
     backup_instance.supervisor_version = "9999.09.9.dev9999"
     backup_instance.location = None
     backup_instance.all_locations = {
@@ -58,7 +58,7 @@ def full_backup_mock(backup_mock):
     backup_instance = backup_mock.return_value
     backup_instance.sys_type = BackupType.FULL
     backup_instance.folders = ALL_FOLDERS
-    backup_instance.addon_list = [TEST_ADDON_SLUG]
+    backup_instance.app_list = [TEST_ADDON_SLUG]
     backup_instance.supervisor_version = "9999.09.9.dev9999"
     backup_instance.location = None
     backup_instance.all_locations = {

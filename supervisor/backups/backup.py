@@ -28,9 +28,9 @@ from securetar import (
 import voluptuous as vol
 from voluptuous.humanize import humanize_error
 
-from ..addons.manager import Addon
+from ..addons.manager import App
 from ..const import (
-    ATTR_ADDONS,
+    ATTR_APPS,
     ATTR_COMPRESSED,
     ATTR_DATE,
     ATTR_DOCKER,
@@ -50,7 +50,7 @@ from ..const import (
 )
 from ..coresys import CoreSys
 from ..exceptions import (
-    AddonsError,
+    AppsError,
     BackupError,
     BackupFatalIOError,
     BackupFileExistError,
@@ -164,14 +164,14 @@ class Backup(JobGroup):
         return self._data[ATTR_COMPRESSED]
 
     @property
-    def addons(self) -> list[dict[str, Any]]:
+    def apps(self) -> list[dict[str, Any]]:
         """Return backup date."""
-        return self._data[ATTR_ADDONS]
+        return self._data[ATTR_APPS]
 
     @property
-    def addon_list(self) -> list[str]:
+    def app_list(self) -> list[str]:
         """Return a list of apps slugs."""
-        return [addon_data[ATTR_SLUG] for addon_data in self.addons]
+        return [app_data[ATTR_SLUG] for app_data in self.apps]
 
     @property
     def folders(self) -> list[str]:
@@ -613,16 +613,16 @@ class Backup(JobGroup):
             _LOGGER.error("Can't write backup: %s", err)
 
     @Job(name="backup_addon_save", cleanup=False)
-    async def _addon_save(self, addon: Addon) -> asyncio.Task | None:
+    async def _app_save(self, app: App) -> asyncio.Task | None:
         """Store an app into backup."""
-        self.sys_jobs.current.reference = slug = addon.slug
+        self.sys_jobs.current.reference = slug = app.slug
         if not self._outer_secure_tarfile:
             raise RuntimeError(
                 "Cannot backup components without initializing backup tar"
             )
 
         # Ensure it is still installed and get current data before proceeding
-        if not (curr_addon := self.sys_addons.get_local_only(slug)):
+        if not (curr_app := self.sys_apps.get_local_only(slug)):
             _LOGGER.warning(
                 "Skipping backup of app %s because it has been uninstalled",
                 slug,
@@ -631,22 +631,22 @@ class Backup(JobGroup):
 
         tar_name = f"{slug}.tar{'.gz' if self.compressed else ''}"
 
-        addon_file = self._outer_secure_tarfile.create_tar(
+        app_file = self._outer_secure_tarfile.create_tar(
             f"./{tar_name}",
             gzip=self.compressed,
         )
         # Take backup
         try:
-            start_task = await curr_addon.backup(addon_file)
-        except AddonsError as err:
+            start_task = await curr_app.backup(app_file)
+        except AppsError as err:
             raise BackupError(str(err)) from err
 
         # Store to config
-        self._data[ATTR_ADDONS].append(
+        self._data[ATTR_APPS].append(
             {
                 ATTR_SLUG: slug,
-                ATTR_NAME: curr_addon.name,
-                ATTR_VERSION: curr_addon.version,
+                ATTR_NAME: curr_app.name,
+                ATTR_VERSION: curr_app.version,
                 # Bug - addon_file.size used to give us this information
                 # It always returns 0 in current securetar. Skipping until fixed
                 ATTR_SIZE: 0,
@@ -656,7 +656,7 @@ class Backup(JobGroup):
         return start_task
 
     @Job(name="backup_store_addons", cleanup=False)
-    async def store_addons(self, addon_list: list[Addon]) -> list[asyncio.Task]:
+    async def store_apps(self, app_list: list[App]) -> list[asyncio.Task]:
         """Add a list of apps into backup.
 
         For each app that needs to be started after backup, returns a Task which
@@ -664,9 +664,9 @@ class Backup(JobGroup):
         """
         # Save Apps sequential avoid issue on slow IO
         start_tasks: list[asyncio.Task] = []
-        for addon in addon_list:
+        for app in app_list:
             try:
-                if start_task := await self._addon_save(addon):
+                if start_task := await self._app_save(app):
                     start_tasks.append(start_task)
             except BackupFatalIOError:
                 raise
@@ -676,20 +676,20 @@ class Backup(JobGroup):
         return start_tasks
 
     @Job(name="backup_addon_restore", cleanup=False)
-    async def _addon_restore(self, addon_slug: str) -> asyncio.Task | None:
+    async def _app_restore(self, app_slug: str) -> asyncio.Task | None:
         """Restore an app from backup."""
-        self.sys_jobs.current.reference = addon_slug
+        self.sys_jobs.current.reference = app_slug
         if not self._tmp:
             raise RuntimeError("Cannot restore components without opening backup tar")
 
-        tar_name = f"{addon_slug}.tar{'.gz' if self.compressed else ''}"
+        tar_name = f"{app_slug}.tar{'.gz' if self.compressed else ''}"
         tar_path = Path(self._tmp.name, tar_name)
 
         # Verify the backup exists before trying to restore it
         if not await self.sys_run_in_executor(tar_path.exists):
-            raise BackupError(f"Can't find backup {addon_slug}", _LOGGER.error)
+            raise BackupError(f"Can't find backup {app_slug}", _LOGGER.error)
 
-        addon_file = SecureTarFile(
+        app_file = SecureTarFile(
             tar_path,
             gzip=self.compressed,
             bufsize=BUF_SIZE,
@@ -698,23 +698,23 @@ class Backup(JobGroup):
 
         # Perform a restore
         try:
-            return await self.sys_addons.restore(addon_slug, addon_file)
-        except AddonsError as err:
+            return await self.sys_apps.restore(app_slug, app_file)
+        except AppsError as err:
             raise BackupError(
-                f"Can't restore backup {addon_slug}", _LOGGER.error
+                f"Can't restore backup {app_slug}", _LOGGER.error
             ) from err
 
     @Job(name="backup_restore_addons", cleanup=False)
-    async def restore_addons(
-        self, addon_list: list[str]
+    async def restore_apps(
+        self, app_list: list[str]
     ) -> tuple[bool, list[asyncio.Task]]:
         """Restore a list app from backup."""
         # Save Apps sequential avoid issue on slow IO
         start_tasks: list[asyncio.Task] = []
         success = True
-        for slug in addon_list:
+        for slug in app_list:
             try:
-                start_task = await self._addon_restore(slug)
+                start_task = await self._app_restore(slug)
             except Exception as err:  # pylint: disable=broad-except
                 _LOGGER.warning("Can't restore app %s: %s", slug, err)
                 success = False
@@ -725,20 +725,20 @@ class Backup(JobGroup):
         return (success, start_tasks)
 
     @Job(name="backup_remove_delta_addons", cleanup=False)
-    async def remove_delta_addons(self) -> bool:
+    async def remove_delta_apps(self) -> bool:
         """Remove apps which are not in this backup."""
         success = True
-        for addon in self.sys_addons.installed:
-            if addon.slug in self.addon_list:
+        for app in self.sys_apps.installed:
+            if app.slug in self.app_list:
                 continue
 
             # Remove App because it's not a part of the new env
             # Do it sequential avoid issue on slow IO
             try:
-                await self.sys_addons.uninstall(addon.slug)
-            except AddonsError as err:
+                await self.sys_apps.uninstall(app.slug)
+            except AppsError as err:
                 self.sys_jobs.current.capture_error(err)
-                _LOGGER.warning("Can't uninstall app %s: %s", addon.slug, err)
+                _LOGGER.warning("Can't uninstall app %s: %s", app.slug, err)
                 success = False
 
         return success

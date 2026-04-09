@@ -9,12 +9,12 @@ from typing import Self, Union
 from attr import evolve
 from securetar import SecureTarFile
 
-from ..const import AddonBoot, AddonStartup, AddonState
+from ..const import AppBoot, AppStartup, AppState
 from ..coresys import CoreSys, CoreSysAttributes
 from ..exceptions import (
-    AddonNotSupportedError,
-    AddonsError,
-    AddonsJobError,
+    AppNotSupportedError,
+    AppsError,
+    AppsJobError,
     CoreDNSError,
     DockerError,
     HassioError,
@@ -23,60 +23,60 @@ from ..jobs import ChildJobSyncFilter
 from ..jobs.const import JobConcurrency
 from ..jobs.decorator import Job, JobCondition
 from ..resolution.const import ContextType, IssueType, SuggestionType, UnhealthyReason
-from ..store.addon import AddonStore
+from ..store.addon import AppStore
 from ..utils.sentry import async_capture_exception
-from .addon import Addon
-from .const import ADDON_UPDATE_CONDITIONS
-from .data import AddonsData
+from .addon import App
+from .const import APP_UPDATE_CONDITIONS
+from .data import AppsData
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
-AnyAddon = Union[Addon, AddonStore]
+AnyApp = Union[App, AppStore]
 
 
-class AddonManager(CoreSysAttributes):
+class AppManager(CoreSysAttributes):
     """Manage apps inside Supervisor."""
 
     def __init__(self, coresys: CoreSys):
         """Initialize Docker base wrapper."""
         self.coresys: CoreSys = coresys
-        self.data: AddonsData = AddonsData(coresys)
-        self.local: dict[str, Addon] = {}
-        self.store: dict[str, AddonStore] = {}
+        self.data: AppsData = AppsData(coresys)
+        self.local: dict[str, App] = {}
+        self.store: dict[str, AppStore] = {}
 
     @property
-    def all(self) -> list[AnyAddon]:
+    def all(self) -> list[AnyApp]:
         """Return a list of all apps."""
-        addons: dict[str, AnyAddon] = {**self.store, **self.local}
-        return list(addons.values())
+        apps: dict[str, AnyApp] = {**self.store, **self.local}
+        return list(apps.values())
 
     @property
-    def installed(self) -> list[Addon]:
+    def installed(self) -> list[App]:
         """Return a list of all installed apps."""
         return list(self.local.values())
 
-    def get(self, addon_slug: str, local_only: bool = False) -> AnyAddon | None:
+    def get(self, app_slug: str, local_only: bool = False) -> AnyApp | None:
         """Return an app from slug.
 
         Prio:
           1 - Local
           2 - Store
         """
-        if addon_slug in self.local:
-            return self.local[addon_slug]
+        if app_slug in self.local:
+            return self.local[app_slug]
         if not local_only:
-            return self.store.get(addon_slug)
+            return self.store.get(app_slug)
         return None
 
-    def get_local_only(self, addon_slug: str) -> Addon | None:
+    def get_local_only(self, app_slug: str) -> App | None:
         """Return an installed app from slug."""
-        return self.local.get(addon_slug)
+        return self.local.get(app_slug)
 
-    def from_token(self, token: str) -> Addon | None:
+    def from_token(self, token: str) -> App | None:
         """Return an app from Supervisor token."""
-        for addon in self.installed:
-            if token == addon.supervisor_token:
-                return addon
+        for app in self.installed:
+            if token == app.supervisor_token:
+                return app
         return None
 
     async def load_config(self) -> Self:
@@ -93,8 +93,8 @@ class AddonManager(CoreSysAttributes):
 
         # Load all installed apps
         for slug in self.data.system:
-            addon = self.local[slug] = Addon(self.coresys, slug)
-            tasks.append(addon.load())
+            app = self.local[slug] = App(self.coresys, slug)
+            tasks.append(app.load())
 
         # Run initial tasks
         _LOGGER.info("Found %d installed apps", len(self.data.system))
@@ -104,24 +104,24 @@ class AddonManager(CoreSysAttributes):
         # Sync DNS
         await self.sync_dns()
 
-    async def boot(self, stage: AddonStartup) -> None:
+    async def boot(self, stage: AppStartup) -> None:
         """Boot apps with mode auto."""
-        tasks: list[Addon] = []
-        for addon in self.installed:
-            if addon.boot != AddonBoot.AUTO or addon.startup != stage:
+        tasks: list[App] = []
+        for app in self.installed:
+            if app.boot != AppBoot.AUTO or app.startup != stage:
                 continue
             if (
-                addon.host_network
+                app.host_network
                 and UnhealthyReason.DOCKER_GATEWAY_UNPROTECTED
                 in self.sys_resolution.unhealthy
             ):
                 _LOGGER.warning(
                     "Skipping boot of app %s because gateway firewall"
                     " rules are not active",
-                    addon.slug,
+                    app.slug,
                 )
                 continue
-            tasks.append(addon)
+            tasks.append(app)
 
         # Evaluate apps which need to be started
         _LOGGER.info("Phase '%s' starting %d apps", stage, len(tasks))
@@ -133,13 +133,13 @@ class AddonManager(CoreSysAttributes):
         # Config.wait_boot is deprecated. Until apps update with healthchecks,
         # add a sleep task for it to keep the same minimum amount of wait time
         wait_boot: list[Awaitable[None]] = [asyncio.sleep(self.sys_config.wait_boot)]
-        for addon in tasks:
+        for app in tasks:
             try:
-                if start_task := await addon.start():
+                if start_task := await app.start():
                     wait_boot.append(start_task)
             except HassioError:
                 self.sys_resolution.add_issue(
-                    evolve(addon.boot_failed_issue),
+                    evolve(app.boot_failed_issue),
                     suggestions=[
                         SuggestionType.EXECUTE_START,
                         SuggestionType.DISABLE_BOOT,
@@ -148,7 +148,7 @@ class AddonManager(CoreSysAttributes):
             else:
                 continue
 
-            _LOGGER.warning("Can't start app %s", addon.slug)
+            _LOGGER.warning("Can't start app %s", app.slug)
 
         # Ignore exceptions from waiting for app startup, app errors handled elsewhere
         await asyncio.gather(*wait_boot, return_exceptions=True)
@@ -156,23 +156,23 @@ class AddonManager(CoreSysAttributes):
         # After waiting for startup, create an issue for boot apps that are error or unknown state
         # Ignore stopped as single shot apps can be run at boot and this is successful exit
         # Timeout waiting for startup is not a failure, app is probably just slow
-        for addon in tasks:
-            if addon.state in {AddonState.ERROR, AddonState.UNKNOWN}:
+        for app in tasks:
+            if app.state in {AppState.ERROR, AppState.UNKNOWN}:
                 self.sys_resolution.add_issue(
-                    evolve(addon.boot_failed_issue),
+                    evolve(app.boot_failed_issue),
                     suggestions=[
                         SuggestionType.EXECUTE_START,
                         SuggestionType.DISABLE_BOOT,
                     ],
                 )
 
-    async def shutdown(self, stage: AddonStartup) -> None:
+    async def shutdown(self, stage: AppStartup) -> None:
         """Shutdown apps."""
-        tasks: list[Addon] = []
-        for addon in self.installed:
-            if addon.state != AddonState.STARTED or addon.startup != stage:
+        tasks: list[App] = []
+        for app in self.installed:
+            if app.state != AppState.STARTED or app.startup != stage:
                 continue
-            tasks.append(addon)
+            tasks.append(app)
 
         # Evaluate apps which need to be stopped
         _LOGGER.info("Phase '%s' stopping %d apps", stage, len(tasks))
@@ -181,17 +181,17 @@ class AddonManager(CoreSysAttributes):
 
         # Stop Apps sequential
         # avoid issue on slow IO
-        for addon in tasks:
+        for app in tasks:
             try:
-                await addon.stop()
+                await app.stop()
             except Exception as err:  # pylint: disable=broad-except
-                _LOGGER.warning("Can't stop app %s: %s", addon.slug, err)
+                _LOGGER.warning("Can't stop app %s: %s", app.slug, err)
                 await async_capture_exception(err)
 
     @Job(
         name="addon_manager_install",
-        conditions=ADDON_UPDATE_CONDITIONS,
-        on_condition=AddonsJobError,
+        conditions=APP_UPDATE_CONDITIONS,
+        on_condition=AppsJobError,
         concurrency=JobConcurrency.QUEUE,
         child_job_syncs=[
             ChildJobSyncFilter("docker_interface_install", progress_allocation=1.0)
@@ -204,11 +204,11 @@ class AddonManager(CoreSysAttributes):
         self.sys_jobs.current.reference = slug
 
         if slug in self.local:
-            raise AddonsError(f"App {slug} is already installed", _LOGGER.warning)
+            raise AppsError(f"App {slug} is already installed", _LOGGER.warning)
         store = self.store.get(slug)
 
         if not store:
-            raise AddonsError(f"App {slug} does not exist", _LOGGER.error)
+            raise AppsError(f"App {slug} does not exist", _LOGGER.error)
 
         store.validate_availability()
 
@@ -216,7 +216,7 @@ class AddonManager(CoreSysAttributes):
         if validation_complete:
             validation_complete.set()
 
-        await Addon(self.coresys, slug).install()
+        await App(self.coresys, slug).install()
 
         _LOGGER.info("App '%s' successfully installed", slug)
 
@@ -228,10 +228,10 @@ class AddonManager(CoreSysAttributes):
             return
 
         shared_image = any(
-            self.local[slug].image == addon.image
-            and self.local[slug].version == addon.version
-            for addon in self.installed
-            if addon.slug != slug
+            self.local[slug].image == app.image
+            and self.local[slug].version == app.version
+            for app in self.installed
+            if app.slug != slug
         )
         await self.local[slug].uninstall(
             remove_config=remove_config, remove_image=not shared_image
@@ -241,8 +241,8 @@ class AddonManager(CoreSysAttributes):
 
     @Job(
         name="addon_manager_update",
-        conditions=ADDON_UPDATE_CONDITIONS,
-        on_condition=AddonsJobError,
+        conditions=APP_UPDATE_CONDITIONS,
+        on_condition=AppsJobError,
         # We assume for now the docker image pull is 100% of this task for progress
         # allocation. But from a user perspective that isn't true. Other steps
         # that take time which is not accounted for in progress include:
@@ -266,17 +266,15 @@ class AddonManager(CoreSysAttributes):
         self.sys_jobs.current.reference = slug
 
         if slug not in self.local:
-            raise AddonsError(f"App {slug} is not installed", _LOGGER.error)
-        addon = self.local[slug]
+            raise AppsError(f"App {slug} is not installed", _LOGGER.error)
+        app = self.local[slug]
 
-        if addon.is_detached:
-            raise AddonsError(
-                f"App {slug} is not available inside store", _LOGGER.error
-            )
+        if app.is_detached:
+            raise AppsError(f"App {slug} is not available inside store", _LOGGER.error)
         store = self.store[slug]
 
-        if addon.version == store.version:
-            raise AddonsError(f"No update available for app {slug}", _LOGGER.warning)
+        if app.version == store.version:
+            raise AppsError(f"No update available for app {slug}", _LOGGER.warning)
 
         # Check if available, Maybe something have changed
         store.validate_availability()
@@ -287,12 +285,12 @@ class AddonManager(CoreSysAttributes):
 
         if backup:
             await self.sys_backups.do_backup_partial(
-                name=f"addon_{addon.slug}_{addon.version}",
+                name=f"addon_{app.slug}_{app.version}",
                 homeassistant=False,
-                addons=[addon.slug],
+                apps=[app.slug],
             )
 
-        task = await addon.update()
+        task = await app.update()
 
         _LOGGER.info("App '%s' successfully updated", slug)
         return task
@@ -304,7 +302,7 @@ class AddonManager(CoreSysAttributes):
             JobCondition.INTERNET_HOST,
             JobCondition.HEALTHY,
         ],
-        on_condition=AddonsJobError,
+        on_condition=AppsJobError,
     )
     async def rebuild(self, slug: str, *, force: bool = False) -> asyncio.Task | None:
         """Perform a rebuild of local build app.
@@ -315,26 +313,24 @@ class AddonManager(CoreSysAttributes):
         self.sys_jobs.current.reference = slug
 
         if slug not in self.local:
-            raise AddonsError(f"App {slug} is not installed", _LOGGER.error)
-        addon = self.local[slug]
+            raise AppsError(f"App {slug} is not installed", _LOGGER.error)
+        app = self.local[slug]
 
-        if addon.is_detached:
-            raise AddonsError(
-                f"App {slug} is not available inside store", _LOGGER.error
-            )
+        if app.is_detached:
+            raise AppsError(f"App {slug} is not available inside store", _LOGGER.error)
         store = self.store[slug]
 
         # Check if a rebuild is possible now
-        if addon.version != store.version:
-            raise AddonsError(
+        if app.version != store.version:
+            raise AppsError(
                 "Version changed, use Update instead Rebuild", _LOGGER.error
             )
-        if not force and not addon.need_build:
-            raise AddonNotSupportedError(
+        if not force and not app.need_build:
+            raise AppNotSupportedError(
                 "Can't rebuild an image-based app", _LOGGER.error
             )
 
-        return await addon.rebuild()
+        return await app.rebuild()
 
     @Job(
         name="addon_manager_restore",
@@ -343,7 +339,7 @@ class AddonManager(CoreSysAttributes):
             JobCondition.INTERNET_HOST,
             JobCondition.HEALTHY,
         ],
-        on_condition=AddonsJobError,
+        on_condition=AppsJobError,
     )
     async def restore(self, slug: str, tar_file: SecureTarFile) -> asyncio.Task | None:
         """Restore state of an app.
@@ -355,24 +351,24 @@ class AddonManager(CoreSysAttributes):
 
         if slug not in self.local:
             _LOGGER.debug("App %s is not locally available for restore", slug)
-            addon = Addon(self.coresys, slug)
+            app = App(self.coresys, slug)
             had_ingress: bool | None = False
         else:
             _LOGGER.debug("App %s is locally available for restore", slug)
-            addon = self.local[slug]
-            had_ingress = addon.ingress_panel
+            app = self.local[slug]
+            had_ingress = app.ingress_panel
 
-        wait_for_start = await addon.restore(tar_file)
+        wait_for_start = await app.restore(tar_file)
 
         # Check if new
         if slug not in self.local:
             _LOGGER.info("Detected new app after restore: %s", slug)
-            self.local[slug] = addon
+            self.local[slug] = app
 
         # Update ingress
-        if had_ingress != addon.ingress_panel:
+        if had_ingress != app.ingress_panel:
             await self.sys_ingress.reload()
-            await self.sys_ingress.update_hass_panel(addon)
+            await self.sys_ingress.update_hass_panel(app)
 
         return wait_for_start
 
@@ -382,59 +378,59 @@ class AddonManager(CoreSysAttributes):
     )
     async def repair(self) -> None:
         """Repair local apps."""
-        needs_repair: list[Addon] = []
+        needs_repair: list[App] = []
 
         # Evaluate Apps to repair
-        for addon in self.installed:
-            if await addon.instance.exists():
+        for app in self.installed:
+            if await app.instance.exists():
                 continue
-            needs_repair.append(addon)
+            needs_repair.append(app)
 
         _LOGGER.info("Found %d apps to repair", len(needs_repair))
         if not needs_repair:
             return
 
-        for addon in needs_repair:
-            _LOGGER.info("Repairing for app: %s", addon.slug)
+        for app in needs_repair:
+            _LOGGER.info("Repairing for app: %s", app.slug)
             with suppress(DockerError, KeyError):
                 # Need pull a image again
-                if not addon.need_build:
-                    await addon.instance.install(addon.version, addon.image)
+                if not app.need_build:
+                    await app.instance.install(app.version, app.image)
                     continue
 
                 # Need local lookup
-                if addon.need_build and not addon.is_detached:
-                    store = self.store[addon.slug]
+                if app.need_build and not app.is_detached:
+                    store = self.store[app.slug]
                     # If this app is available for rebuild
-                    if addon.version == store.version:
-                        await addon.instance.install(addon.version, addon.image)
+                    if app.version == store.version:
+                        await app.instance.install(app.version, app.image)
                         continue
 
-            _LOGGER.error("Can't repair %s", addon.slug)
-            with suppress(AddonsError):
-                await self.uninstall(addon.slug)
+            _LOGGER.error("Can't repair %s", app.slug)
+            with suppress(AppsError):
+                await self.uninstall(app.slug)
 
     async def sync_dns(self) -> None:
         """Sync apps DNS names."""
         # Update hosts
         add_host_coros: list[Awaitable[None]] = []
-        for addon in self.installed:
+        for app in self.installed:
             try:
-                if not await addon.instance.is_running():
+                if not await app.instance.is_running():
                     continue
             except DockerError as err:
-                _LOGGER.warning("App %s is corrupt: %s", addon.slug, err)
+                _LOGGER.warning("App %s is corrupt: %s", app.slug, err)
                 self.sys_resolution.create_issue(
                     IssueType.CORRUPT_DOCKER,
                     ContextType.ADDON,
-                    reference=addon.slug,
+                    reference=app.slug,
                     suggestions=[SuggestionType.EXECUTE_REPAIR],
                 )
                 await async_capture_exception(err)
             else:
                 add_host_coros.append(
                     self.sys_plugins.dns.add_host(
-                        ipv4=addon.ip_address, names=[addon.hostname], write=False
+                        ipv4=app.ip_address, names=[app.hostname], write=False
                     )
                 )
 

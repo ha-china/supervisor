@@ -48,7 +48,7 @@ class EvaluateRestartPolicy(EvaluateBase):
                 for plug in self.sys_plugins.all_plugins
                 if plug != self.sys_plugins.observer
             },
-            *{addon.instance for addon in self.sys_addons.installed},
+            *{app.instance for app in self.sys_apps.installed},
         }
 
     @property

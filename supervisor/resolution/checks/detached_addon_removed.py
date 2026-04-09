@@ -8,20 +8,20 @@ from .base import CheckBase
 
 def setup(coresys: CoreSys) -> CheckBase:
     """Check setup function."""
-    return CheckDetachedAddonRemoved(coresys)
+    return CheckDetachedAppRemoved(coresys)
 
 
-class CheckDetachedAddonRemoved(CheckBase):
+class CheckDetachedAppRemoved(CheckBase):
     """CheckDetachedAppRemoved class for check."""
 
     async def run_check(self) -> None:
         """Run check if not affected by issue."""
-        for addon in self.sys_addons.installed:
-            if addon.is_detached and addon.repository in self.sys_store.repositories:
+        for app in self.sys_apps.installed:
+            if app.is_detached and app.repository in self.sys_store.repositories:
                 self.sys_resolution.create_issue(
                     IssueType.DETACHED_ADDON_REMOVED,
                     ContextType.ADDON,
-                    reference=addon.slug,
+                    reference=app.slug,
                     suggestions=[SuggestionType.EXECUTE_REMOVE],
                 )
 
@@ -30,8 +30,8 @@ class CheckDetachedAddonRemoved(CheckBase):
         if not reference:
             return False
 
-        addon = self.sys_addons.get_local_only(reference)
-        return addon is not None and addon.is_detached
+        app = self.sys_apps.get_local_only(reference)
+        return app is not None and app.is_detached
 
     @property
     def issue(self) -> IssueType:

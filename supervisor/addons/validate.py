@@ -101,11 +101,11 @@ from ..const import (
     MACHINE_DEPRECATED,
     ROLE_ALL,
     ROLE_DEFAULT,
-    AddonBoot,
-    AddonBootConfig,
-    AddonStage,
-    AddonStartup,
-    AddonState,
+    AppBoot,
+    AppBootConfig,
+    AppStage,
+    AppStartup,
+    AppState,
 )
 from ..docker.const import Capabilities
 from ..validate import (
@@ -124,7 +124,7 @@ from .const import (
     ATTR_PATH,
     ATTR_READ_ONLY,
     RE_SLUG,
-    AddonBackupMode,
+    AppBackupMode,
     MappingType,
 )
 from .options import RE_SCHEMA_ELEMENT
@@ -186,7 +186,7 @@ RE_MACHINE = re.compile(
 RE_SLUG_FIELD = re.compile(r"^" + RE_SLUG + r"$")
 
 
-def _warn_addon_config(config: dict[str, Any]):
+def _warn_app_config(config: dict[str, Any]):
     """Warn about miss configs."""
     name = config.get(ATTR_NAME)
     if not name:
@@ -212,7 +212,7 @@ def _warn_addon_config(config: dict[str, Any]):
             name,
         )
 
-    if config.get(ATTR_BACKUP, AddonBackupMode.HOT) == AddonBackupMode.COLD and (
+    if config.get(ATTR_BACKUP, AppBackupMode.HOT) == AppBackupMode.COLD and (
         config.get(ATTR_BACKUP_POST) or config.get(ATTR_BACKUP_PRE)
     ):
         _LOGGER.warning(
@@ -249,7 +249,7 @@ def _warn_addon_config(config: dict[str, Any]):
     return config
 
 
-def _migrate_addon_config(protocol=False):
+def _migrate_app_config(protocol=False):
     """Migrate app config."""
 
     def _migrate(config: dict[str, Any]):
@@ -269,9 +269,9 @@ def _migrate_addon_config(protocol=False):
                     name,
                 )
             if value == "before":
-                config[ATTR_STARTUP] = AddonStartup.SERVICES
+                config[ATTR_STARTUP] = AppStartup.SERVICES
             elif value == "after":
-                config[ATTR_STARTUP] = AddonStartup.APPLICATION
+                config[ATTR_STARTUP] = AppStartup.APPLICATION
 
         # UART 2021-01-20
         if "auto_uart" in config:
@@ -387,15 +387,13 @@ _SCHEMA_ADDON_CONFIG = vol.Schema(
         vol.Required(ATTR_ARCH): [vol.In(ARCH_ALL_COMPAT)],
         vol.Optional(ATTR_MACHINE): vol.All([vol.Match(RE_MACHINE)], vol.Unique()),
         vol.Optional(ATTR_URL): vol.Url(),
-        vol.Optional(ATTR_STARTUP, default=AddonStartup.APPLICATION): vol.Coerce(
-            AddonStartup
+        vol.Optional(ATTR_STARTUP, default=AppStartup.APPLICATION): vol.Coerce(
+            AppStartup
         ),
-        vol.Optional(ATTR_BOOT, default=AddonBootConfig.AUTO): vol.Coerce(
-            AddonBootConfig
-        ),
+        vol.Optional(ATTR_BOOT, default=AppBootConfig.AUTO): vol.Coerce(AppBootConfig),
         vol.Optional(ATTR_INIT, default=True): vol.Boolean(),
         vol.Optional(ATTR_ADVANCED, default=False): vol.Boolean(),
-        vol.Optional(ATTR_STAGE, default=AddonStage.STABLE): vol.Coerce(AddonStage),
+        vol.Optional(ATTR_STAGE, default=AppStage.STABLE): vol.Coerce(AppStage),
         vol.Optional(ATTR_PORTS): docker_ports,
         vol.Optional(ATTR_PORTS_DESCRIPTION): docker_ports_description,
         vol.Optional(ATTR_WATCHDOG): vol.Match(
@@ -455,9 +453,7 @@ _SCHEMA_ADDON_CONFIG = vol.Schema(
         vol.Optional(ATTR_BACKUP_EXCLUDE): [str],
         vol.Optional(ATTR_BACKUP_PRE): str,
         vol.Optional(ATTR_BACKUP_POST): str,
-        vol.Optional(ATTR_BACKUP, default=AddonBackupMode.HOT): vol.Coerce(
-            AddonBackupMode
-        ),
+        vol.Optional(ATTR_BACKUP, default=AppBackupMode.HOT): vol.Coerce(AppBackupMode),
         vol.Optional(ATTR_OPTIONS, default={}): dict,
         vol.Optional(ATTR_SCHEMA, default={}): vol.Any(
             vol.Schema({str: SCHEMA_ELEMENT}),
@@ -488,7 +484,7 @@ _SCHEMA_ADDON_CONFIG = vol.Schema(
 )
 
 SCHEMA_ADDON_CONFIG = vol.All(
-    _migrate_addon_config(True), _warn_addon_config, _SCHEMA_ADDON_CONFIG
+    _migrate_app_config(True), _warn_app_config, _SCHEMA_ADDON_CONFIG
 )
 
 
@@ -535,7 +531,7 @@ SCHEMA_ADDON_USER = vol.Schema(
         vol.Optional(ATTR_INGRESS_TOKEN, default=secrets.token_urlsafe): str,
         vol.Optional(ATTR_OPTIONS, default=dict): dict,
         vol.Optional(ATTR_AUTO_UPDATE, default=False): vol.Boolean(),
-        vol.Optional(ATTR_BOOT): vol.Coerce(AddonBoot),
+        vol.Optional(ATTR_BOOT): vol.Coerce(AppBoot),
         vol.Optional(ATTR_NETWORK): docker_ports,
         vol.Optional(ATTR_AUDIO_OUTPUT): vol.Maybe(str),
         vol.Optional(ATTR_AUDIO_INPUT): vol.Maybe(str),
@@ -549,7 +545,7 @@ SCHEMA_ADDON_USER = vol.Schema(
 )
 
 SCHEMA_ADDON_SYSTEM = vol.All(
-    _migrate_addon_config(),
+    _migrate_app_config(),
     _SCHEMA_ADDON_CONFIG.extend(
         {
             vol.Required(ATTR_LOCATION): str,
@@ -575,7 +571,7 @@ SCHEMA_ADDON_BACKUP = vol.Schema(
     {
         vol.Required(ATTR_USER): SCHEMA_ADDON_USER,
         vol.Required(ATTR_SYSTEM): SCHEMA_ADDON_SYSTEM,
-        vol.Required(ATTR_STATE): vol.Coerce(AddonState),
+        vol.Required(ATTR_STATE): vol.Coerce(AppState),
         vol.Required(ATTR_VERSION): version_tag,
     },
     extra=vol.REMOVE_EXTRA,

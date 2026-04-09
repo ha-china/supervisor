@@ -27,7 +27,7 @@ from .const import (
 )
 
 if TYPE_CHECKING:
-    from .addons.manager import AddonManager
+    from .addons.manager import AppManager
     from .api import RestAPI
     from .arch import CpuArchManager
     from .auth import Auth
@@ -82,7 +82,7 @@ class CoreSys:
         self._auth: Auth | None = None
         self._homeassistant: HomeAssistant | None = None
         self._supervisor: Supervisor | None = None
-        self._addons: AddonManager | None = None
+        self._apps: AppManager | None = None
         self._api: RestAPI | None = None
         self._updater: Updater | None = None
         self._backups: BackupManager | None = None
@@ -350,18 +350,18 @@ class CoreSys:
         self._updater = value
 
     @property
-    def addons(self) -> AddonManager:
+    def apps(self) -> AppManager:
         """Return AppManager object."""
-        if self._addons is None:
-            raise RuntimeError("AddonManager not set!")
-        return self._addons
+        if self._apps is None:
+            raise RuntimeError("AppManager not set!")
+        return self._apps
 
-    @addons.setter
-    def addons(self, value: AddonManager) -> None:
+    @apps.setter
+    def apps(self, value: AppManager) -> None:
         """Set a AppManager object."""
-        if self._addons:
-            raise RuntimeError("AddonManager already set!")
-        self._addons = value
+        if self._apps:
+            raise RuntimeError("AppManager already set!")
+        self._apps = value
 
     @property
     def store(self) -> StoreManager:
@@ -771,9 +771,9 @@ class CoreSysAttributes:
         return self.coresys.updater
 
     @property
-    def sys_addons(self) -> AddonManager:
+    def sys_apps(self) -> AppManager:
         """Return AppManager object."""
-        return self.coresys.addons
+        return self.coresys.apps
 
     @property
     def sys_store(self) -> StoreManager:

@@ -6,7 +6,7 @@ from enum import StrEnum
 from ..jobs.const import JobCondition
 
 
-class AddonBackupMode(StrEnum):
+class AppBackupMode(StrEnum):
     """Backup mode of an App."""
 
     HOT = "hot"
@@ -38,7 +38,7 @@ WATCHDOG_MAX_ATTEMPTS = 5
 WATCHDOG_THROTTLE_PERIOD = timedelta(minutes=30)
 WATCHDOG_THROTTLE_MAX_CALLS = 10
 
-ADDON_UPDATE_CONDITIONS = [
+APP_UPDATE_CONDITIONS = [
     JobCondition.FREE_SPACE,
     JobCondition.HEALTHY,
     JobCondition.INTERNET_HOST,

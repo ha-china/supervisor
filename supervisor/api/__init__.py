@@ -8,11 +8,11 @@ from typing import Any
 
 from aiohttp import hdrs, web
 
-from ..const import SUPERVISOR_DOCKER_NAME, AddonState
+from ..const import SUPERVISOR_DOCKER_NAME, AppState
 from ..coresys import CoreSys, CoreSysAttributes
-from ..exceptions import APIAddonNotInstalled, HostNotSupportedError
+from ..exceptions import APIAppNotInstalled, HostNotSupportedError
 from ..utils.sentry import async_capture_exception
-from .addons import APIAddons
+from .addons import APIApps
 from .audio import APIAudio
 from .auth import APIAuth
 from .backups import APIBackups
@@ -89,7 +89,7 @@ class RestAPI(CoreSysAttributes):
         """Register REST API Calls."""
         static_resource_configs: list[StaticResourceConfig] = []
 
-        self._register_addons()
+        self._register_apps()
         self._register_audio()
         self._register_auth()
         self._register_backups()
@@ -563,52 +563,50 @@ class RestAPI(CoreSysAttributes):
             ]
         )
 
-    def _register_addons(self) -> None:
+    def _register_apps(self) -> None:
         """Register App functions."""
-        api_addons = APIAddons()
-        api_addons.coresys = self.coresys
+        api_apps = APIApps()
+        api_apps.coresys = self.coresys
 
         self.webapp.add_routes(
             [
-                web.get("/addons", api_addons.list_addons),
-                web.post("/addons/{addon}/uninstall", api_addons.uninstall),
-                web.post("/addons/{addon}/start", api_addons.start),
-                web.post("/addons/{addon}/stop", api_addons.stop),
-                web.post("/addons/{addon}/restart", api_addons.restart),
-                web.post("/addons/{addon}/options", api_addons.options),
-                web.post("/addons/{addon}/sys_options", api_addons.sys_options),
-                web.post(
-                    "/addons/{addon}/options/validate", api_addons.options_validate
-                ),
-                web.get("/addons/{addon}/options/config", api_addons.options_config),
-                web.post("/addons/{addon}/rebuild", api_addons.rebuild),
-                web.post("/addons/{addon}/stdin", api_addons.stdin),
-                web.post("/addons/{addon}/security", api_addons.security),
-                web.get("/addons/{addon}/stats", api_addons.stats),
+                web.get("/addons", api_apps.list_apps),
+                web.post("/addons/{app}/uninstall", api_apps.uninstall),
+                web.post("/addons/{app}/start", api_apps.start),
+                web.post("/addons/{app}/stop", api_apps.stop),
+                web.post("/addons/{app}/restart", api_apps.restart),
+                web.post("/addons/{app}/options", api_apps.options),
+                web.post("/addons/{app}/sys_options", api_apps.sys_options),
+                web.post("/addons/{app}/options/validate", api_apps.options_validate),
+                web.get("/addons/{app}/options/config", api_apps.options_config),
+                web.post("/addons/{app}/rebuild", api_apps.rebuild),
+                web.post("/addons/{app}/stdin", api_apps.stdin),
+                web.post("/addons/{app}/security", api_apps.security),
+                web.get("/addons/{app}/stats", api_apps.stats),
             ]
         )
 
         @api_process_raw(CONTENT_TYPE_TEXT, error_type=CONTENT_TYPE_TEXT)
-        async def get_addon_logs(request, *args, **kwargs):
-            addon = api_addons.get_addon_for_request(request)
-            kwargs["identifier"] = f"addon_{addon.slug}"
+        async def get_app_logs(request, *args, **kwargs):
+            app = api_apps.get_app_for_request(request)
+            kwargs["identifier"] = f"addon_{app.slug}"
             return await self._api_host.advanced_logs(request, *args, **kwargs)
 
         self.webapp.add_routes(
             [
-                web.get("/addons/{addon}/logs", get_addon_logs),
+                web.get("/addons/{app}/logs", get_app_logs),
                 web.get(
-                    "/addons/{addon}/logs/follow",
-                    partial(get_addon_logs, follow=True),
+                    "/addons/{app}/logs/follow",
+                    partial(get_app_logs, follow=True),
                 ),
                 web.get(
-                    "/addons/{addon}/logs/latest",
-                    partial(get_addon_logs, latest=True, no_colors=True),
+                    "/addons/{app}/logs/latest",
+                    partial(get_app_logs, latest=True, no_colors=True),
                 ),
-                web.get("/addons/{addon}/logs/boots/{bootid}", get_addon_logs),
+                web.get("/addons/{app}/logs/boots/{bootid}", get_app_logs),
                 web.get(
-                    "/addons/{addon}/logs/boots/{bootid}/follow",
-                    partial(get_addon_logs, follow=True),
+                    "/addons/{app}/logs/boots/{bootid}/follow",
+                    partial(get_app_logs, follow=True),
                 ),
             ]
         )
@@ -618,19 +616,19 @@ class RestAPI(CoreSysAttributes):
         api_store.coresys = self.coresys
 
         @api_process
-        async def addons_addon_info(request: web.Request) -> dict[str, Any]:
+        async def apps_app_info(request: web.Request) -> dict[str, Any]:
             """Route to store if info requested for not installed app."""
             try:
-                return await api_addons.info(request)
-            except APIAddonNotInstalled:
+                return await api_apps.info(request)
+            except APIAppNotInstalled:
                 # Route to store/{app}/info but add missing fields
                 return dict(
-                    await api_store.addons_addon_info_wrapped(request),
-                    state=AddonState.UNKNOWN,
-                    options=self.sys_addons.store[request.match_info["addon"]].options,
+                    await api_store.apps_app_info_wrapped(request),
+                    state=AppState.UNKNOWN,
+                    options=self.sys_apps.store[request.match_info["app"]].options,
                 )
 
-        self.webapp.add_routes([web.get("/addons/{addon}/info", addons_addon_info)])
+        self.webapp.add_routes([web.get("/addons/{app}/info", apps_app_info)])
 
     def _register_ingress(self) -> None:
         """Register Ingress functions."""
@@ -768,35 +766,31 @@ class RestAPI(CoreSysAttributes):
         self.webapp.add_routes(
             [
                 web.get("/store", api_store.store_info),
-                web.get("/store/addons", api_store.addons_list),
-                web.get("/store/addons/{addon}", api_store.addons_addon_info),
-                web.get("/store/addons/{addon}/icon", api_store.addons_addon_icon),
-                web.get("/store/addons/{addon}/logo", api_store.addons_addon_logo),
+                web.get("/store/addons", api_store.apps_list),
+                web.get("/store/addons/{app}", api_store.apps_app_info),
+                web.get("/store/addons/{app}/icon", api_store.apps_app_icon),
+                web.get("/store/addons/{app}/logo", api_store.apps_app_logo),
+                web.get("/store/addons/{app}/changelog", api_store.apps_app_changelog),
                 web.get(
-                    "/store/addons/{addon}/changelog", api_store.addons_addon_changelog
-                ),
-                web.get(
-                    "/store/addons/{addon}/documentation",
-                    api_store.addons_addon_documentation,
+                    "/store/addons/{app}/documentation",
+                    api_store.apps_app_documentation,
                 ),
                 web.get(
-                    "/store/addons/{addon}/availability",
-                    api_store.addons_addon_availability,
+                    "/store/addons/{app}/availability",
+                    api_store.apps_app_availability,
                 ),
+                web.post("/store/addons/{app}/install", api_store.apps_app_install),
                 web.post(
-                    "/store/addons/{addon}/install", api_store.addons_addon_install
+                    "/store/addons/{app}/install/{version}",
+                    api_store.apps_app_install,
                 ),
+                web.post("/store/addons/{app}/update", api_store.apps_app_update),
                 web.post(
-                    "/store/addons/{addon}/install/{version}",
-                    api_store.addons_addon_install,
-                ),
-                web.post("/store/addons/{addon}/update", api_store.addons_addon_update),
-                web.post(
-                    "/store/addons/{addon}/update/{version}",
-                    api_store.addons_addon_update,
+                    "/store/addons/{app}/update/{version}",
+                    api_store.apps_app_update,
                 ),
                 # Must be below others since it has a wildcard in resource path
-                web.get("/store/addons/{addon}/{version}", api_store.addons_addon_info),
+                web.get("/store/addons/{app}/{version}", api_store.apps_app_info),
                 web.post("/store/reload", api_store.reload),
                 web.get("/store/repositories", api_store.repositories_list),
                 web.get(
@@ -818,14 +812,14 @@ class RestAPI(CoreSysAttributes):
         self.webapp.add_routes(
             [
                 web.post("/addons/reload", api_store.reload),
-                web.post("/addons/{addon}/install", api_store.addons_addon_install),
-                web.post("/addons/{addon}/update", api_store.addons_addon_update),
-                web.get("/addons/{addon}/icon", api_store.addons_addon_icon),
-                web.get("/addons/{addon}/logo", api_store.addons_addon_logo),
-                web.get("/addons/{addon}/changelog", api_store.addons_addon_changelog),
+                web.post("/addons/{app}/install", api_store.apps_app_install),
+                web.post("/addons/{app}/update", api_store.apps_app_update),
+                web.get("/addons/{app}/icon", api_store.apps_app_icon),
+                web.get("/addons/{app}/logo", api_store.apps_app_logo),
+                web.get("/addons/{app}/changelog", api_store.apps_app_changelog),
                 web.get(
-                    "/addons/{addon}/documentation",
-                    api_store.addons_addon_documentation,
+                    "/addons/{app}/documentation",
+                    api_store.apps_app_documentation,
                 ),
             ]
         )

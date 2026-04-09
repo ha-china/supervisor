@@ -24,11 +24,11 @@ from supervisor.store.repository import Repository
 
 
 @pytest.fixture(name="mock_addons_git", autouse=True)
-async def fixture_mock_addons_git(tmp_supervisor_data: Path) -> None:
+async def fixture_mock_apps_git(tmp_supervisor_data: Path) -> None:
     """Mock apps git path."""
     with patch.object(
         CoreConfig,
-        "path_addons_git",
+        "path_apps_git",
         new=PropertyMock(return_value=tmp_supervisor_data / "addons" / "git"),
     ):
         yield
@@ -50,7 +50,7 @@ def add_store_reset_suggestion(coresys: CoreSys) -> None:
 async def test_fixup(coresys: CoreSys):
     """Test fixup."""
     store_execute_reset = FixupStoreExecuteReset(coresys)
-    test_repo = coresys.config.path_addons_git / "94cfad5a"
+    test_repo = coresys.config.path_apps_git / "94cfad5a"
 
     assert store_execute_reset.auto
 
@@ -89,7 +89,7 @@ async def test_fixup(coresys: CoreSys):
 async def test_fixup_clone_fail(coresys: CoreSys):
     """Test fixup does not delete cache when clone fails."""
     store_execute_reset = FixupStoreExecuteReset(coresys)
-    test_repo = coresys.config.path_addons_git / "94cfad5a"
+    test_repo = coresys.config.path_apps_git / "94cfad5a"
 
     add_store_reset_suggestion(coresys)
     test_repo.mkdir(parents=True)
@@ -125,7 +125,7 @@ async def test_fixup_move_fail(coresys: CoreSys, error_num: int, unhealthy: bool
     It will leave the user in a bind without the git cache but at least we try to clean up tmp.
     """
     store_execute_reset = FixupStoreExecuteReset(coresys)
-    test_repo = coresys.config.path_addons_git / "94cfad5a"
+    test_repo = coresys.config.path_apps_git / "94cfad5a"
 
     add_store_reset_suggestion(coresys)
     test_repo.mkdir(parents=True)

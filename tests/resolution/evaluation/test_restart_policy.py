@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 from aiodocker.containers import DockerContainer
 from awesomeversion import AwesomeVersion
 
-from supervisor.addons.addon import Addon
+from supervisor.addons.addon import App
 from supervisor.const import CoreState
 from supervisor.coresys import CoreSys
 from supervisor.resolution.evaluations.restart_policy import EvaluateRestartPolicy
@@ -15,7 +15,7 @@ from tests.common import load_json_fixture
 TEST_VERSION = AwesomeVersion("1.0.0")
 
 
-async def test_evaluation(coresys: CoreSys, install_addon_ssh: Addon):
+async def test_evaluation(coresys: CoreSys, install_app_ssh: App):
     """Test evaluation."""
     restart_policy = EvaluateRestartPolicy(coresys)
     await coresys.core.set_state(CoreState.RUNNING)
@@ -26,30 +26,30 @@ async def test_evaluation(coresys: CoreSys, install_addon_ssh: Addon):
     no_restart_attrs = load_json_fixture("container_attrs.json")
     always_restart_attrs = load_json_fixture("container_attrs.json")
     always_restart_attrs["HostConfig"]["RestartPolicy"]["Name"] = "always"
-    addon_attrs = no_restart_attrs
+    app_attrs = no_restart_attrs
     observer_attrs = always_restart_attrs
 
     async def get_container(name: str) -> DockerContainer:
         meta = MagicMock(spec=DockerContainer)
         meta.show.return_value = (
-            observer_attrs if name == "hassio_observer" else addon_attrs
+            observer_attrs if name == "hassio_observer" else app_attrs
         )
         return meta
 
     coresys.docker.containers.get = get_container
     await coresys.plugins.observer.instance.attach(TEST_VERSION)
-    await install_addon_ssh.instance.attach(TEST_VERSION)
+    await install_app_ssh.instance.attach(TEST_VERSION)
 
     await restart_policy()
     assert restart_policy.reason not in coresys.resolution.unsupported
 
-    addon_attrs = always_restart_attrs
-    await install_addon_ssh.instance.attach(TEST_VERSION)
+    app_attrs = always_restart_attrs
+    await install_app_ssh.instance.attach(TEST_VERSION)
     await restart_policy()
     assert restart_policy.reason in coresys.resolution.unsupported
 
-    addon_attrs = no_restart_attrs
-    await install_addon_ssh.instance.attach(TEST_VERSION)
+    app_attrs = no_restart_attrs
+    await install_app_ssh.instance.attach(TEST_VERSION)
     await restart_policy()
     assert restart_policy.reason not in coresys.resolution.unsupported
 

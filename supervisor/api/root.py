@@ -98,13 +98,13 @@ class APIRoot(CoreSysAttributes):
         available_updates.extend(
             {
                 ATTR_UPDATE_TYPE: "addon",
-                ATTR_NAME: addon.name,
-                ATTR_ICON: f"/addons/{addon.slug}/icon" if addon.with_icon else None,
-                ATTR_PANEL_PATH: f"/update-available/{addon.slug}",
-                ATTR_VERSION_LATEST: addon.latest_version,
+                ATTR_NAME: app.name,
+                ATTR_ICON: f"/addons/{app.slug}/icon" if app.with_icon else None,
+                ATTR_PANEL_PATH: f"/update-available/{app.slug}",
+                ATTR_VERSION_LATEST: app.latest_version,
             }
-            for addon in self.sys_addons.installed
-            if addon.need_update
+            for app in self.sys_apps.installed
+            if app.need_update
         )
 
         return {ATTR_AVAILABLE_UPDATES: available_updates}

@@ -9,8 +9,8 @@ from aiohttp import web
 import voluptuous as vol
 
 from ..const import (
-    ATTR_ADDONS,
-    ATTR_ADDONS_REPOSITORIES,
+    ATTR_APPS,
+    ATTR_APPS_REPOSITORIES,
     ATTR_ARCH,
     ATTR_AUTO_UPDATE,
     ATTR_BLK_READ,
@@ -60,7 +60,7 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 SCHEMA_OPTIONS = vol.Schema(
     {
         vol.Optional(ATTR_CHANNEL): vol.Coerce(UpdateChannel),
-        vol.Optional(ATTR_ADDONS_REPOSITORIES): repositories,
+        vol.Optional(ATTR_APPS_REPOSITORIES): repositories,
         vol.Optional(ATTR_TIMEZONE): str,
         vol.Optional(ATTR_WAIT_BOOT): wait_boot,
         vol.Optional(ATTR_LOGGING): vol.Coerce(LogLevel),
@@ -106,20 +106,20 @@ class APISupervisor(CoreSysAttributes):
             ATTR_COUNTRY: self.sys_config.country,
             # Depricated
             ATTR_WAIT_BOOT: self.sys_config.wait_boot,
-            ATTR_ADDONS: [
+            ATTR_APPS: [
                 {
-                    ATTR_NAME: addon.name,
-                    ATTR_SLUG: addon.slug,
-                    ATTR_VERSION: addon.version,
-                    ATTR_VERSION_LATEST: addon.latest_version,
-                    ATTR_UPDATE_AVAILABLE: addon.need_update,
-                    ATTR_STATE: addon.state,
-                    ATTR_REPOSITORY: addon.repository,
-                    ATTR_ICON: addon.with_icon,
+                    ATTR_NAME: app.name,
+                    ATTR_SLUG: app.slug,
+                    ATTR_VERSION: app.version,
+                    ATTR_VERSION_LATEST: app.latest_version,
+                    ATTR_UPDATE_AVAILABLE: app.need_update,
+                    ATTR_STATE: app.state,
+                    ATTR_REPOSITORY: app.repository,
+                    ATTR_ICON: app.with_icon,
                 }
-                for addon in self.sys_addons.local.values()
+                for app in self.sys_apps.local.values()
             ],
-            ATTR_ADDONS_REPOSITORIES: [
+            ATTR_APPS_REPOSITORIES: [
                 {ATTR_NAME: store.name, ATTR_SLUG: store.slug}
                 for store in self.sys_store.all
             ],
@@ -187,9 +187,9 @@ class APISupervisor(CoreSysAttributes):
         await self.sys_config.save_data()
 
         # Remove: 2022.9
-        if ATTR_ADDONS_REPOSITORIES in body:
+        if ATTR_APPS_REPOSITORIES in body:
             await asyncio.shield(
-                self.sys_store.update_repositories(set(body[ATTR_ADDONS_REPOSITORIES]))
+                self.sys_store.update_repositories(set(body[ATTR_APPS_REPOSITORIES]))
             )
 
         await self.sys_resolution.evaluate.evaluate_system()

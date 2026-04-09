@@ -8,7 +8,7 @@ import queue
 from typing import Any
 
 
-class AddonLoggerAdapter(logging.LoggerAdapter):
+class AppLoggerAdapter(logging.LoggerAdapter):
     """Logging Adapter which prepends log entries with app name."""
 
     def process(self, msg, kwargs):

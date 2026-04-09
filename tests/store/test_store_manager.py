@@ -8,14 +8,14 @@ from unittest.mock import PropertyMock, patch
 from awesomeversion import AwesomeVersion
 import pytest
 
-from supervisor.addons.addon import Addon
+from supervisor.addons.addon import App
 from supervisor.arch import CpuArchManager
 from supervisor.backups.manager import BackupManager
 from supervisor.coresys import CoreSys
-from supervisor.exceptions import AddonNotSupportedError, StoreJobError
+from supervisor.exceptions import AppNotSupportedError, StoreJobError
 from supervisor.homeassistant.module import HomeAssistant
 from supervisor.store import StoreManager
-from supervisor.store.addon import AddonStore
+from supervisor.store.addon import AppStore
 from supervisor.store.git import GitRepo
 from supervisor.store.repository import Repository
 
@@ -27,16 +27,16 @@ async def test_default_load(coresys: CoreSys):
     store_manager = await StoreManager(coresys).load_config()
     refresh_cache_calls: set[str] = set()
 
-    async def mock_refresh_cache(obj: AddonStore):
+    async def mock_refresh_cache(obj: AppStore):
         nonlocal refresh_cache_calls
         refresh_cache_calls.add(obj.slug)
 
     with (
         patch("supervisor.store.repository.RepositoryGit.load", return_value=None),
         patch("supervisor.store.repository.RepositoryLocal.load", return_value=None),
-        patch.object(type(coresys.config), "addons_repositories", return_value=[]),
+        patch.object(type(coresys.config), "apps_repositories", return_value=[]),
         patch("pathlib.Path.exists", return_value=True),
-        patch.object(AddonStore, "refresh_path_cache", new=mock_refresh_cache),
+        patch.object(AppStore, "refresh_path_cache", new=mock_refresh_cache),
     ):
         await store_manager.load()
 
@@ -83,13 +83,13 @@ async def test_load_with_custom_repository(coresys: CoreSys):
     with (
         patch("supervisor.store.repository.RepositoryGit.load", return_value=None),
         patch("supervisor.store.repository.RepositoryLocal.load", return_value=None),
-        patch.object(type(coresys.config), "addons_repositories", return_value=[]),
+        patch.object(type(coresys.config), "apps_repositories", return_value=[]),
         patch("supervisor.store.repository.RepositoryGit.validate", return_value=True),
         patch(
             "supervisor.store.repository.RepositoryLocal.validate", return_value=True
         ),
         patch("pathlib.Path.exists", return_value=True),
-        patch.object(AddonStore, "refresh_path_cache", new=mock_refresh_cache),
+        patch.object(AppStore, "refresh_path_cache", new=mock_refresh_cache),
     ):
         await store_manager.load()
 
@@ -144,15 +144,15 @@ async def test_reload_fails_if_out_of_date(coresys: CoreSys):
         ),
     ],
 )
-async def test_update_unavailable_addon(
+async def test_update_unavailable_app(
     coresys: CoreSys,
-    install_addon_ssh: Addon,
+    install_app_ssh: App,
     caplog: pytest.LogCaptureFixture,
     config: dict[str, Any],
     log: str,
 ):
     """Test updating app when new version not available for system."""
-    addon_config = dict(
+    app_config = dict(
         await coresys.run_in_executor(
             load_yaml_fixture, "addons/local/ssh/config.yaml"
         ),
@@ -162,7 +162,7 @@ async def test_update_unavailable_addon(
 
     with (
         patch.object(BackupManager, "do_backup_partial") as backup,
-        patch.object(AddonStore, "data", new=PropertyMock(return_value=addon_config)),
+        patch.object(AppStore, "data", new=PropertyMock(return_value=app_config)),
         patch.object(
             CpuArchManager, "supported", new=PropertyMock(return_value=["amd64"])
         ),
@@ -174,8 +174,8 @@ async def test_update_unavailable_addon(
         ),
         patch("shutil.disk_usage", return_value=(42, 42, (5120.0**3))),
     ):
-        with pytest.raises(AddonNotSupportedError):
-            await coresys.addons.update("local_ssh", backup=True)
+        with pytest.raises(AppNotSupportedError):
+            await coresys.apps.update("local_ssh", backup=True)
 
         backup.assert_not_called()
 
@@ -203,7 +203,7 @@ async def test_update_unavailable_addon(
         ),
     ],
 )
-async def test_install_unavailable_addon(
+async def test_install_unavailable_app(
     coresys: CoreSys,
     test_repository: Repository,
     caplog: pytest.LogCaptureFixture,
@@ -211,7 +211,7 @@ async def test_install_unavailable_addon(
     log: str,
 ):
     """Test updating app when new version not available for system."""
-    addon_config = dict(
+    app_config = dict(
         await coresys.run_in_executor(
             load_yaml_fixture, "addons/local/ssh/config.yaml"
         ),
@@ -220,7 +220,7 @@ async def test_install_unavailable_addon(
     )
 
     with (
-        patch.object(AddonStore, "data", new=PropertyMock(return_value=addon_config)),
+        patch.object(AppStore, "data", new=PropertyMock(return_value=app_config)),
         patch.object(
             CpuArchManager, "supported", new=PropertyMock(return_value=["amd64"])
         ),
@@ -231,9 +231,9 @@ async def test_install_unavailable_addon(
             new=PropertyMock(return_value=AwesomeVersion("2022.1.1")),
         ),
         patch("shutil.disk_usage", return_value=(42, 42, (5120.0**3))),
-        pytest.raises(AddonNotSupportedError),
+        pytest.raises(AppNotSupportedError),
     ):
-        await coresys.addons.install("local_ssh")
+        await coresys.apps.install("local_ssh")
 
     assert log in caplog.text
 
@@ -250,17 +250,17 @@ async def test_reload(coresys: CoreSys, supervisor_internet):
         assert git_pull.call_count == 4
 
 
-async def test_addon_version_timestamp(coresys: CoreSys, install_addon_example: Addon):
+async def test_app_version_timestamp(coresys: CoreSys, install_app_example: App):
     """Test timestamp tracked for app's version."""
     # When unset, version timestamp set to utcnow on store load
-    assert (timestamp := install_addon_example.latest_version_timestamp)
+    assert (timestamp := install_app_example.latest_version_timestamp)
 
     # Reload of the store does not change timestamp unless version changes
     await coresys.store.reload()
-    assert timestamp == install_addon_example.latest_version_timestamp
+    assert timestamp == install_app_example.latest_version_timestamp
 
     # If a new version is seen processing repo, reset to utc now
-    install_addon_example.data_store["version"] = "1.1.0"
+    install_app_example.data_store["version"] = "1.1.0"
 
     with patch(
         "pathlib.Path.stat",
@@ -269,4 +269,4 @@ async def test_addon_version_timestamp(coresys: CoreSys, install_addon_example: 
         ),
     ):
         await coresys.store.reload()
-    assert timestamp < install_addon_example.latest_version_timestamp
+    assert timestamp < install_app_example.latest_version_timestamp

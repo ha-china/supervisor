@@ -9,11 +9,11 @@ from unittest.mock import PropertyMock, patch
 from awesomeversion import AwesomeVersion
 import pytest
 
-from supervisor.addons.addon import Addon
-from supervisor.addons.build import AddonBuild
+from supervisor.addons.addon import App
+from supervisor.addons.build import AppBuild
 from supervisor.coresys import CoreSys
 from supervisor.docker.const import DOCKER_HUB, MountType
-from supervisor.exceptions import AddonBuildDockerfileMissingError
+from supervisor.exceptions import AppBuildDockerfileMissingError
 
 from tests.common import is_in_list
 
@@ -30,9 +30,9 @@ def _is_label_in_command(
     return f"--label {label_name}={label_value}" in " ".join(command)
 
 
-async def test_platform_set(coresys: CoreSys, install_addon_ssh: Addon):
+async def test_platform_set(coresys: CoreSys, install_app_ssh: App):
     """Test platform set in container build args."""
-    build = await AddonBuild.create(coresys, install_addon_ssh)
+    build = await AppBuild.create(coresys, install_app_ssh)
 
     with (
         patch.object(
@@ -54,9 +54,9 @@ async def test_platform_set(coresys: CoreSys, install_addon_ssh: Addon):
     assert is_in_list(["--platform", "linux/amd64"], args["command"])
 
 
-async def test_dockerfile_evaluation(coresys: CoreSys, install_addon_ssh: Addon):
+async def test_dockerfile_evaluation(coresys: CoreSys, install_app_ssh: App):
     """Test dockerfile path in container build args."""
-    build = await AddonBuild.create(coresys, install_addon_ssh)
+    build = await AppBuild.create(coresys, install_app_ssh)
 
     with (
         patch.object(
@@ -82,9 +82,9 @@ async def test_dockerfile_evaluation(coresys: CoreSys, install_addon_ssh: Addon)
     assert build.arch == "amd64"
 
 
-async def test_dockerfile_evaluation_arch(coresys: CoreSys, install_addon_ssh: Addon):
+async def test_dockerfile_evaluation_arch(coresys: CoreSys, install_app_ssh: App):
     """Test dockerfile arch evaluation in container build args."""
-    build = await AddonBuild.create(coresys, install_addon_ssh)
+    build = await AppBuild.create(coresys, install_app_ssh)
 
     with (
         patch.object(
@@ -110,9 +110,9 @@ async def test_dockerfile_evaluation_arch(coresys: CoreSys, install_addon_ssh: A
     assert build.arch == "aarch64"
 
 
-async def test_build_valid(coresys: CoreSys, install_addon_ssh: Addon):
+async def test_build_valid(coresys: CoreSys, install_app_ssh: App):
     """Test platform set in docker args."""
-    build = await AddonBuild.create(coresys, install_addon_ssh)
+    build = await AppBuild.create(coresys, install_app_ssh)
     with (
         patch.object(
             type(coresys.arch), "supported", new=PropertyMock(return_value=["aarch64"])
@@ -124,9 +124,9 @@ async def test_build_valid(coresys: CoreSys, install_addon_ssh: Addon):
         assert (await build.is_valid()) is None
 
 
-async def test_build_invalid(coresys: CoreSys, install_addon_ssh: Addon):
+async def test_build_invalid(coresys: CoreSys, install_app_ssh: App):
     """Test build not supported because Dockerfile missing for specified architecture."""
-    build = await AddonBuild.create(coresys, install_addon_ssh)
+    build = await AppBuild.create(coresys, install_app_ssh)
     with (
         patch.object(
             type(coresys.arch), "supported", new=PropertyMock(return_value=["amd64"])
@@ -134,22 +134,22 @@ async def test_build_invalid(coresys: CoreSys, install_addon_ssh: Addon):
         patch.object(
             type(coresys.arch), "default", new=PropertyMock(return_value="amd64")
         ),
-        pytest.raises(AddonBuildDockerfileMissingError),
+        pytest.raises(AppBuildDockerfileMissingError),
     ):
         await build.is_valid()
 
 
-async def test_docker_config_no_registries(coresys: CoreSys, install_addon_ssh: Addon):
+async def test_docker_config_no_registries(coresys: CoreSys, install_app_ssh: App):
     """Test docker config generation when no registries configured."""
-    build = await AddonBuild.create(coresys, install_addon_ssh)
+    build = await AppBuild.create(coresys, install_app_ssh)
 
     # No registries configured by default
     assert build.get_docker_config_json() is None
 
 
-async def test_docker_config_all_registries(coresys: CoreSys, install_addon_ssh: Addon):
+async def test_docker_config_all_registries(coresys: CoreSys, install_app_ssh: App):
     """Test docker config includes all configured registries."""
-    build = await AddonBuild.create(coresys, install_addon_ssh)
+    build = await AppBuild.create(coresys, install_app_ssh)
 
     # pylint: disable-next=protected-access
     coresys.docker.config._data["registries"] = {
@@ -171,9 +171,9 @@ async def test_docker_config_all_registries(coresys: CoreSys, install_addon_ssh:
     assert config["auths"]["some.other.registry"]["auth"] == expected_other
 
 
-async def test_docker_config_docker_hub(coresys: CoreSys, install_addon_ssh: Addon):
+async def test_docker_config_docker_hub(coresys: CoreSys, install_app_ssh: App):
     """Test docker config uses special URL key for Docker Hub."""
-    build = await AddonBuild.create(coresys, install_addon_ssh)
+    build = await AppBuild.create(coresys, install_app_ssh)
 
     # pylint: disable-next=protected-access
     coresys.docker.config._data["registries"] = {
@@ -190,9 +190,9 @@ async def test_docker_config_docker_hub(coresys: CoreSys, install_addon_ssh: Add
     assert config["auths"]["https://index.docker.io/v1/"]["auth"] == expected_auth
 
 
-async def test_docker_args_with_config_path(coresys: CoreSys, install_addon_ssh: Addon):
+async def test_docker_args_with_config_path(coresys: CoreSys, install_app_ssh: App):
     """Test docker args include config volume when path provided."""
-    build = await AddonBuild.create(coresys, install_addon_ssh)
+    build = await AppBuild.create(coresys, install_app_ssh)
 
     with (
         patch.object(
@@ -225,11 +225,9 @@ async def test_docker_args_with_config_path(coresys: CoreSys, install_addon_ssh:
     assert config_mount.type == MountType.BIND
 
 
-async def test_docker_args_without_config_path(
-    coresys: CoreSys, install_addon_ssh: Addon
-):
+async def test_docker_args_without_config_path(coresys: CoreSys, install_app_ssh: App):
     """Test docker args don't include config volume when no path provided."""
-    build = await AddonBuild.create(coresys, install_addon_ssh)
+    build = await AppBuild.create(coresys, install_app_ssh)
 
     with (
         patch.object(
@@ -256,17 +254,17 @@ async def test_docker_args_without_config_path(
 
 
 async def test_build_file_deprecation_warning(
-    coresys: CoreSys, install_addon_ssh: Addon, caplog: pytest.LogCaptureFixture
+    coresys: CoreSys, install_app_ssh: App, caplog: pytest.LogCaptureFixture
 ):
     """Test deprecation warning is logged when build.yaml exists."""
     with caplog.at_level(logging.WARNING):
-        await AddonBuild.create(coresys, install_addon_ssh)
+        await AppBuild.create(coresys, install_app_ssh)
     assert "uses build.yaml which is deprecated" in caplog.text
 
 
 async def test_no_build_file_no_deprecation_warning(
     coresys: CoreSys,
-    install_addon_ssh: Addon,
+    install_app_ssh: App,
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
 ):
@@ -276,34 +274,34 @@ async def test_no_build_file_no_deprecation_warning(
 
     with (
         patch.object(
-            type(install_addon_ssh),
+            type(install_app_ssh),
             "path_location",
             new=PropertyMock(return_value=tmp_path),
         ),
         caplog.at_level(logging.WARNING),
     ):
-        await AddonBuild.create(coresys, install_addon_ssh)
+        await AppBuild.create(coresys, install_app_ssh)
     assert "uses build.yaml which is deprecated" not in caplog.text
 
 
 async def test_no_build_yaml_base_image_none(
-    coresys: CoreSys, install_addon_ssh: Addon, tmp_path: Path
+    coresys: CoreSys, install_app_ssh: App, tmp_path: Path
 ):
     """Test base_image is None when no build file exists."""
     dockerfile = tmp_path / "Dockerfile"
     dockerfile.write_text("ARG BUILD_FROM=ghcr.io/home-assistant/base:latest\n")
 
     with patch.object(
-        type(install_addon_ssh),
+        type(install_app_ssh),
         "path_location",
         new=PropertyMock(return_value=tmp_path),
     ):
-        build = await AddonBuild.create(coresys, install_addon_ssh)
+        build = await AppBuild.create(coresys, install_app_ssh)
         assert build.base_image is None
 
 
 async def test_no_build_yaml_no_build_from_arg(
-    coresys: CoreSys, install_addon_ssh: Addon, tmp_path: Path
+    coresys: CoreSys, install_app_ssh: App, tmp_path: Path
 ):
     """Test BUILD_FROM is not in docker args when no build file exists."""
     dockerfile = tmp_path / "Dockerfile"
@@ -311,7 +309,7 @@ async def test_no_build_yaml_no_build_from_arg(
 
     with (
         patch.object(
-            type(install_addon_ssh),
+            type(install_app_ssh),
             "path_location",
             new=PropertyMock(return_value=tmp_path),
         ),
@@ -327,7 +325,7 @@ async def test_no_build_yaml_no_build_from_arg(
             return_value=PurePath("/addon/path/on/host"),
         ),
     ):
-        build = await AddonBuild.create(coresys, install_addon_ssh)
+        build = await AppBuild.create(coresys, install_app_ssh)
         args = await coresys.run_in_executor(
             build.get_docker_args, AwesomeVersion("1.0.0"), "test-image:1.0.0", None
         )
@@ -337,9 +335,9 @@ async def test_no_build_yaml_no_build_from_arg(
     assert _is_build_arg_in_command(args["command"], "BUILD_ARCH")
 
 
-async def test_build_yaml_passes_build_from(coresys: CoreSys, install_addon_ssh: Addon):
+async def test_build_yaml_passes_build_from(coresys: CoreSys, install_app_ssh: App):
     """Test BUILD_FROM is in docker args when build.yaml exists."""
-    build = await AddonBuild.create(coresys, install_addon_ssh)
+    build = await AppBuild.create(coresys, install_app_ssh)
 
     with (
         patch.object(
@@ -364,7 +362,7 @@ async def test_build_yaml_passes_build_from(coresys: CoreSys, install_addon_ssh:
 
 
 async def test_no_build_yaml_docker_config_includes_registries(
-    coresys: CoreSys, install_addon_ssh: Addon, tmp_path: Path
+    coresys: CoreSys, install_app_ssh: App, tmp_path: Path
 ):
     """Test registries are included in docker config even without build file."""
     dockerfile = tmp_path / "Dockerfile"
@@ -376,11 +374,11 @@ async def test_no_build_yaml_docker_config_includes_registries(
     }
 
     with patch.object(
-        type(install_addon_ssh),
+        type(install_app_ssh),
         "path_location",
         new=PropertyMock(return_value=tmp_path),
     ):
-        build = await AddonBuild.create(coresys, install_addon_ssh)
+        build = await AppBuild.create(coresys, install_app_ssh)
         config_json = build.get_docker_config_json()
         assert config_json is not None
 
@@ -389,10 +387,10 @@ async def test_no_build_yaml_docker_config_includes_registries(
 
 
 async def test_labels_include_name_and_description(
-    coresys: CoreSys, install_addon_ssh: Addon
+    coresys: CoreSys, install_app_ssh: App
 ):
     """Test name and description labels are included when app has them set."""
-    build = await AddonBuild.create(coresys, install_addon_ssh)
+    build = await AppBuild.create(coresys, install_app_ssh)
 
     with (
         patch.object(
@@ -420,17 +418,15 @@ async def test_labels_include_name_and_description(
 
 
 async def test_labels_omit_name_and_description_when_empty(
-    coresys: CoreSys, install_addon_ssh: Addon
+    coresys: CoreSys, install_app_ssh: App
 ):
     """Test name and description labels are omitted when app has empty values."""
-    build = await AddonBuild.create(coresys, install_addon_ssh)
+    build = await AppBuild.create(coresys, install_app_ssh)
 
     with (
+        patch.object(type(install_app_ssh), "name", new=PropertyMock(return_value="")),
         patch.object(
-            type(install_addon_ssh), "name", new=PropertyMock(return_value="")
-        ),
-        patch.object(
-            type(install_addon_ssh),
+            type(install_app_ssh),
             "description",
             new=PropertyMock(return_value=""),
         ),

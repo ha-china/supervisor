@@ -5,7 +5,7 @@ from unittest.mock import PropertyMock, patch
 
 import pytest
 
-from supervisor.addons.addon import Addon
+from supervisor.addons.addon import App
 from supervisor.coresys import CoreSys
 from supervisor.exceptions import (
     StoreError,
@@ -16,7 +16,7 @@ from supervisor.exceptions import (
 )
 from supervisor.resolution.const import SuggestionType
 from supervisor.store import StoreManager
-from supervisor.store.addon import AddonStore
+from supervisor.store.addon import AppStore
 from supervisor.store.const import BuiltinRepository
 from supervisor.store.repository import Repository
 
@@ -226,7 +226,7 @@ async def test_remove_repository(
         await store_manager.remove_repository(test_repository)
 
     assert test_repository.source not in coresys.store.repository_urls
-    assert test_repository.slug not in coresys.addons.store
+    assert test_repository.slug not in coresys.apps.store
     assert test_repository.slug not in coresys.store.repositories
 
 
@@ -234,15 +234,15 @@ async def test_remove_repository(
 async def test_remove_used_repository(
     coresys: CoreSys,
     store_manager: StoreManager,
-    store_addon: AddonStore,
+    store_app: AppStore,
     use_update: bool,
 ):
     """Test removing used custom repository."""
-    await coresys.addons.data.install(store_addon)
-    addon = Addon(coresys, store_addon.slug)
-    coresys.addons.local[addon.slug] = addon
+    await coresys.apps.data.install(store_app)
+    app = App(coresys, store_app.slug)
+    coresys.apps.local[app.slug] = app
 
-    assert store_addon.repository in coresys.store.repositories
+    assert store_app.repository in coresys.store.repositories
 
     with pytest.raises(
         StoreError,
@@ -252,7 +252,7 @@ async def test_remove_used_repository(
             await store_manager.update_repositories(set())
         else:
             await store_manager.remove_repository(
-                coresys.store.repositories[store_addon.repository]
+                coresys.store.repositories[store_app.repository]
             )
 
 

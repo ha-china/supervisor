@@ -7,7 +7,7 @@ from awesomeversion import AwesomeVersion
 import pytest
 
 from supervisor.const import SUPERVISOR_VERSION, CoreState
-from supervisor.exceptions import AddonConfigurationError
+from supervisor.exceptions import AppConfigurationError
 from supervisor.misc.filter import filter_data
 from supervisor.resolution.const import (
     ContextType,
@@ -83,7 +83,7 @@ def sys_env(autouse=True):
 
 def test_ignored_exception(coresys):
     """Test ignored exceptions."""
-    hint = {"exc_info": (None, AddonConfigurationError(), None)}
+    hint = {"exc_info": (None, AppConfigurationError(), None)}
     assert filter_data(coresys, SAMPLE_EVENT, hint) is None
 
 

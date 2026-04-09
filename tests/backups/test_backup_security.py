@@ -7,7 +7,7 @@ import tarfile
 import pytest
 from securetar import SecureTarFile
 
-from supervisor.addons.addon import Addon
+from supervisor.addons.addon import App
 from supervisor.backups.backup import Backup
 from supervisor.backups.const import BackupType
 from supervisor.coresys import CoreSys
@@ -172,8 +172,8 @@ async def test_homeassistant_restore_rejects_path_traversal(
         await coresys.homeassistant.restore(tar_file)
 
 
-async def test_addon_restore_rejects_path_traversal(
-    coresys: CoreSys, install_addon_ssh: Addon, tmp_supervisor_data: Path
+async def test_app_restore_rejects_path_traversal(
+    coresys: CoreSys, install_app_ssh: App, tmp_supervisor_data: Path
 ):
     """Test that app restore raises BackupInvalidError for path traversal."""
     tar_path = tmp_supervisor_data / "addon.tar.gz"
@@ -183,11 +183,11 @@ async def test_addon_restore_rejects_path_traversal(
 
     tar_file = SecureTarFile(tar_path, gzip=True)
     with pytest.raises(BackupInvalidError):
-        await install_addon_ssh.restore(tar_file)
+        await install_app_ssh.restore(tar_file)
 
 
-async def test_addon_restore_rejects_symlink_escape(
-    coresys: CoreSys, install_addon_ssh: Addon, tmp_supervisor_data: Path
+async def test_app_restore_rejects_symlink_escape(
+    coresys: CoreSys, install_app_ssh: App, tmp_supervisor_data: Path
 ):
     """Test that app restore raises BackupInvalidError for symlink escape."""
     link_info = tarfile.TarInfo(name="escape")
@@ -205,7 +205,7 @@ async def test_addon_restore_rejects_symlink_escape(
 
     tar_file = SecureTarFile(tar_path, gzip=True)
     with pytest.raises(BackupInvalidError):
-        await install_addon_ssh.restore(tar_file)
+        await install_app_ssh.restore(tar_file)
 
 
 async def test_folder_restore_rejects_path_traversal(

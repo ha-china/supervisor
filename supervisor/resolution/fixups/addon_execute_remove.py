@@ -3,7 +3,7 @@
 import logging
 
 from ...coresys import CoreSys
-from ...exceptions import AddonsError, ResolutionFixupError
+from ...exceptions import AppsError, ResolutionFixupError
 from ..const import ContextType, IssueType, SuggestionType
 from .base import FixupBase
 
@@ -12,10 +12,10 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 def setup(coresys: CoreSys) -> FixupBase:
     """Check setup function."""
-    return FixupAddonExecuteRemove(coresys)
+    return FixupAppExecuteRemove(coresys)
 
 
-class FixupAddonExecuteRemove(FixupBase):
+class FixupAppExecuteRemove(FixupBase):
     """Storage class for fixup."""
 
     async def process_fixup(self, reference: str | None = None) -> None:
@@ -23,15 +23,15 @@ class FixupAddonExecuteRemove(FixupBase):
         if not reference:
             return
 
-        if not (addon := self.sys_addons.get_local_only(reference)):
+        if not (app := self.sys_apps.get_local_only(reference)):
             _LOGGER.info("App %s already removed", reference)
             return
 
         # Remove app
         _LOGGER.info("Remove app: %s", reference)
         try:
-            await addon.uninstall(remove_config=False)
-        except AddonsError as err:
+            await app.uninstall(remove_config=False)
+        except AppsError as err:
             _LOGGER.error("Could not remove %s due to %s", reference, err)
             raise ResolutionFixupError() from None
 
