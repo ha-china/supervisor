@@ -220,12 +220,12 @@ class HomeAssistantAPI(CoreSysAttributes):
                     max_msg_size=max_msg_size,
                 )
             except HomeAssistantAPIError:
+                self._access_token = None
                 if attempt == 2:
                     raise
-                self._access_token = None
 
         # Unreachable, but satisfies type checker
-        raise HomeAssistantAPIError("Failed to connect WebSocket")
+        raise RuntimeError("Unreachable")
 
     @asynccontextmanager
     async def make_request(
