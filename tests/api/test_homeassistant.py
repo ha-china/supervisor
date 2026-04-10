@@ -458,10 +458,12 @@ async def test_update_frontend_check_success(api_client: TestClient, coresys: Co
             HomeAssistantAPI, "get_config", return_value={"components": ["frontend"]}
         ),
         patch.object(HomeAssistantAPI, "check_frontend_available", return_value=True),
+        patch.object(DockerInterface, "cleanup") as mock_cleanup,
     ):
         resp = await api_client.post("/core/update", json={"version": "2025.8.3"})
 
     assert resp.status == 200
+    mock_cleanup.assert_called_once()
 
 
 async def test_update_frontend_check_fails_triggers_rollback(
@@ -498,6 +500,7 @@ async def test_update_frontend_check_fails_triggers_rollback(
             HomeAssistantAPI, "get_config", return_value={"components": ["frontend"]}
         ),
         patch.object(HomeAssistantAPI, "check_frontend_available", return_value=False),
+        patch.object(DockerInterface, "cleanup") as mock_cleanup,
     ):
         resp = await api_client.post("/core/update", json={"version": "2025.8.3"})
 
@@ -511,3 +514,5 @@ async def test_update_frontend_check_fails_triggers_rollback(
     assert (
         Issue(IssueType.UPDATE_ROLLBACK, ContextType.CORE) in coresys.resolution.issues
     )
+    # Old image should not be cleaned up so rollback doesn't need to re-download
+    mock_cleanup.assert_not_called()
