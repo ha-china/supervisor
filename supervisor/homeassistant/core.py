@@ -330,9 +330,8 @@ class HomeAssistantCore(JobGroup):
             try:
                 data = await self.sys_homeassistant.api.get_config()
             except HomeAssistantError:
-                # The API stoped responding between the up checks an now
+                # The API stopped responding between the update and now
                 self._error_state = True
-                return
 
             # Verify that the frontend is loaded
             if "frontend" not in data.get("components", []):
