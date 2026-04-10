@@ -185,7 +185,7 @@ class WSClient:
             TimeoutError,
         ) as err:
             await client.close()
-            raise HomeAssistantAPIError(
+            raise HomeAssistantWSConnectionError(
                 f"Unexpected error during WebSocket handshake: {err}"
             ) from err
 
@@ -234,7 +234,7 @@ class WSClient:
             TimeoutError,
         ) as err:
             await client.close()
-            raise HomeAssistantAPIError(
+            raise HomeAssistantWSConnectionError(
                 f"Unexpected error during WebSocket handshake: {err}"
             ) from err
 
@@ -309,7 +309,7 @@ class HomeAssistantWebSocket(CoreSysAttributes):
         try:
             await self._ensure_connected()
         except HomeAssistantWSError as err:
-            _LOGGER.debug("Can't send WebSocket command: %s", err)
+            _LOGGER.warning("Can't send WebSocket command: %s", err)
             return
 
         # _ensure_connected guarantees self.client is set

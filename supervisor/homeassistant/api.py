@@ -219,7 +219,7 @@ class HomeAssistantAPI(CoreSysAttributes):
                     self._access_token,
                     max_msg_size=max_msg_size,
                 )
-            except HomeAssistantAPIError:
+            except HomeAssistantAuthError:
                 self._access_token = None
                 if attempt == 2:
                     raise
