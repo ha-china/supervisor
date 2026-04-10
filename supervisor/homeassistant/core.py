@@ -321,8 +321,6 @@ class HomeAssistantCore(JobGroup):
 
             # Successfull - last step
             await self.sys_homeassistant.save_data()
-            with suppress(DockerError):
-                await self.instance.cleanup(old_image=old_image)
 
         # Update Home Assistant
         with suppress(HomeAssistantError):
@@ -347,6 +345,9 @@ class HomeAssistantCore(JobGroup):
                 )
                 self._error_state = True
             else:
+                # Health checks passed, clean up old image
+                with suppress(DockerError):
+                    await self.instance.cleanup(old_image=old_image)
                 return
 
         # Update going wrong, revert it
