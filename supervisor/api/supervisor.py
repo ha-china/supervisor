@@ -42,7 +42,7 @@ from ..const import (
     ATTR_VERSION,
     ATTR_VERSION_LATEST,
     ATTR_WAIT_BOOT,
-    ExperimentalFeature,
+    FeatureFlag,
     LogLevel,
     UpdateChannel,
 )
@@ -73,7 +73,7 @@ SCHEMA_OPTIONS = vol.Schema(
         vol.Optional(ATTR_DETECT_BLOCKING_IO): vol.Coerce(DetectBlockingIO),
         vol.Optional(ATTR_COUNTRY): str,
         vol.Optional(ATTR_FEATURE_FLAGS): vol.Schema(
-            {vol.Coerce(ExperimentalFeature): vol.Boolean()}
+            {vol.Coerce(FeatureFlag): vol.Boolean()}
         ),
     }
 )
@@ -111,7 +111,7 @@ class APISupervisor(CoreSysAttributes):
             ATTR_COUNTRY: self.sys_config.country,
             ATTR_FEATURE_FLAGS: {
                 feature: self.sys_config.feature_flags.get(feature, False)
-                for feature in ExperimentalFeature
+                for feature in FeatureFlag
             },
             # Depricated
             ATTR_WAIT_BOOT: self.sys_config.wait_boot,

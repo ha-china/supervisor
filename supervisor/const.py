@@ -549,8 +549,8 @@ class CpuArch(StrEnum):
     AMD64 = "amd64"
 
 
-class ExperimentalFeature(StrEnum):
-    """Experimental features that can be toggled."""
+class FeatureFlag(StrEnum):
+    """Development features that can be toggled."""
 
     SUPERVISOR_V2_API = "supervisor_v2_api"
 

@@ -48,7 +48,7 @@ from .const import (
     ATTR_VERSION,
     ATTR_WAIT_BOOT,
     SUPERVISOR_VERSION,
-    ExperimentalFeature,
+    FeatureFlag,
     LogLevel,
     UpdateChannel,
 )
@@ -215,7 +215,7 @@ SCHEMA_SUPERVISOR_CONFIG = vol.Schema(
         vol.Optional(ATTR_DETECT_BLOCKING_IO, default=False): vol.Boolean(),
         vol.Optional(ATTR_COUNTRY): str,
         vol.Optional(ATTR_FEATURE_FLAGS, default=dict): vol.Schema(
-            {vol.Coerce(ExperimentalFeature): vol.Boolean()}
+            {vol.Coerce(FeatureFlag): vol.Boolean()}
         ),
     },
     extra=vol.REMOVE_EXTRA,

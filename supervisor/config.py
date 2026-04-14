@@ -25,7 +25,7 @@ from .const import (
     ENV_SUPERVISOR_SHARE,
     FILE_HASSIO_CONFIG,
     SUPERVISOR_DATA,
-    ExperimentalFeature,
+    FeatureFlag,
     LogLevel,
 )
 from .utils.common import FileConfiguration
@@ -198,11 +198,11 @@ class CoreConfig(FileConfiguration):
         logging.getLogger("supervisor").setLevel(lvl)
 
     @property
-    def feature_flags(self) -> dict[ExperimentalFeature, bool]:
+    def feature_flags(self) -> dict[FeatureFlag, bool]:
         """Return current state of all experimental feature flags."""
         return self._data.get(ATTR_FEATURE_FLAGS, {})
 
-    def set_feature_flag(self, feature: ExperimentalFeature, enabled: bool) -> None:
+    def set_feature_flag(self, feature: FeatureFlag, enabled: bool) -> None:
         """Enable or disable an experimental feature flag."""
         if ATTR_FEATURE_FLAGS not in self._data:
             self._data[ATTR_FEATURE_FLAGS] = {}

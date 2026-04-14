@@ -11,7 +11,7 @@ from awesomeversion import AwesomeVersion
 from blockbuster import BlockingError
 import pytest
 
-from supervisor.const import CoreState, ExperimentalFeature
+from supervisor.const import CoreState, FeatureFlag
 from supervisor.core import Core
 from supervisor.coresys import CoreSys
 from supervisor.exceptions import HassioError, HostNotSupportedError, StoreGitError
@@ -464,8 +464,8 @@ async def test_api_supervisor_info_feature_flags(
     assert "feature_flags" in result["data"]
     feature_flags = result["data"]["feature_flags"]
 
-    # All known experimental features should be present and default to False
-    for feature in ExperimentalFeature:
+    # All known feature flags should be present and default to False
+    for feature in FeatureFlag:
         assert feature in feature_flags
         assert feature_flags[feature] is False
 
@@ -474,51 +474,43 @@ async def test_api_supervisor_options_feature_flags_enable(
     api_client: TestClient, coresys: CoreSys
 ):
     """Test enabling a feature flag via supervisor options."""
-    assert not coresys.config.feature_flags.get(ExperimentalFeature.SUPERVISOR_V2_API)
+    assert not coresys.config.feature_flags.get(FeatureFlag.SUPERVISOR_V2_API)
 
     response = await api_client.post(
         "/supervisor/options",
         json={"feature_flags": {"supervisor_v2_api": True}},
     )
     assert response.status == 200
-    assert (
-        coresys.config.feature_flags.get(ExperimentalFeature.SUPERVISOR_V2_API) is True
-    )
+    assert coresys.config.feature_flags.get(FeatureFlag.SUPERVISOR_V2_API) is True
 
 
 async def test_api_supervisor_options_feature_flags_disable(
     api_client: TestClient, coresys: CoreSys
 ):
     """Test disabling a feature flag via supervisor options."""
-    coresys.config.set_feature_flag(ExperimentalFeature.SUPERVISOR_V2_API, True)
-    assert (
-        coresys.config.feature_flags.get(ExperimentalFeature.SUPERVISOR_V2_API) is True
-    )
+    coresys.config.set_feature_flag(FeatureFlag.SUPERVISOR_V2_API, True)
+    assert coresys.config.feature_flags.get(FeatureFlag.SUPERVISOR_V2_API) is True
 
     response = await api_client.post(
         "/supervisor/options",
         json={"feature_flags": {"supervisor_v2_api": False}},
     )
     assert response.status == 200
-    assert (
-        coresys.config.feature_flags.get(ExperimentalFeature.SUPERVISOR_V2_API) is False
-    )
+    assert coresys.config.feature_flags.get(FeatureFlag.SUPERVISOR_V2_API) is False
 
 
 async def test_api_supervisor_options_feature_flags_partial_update(
     api_client: TestClient, coresys: CoreSys
 ):
     """Test that omitting a feature flag in options leaves its state unchanged."""
-    coresys.config.set_feature_flag(ExperimentalFeature.SUPERVISOR_V2_API, True)
+    coresys.config.set_feature_flag(FeatureFlag.SUPERVISOR_V2_API, True)
 
     # Post options without mentioning feature_flags at all
     response = await api_client.post("/supervisor/options", json={"debug": False})
     assert response.status == 200
 
     # The feature flag should remain True
-    assert (
-        coresys.config.feature_flags.get(ExperimentalFeature.SUPERVISOR_V2_API) is True
-    )
+    assert coresys.config.feature_flags.get(FeatureFlag.SUPERVISOR_V2_API) is True
 
 
 async def test_api_supervisor_options_feature_flags_unknown_flag(
