@@ -121,11 +121,11 @@ class AppBuild(CoreSysAttributes):
         return self.sys_arch.match([self.app.arch])
 
     @property
-    def base_image(self) -> str | None:
-        """Return base image for this app, or None to use Dockerfile default."""
-        # No build config (otherwise default is coerced when reading the config)
+    def base_image(self) -> str:
+        """Return base image for this app."""
+        # No build config - use default base image for the architecture
         if not self._build_config.get(ATTR_BUILD_FROM):
-            return None
+            return f"ghcr.io/home-assistant/{self.arch!s}-base:latest"
 
         # Single base image in build config
         if isinstance(self._build_config[ATTR_BUILD_FROM], str):
@@ -249,13 +249,11 @@ class AppBuild(CoreSysAttributes):
             build_cmd.extend(["--label", f"{key}={value}"])
 
         build_args = {
+            "BUILD_FROM": self.base_image,
             "BUILD_VERSION": version,
             "BUILD_ARCH": self.arch,
             **self.additional_args,
         }
-
-        if self.base_image is not None:
-            build_args["BUILD_FROM"] = self.base_image
 
         for key, value in build_args.items():
             build_cmd.extend(["--build-arg", f"{key}={value}"])

@@ -23,6 +23,16 @@ def _is_build_arg_in_command(command: list[str], arg_name: str) -> bool:
     return f"--build-arg {arg_name}=" in " ".join(command)
 
 
+def _get_build_arg_value(command: list[str], arg_name: str) -> str | None:
+    """Get the value of a build arg from docker command."""
+    prefix = f"{arg_name}="
+    for i, part in enumerate(command):
+        if part == "--build-arg" and i + 1 < len(command):
+            if command[i + 1].startswith(prefix):
+                return command[i + 1][len(prefix) :]
+    return None
+
+
 def _is_label_in_command(
     command: list[str], label_name: str, label_value: str = ""
 ) -> bool:
@@ -284,12 +294,12 @@ async def test_no_build_file_no_deprecation_warning(
     assert "uses build.yaml which is deprecated" not in caplog.text
 
 
-async def test_no_build_yaml_base_image_none(
+async def test_no_build_yaml_base_image_default(
     coresys: CoreSys, install_app_ssh: App, tmp_path: Path
 ):
-    """Test base_image is None when no build file exists."""
+    """Test base_image returns default when no build file exists."""
     dockerfile = tmp_path / "Dockerfile"
-    dockerfile.write_text("ARG BUILD_FROM=ghcr.io/home-assistant/base:latest\n")
+    dockerfile.write_text("ARG BUILD_FROM\nFROM ${BUILD_FROM}\n")
 
     with patch.object(
         type(install_app_ssh),
@@ -297,15 +307,15 @@ async def test_no_build_yaml_base_image_none(
         new=PropertyMock(return_value=tmp_path),
     ):
         build = await AppBuild.create(coresys, install_app_ssh)
-        assert build.base_image is None
+        assert build.base_image == "ghcr.io/home-assistant/amd64-base:latest"
 
 
-async def test_no_build_yaml_no_build_from_arg(
+async def test_no_build_yaml_default_build_from_arg(
     coresys: CoreSys, install_app_ssh: App, tmp_path: Path
 ):
-    """Test BUILD_FROM is not in docker args when no build file exists."""
+    """Test BUILD_FROM uses default base image when no build file exists."""
     dockerfile = tmp_path / "Dockerfile"
-    dockerfile.write_text("ARG BUILD_FROM=ghcr.io/home-assistant/base:latest\n")
+    dockerfile.write_text("ARG BUILD_FROM\nFROM ${BUILD_FROM}\n")
 
     with (
         patch.object(
@@ -330,7 +340,10 @@ async def test_no_build_yaml_no_build_from_arg(
             build.get_docker_args, AwesomeVersion("1.0.0"), "test-image:1.0.0", None
         )
 
-    assert not _is_build_arg_in_command(args["command"], "BUILD_FROM")
+    assert _is_build_arg_in_command(args["command"], "BUILD_FROM")
+    assert _get_build_arg_value(args["command"], "BUILD_FROM") == (
+        "ghcr.io/home-assistant/amd64-base:latest"
+    )
     assert _is_build_arg_in_command(args["command"], "BUILD_VERSION")
     assert _is_build_arg_in_command(args["command"], "BUILD_ARCH")
 
