@@ -3,8 +3,11 @@
 import asyncio
 from collections.abc import AsyncGenerator, Generator
 from datetime import datetime
+import os
 from pathlib import Path
+import socket
 import subprocess
+import time
 from unittest.mock import AsyncMock, MagicMock, Mock, PropertyMock, patch
 from uuid import uuid4
 
@@ -261,22 +264,90 @@ async def docker() -> DockerAPI:
 
 
 @pytest.fixture(scope="session")
-def dbus_session() -> Generator[str]:
-    """Start a dbus session.
+def dbus_session(tmp_path_factory: pytest.TempPathFactory) -> Generator[str]:
+    """Start a dbus-broker session bus.
 
     Returns session address.
+
+    Unlike dbus-daemon, dbus-broker-launch has no --print-address and expects
+    its listener socket via the sd_listen_fds protocol (fd 3, LISTEN_PID,
+    LISTEN_FDS). We create the unix socket ourselves, dup it to fd 3 in the
+    child via preexec_fn, and set LISTEN_PID to the post-fork pid. Readiness
+    is picked up via sd_notify(READY=1) on NOTIFY_SOCKET.
     """
-    with subprocess.Popen(
-        [
-            "dbus-daemon",
-            "--nofork",
-            "--print-address",
-            "--session",
-        ],
-        stdout=subprocess.PIPE,
-    ) as proc:
-        yield proc.stdout.readline().decode("utf-8").strip()
-        proc.terminate()
+    runtime_dir = tmp_path_factory.mktemp("dbus_session")
+    socket_path = runtime_dir / "bus"
+    notify_path = runtime_dir / "notify"
+    config_path = runtime_dir / "bus.conf"
+    stderr_path = runtime_dir / "broker.log"
+    config_path.write_text(
+        f"""<?xml version="1.0"?>
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-Bus Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+  <type>session</type>
+  <listen>unix:path={socket_path}</listen>
+  <policy context="default">
+    <allow user="*"/>
+    <allow send_destination="*"/>
+    <allow receive_sender="*"/>
+    <allow own="*"/>
+  </policy>
+</busconfig>
+"""
+    )
+
+    listen_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    listen_sock.bind(str(socket_path))
+    listen_sock.listen(16)
+
+    notify_sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+    notify_sock.bind(str(notify_path))
+
+    listen_fd = listen_sock.fileno()
+
+    def _preexec() -> None:
+        # Move the listener to fd 3 where sd_listen_fds expects it, and set
+        # the sd_listen_fds / sd_notify env vars. These are set here (not via
+        # env= on Popen) because LISTEN_PID must match the post-fork pid.
+        os.dup2(listen_fd, 3)
+        os.environ["LISTEN_PID"] = str(os.getpid())
+        os.environ["LISTEN_FDS"] = "1"
+        os.environ["NOTIFY_SOCKET"] = str(notify_path)
+
+    with (
+        stderr_path.open("wb") as stderr_file,
+        subprocess.Popen(
+            ["dbus-broker-launch", "--config-file", str(config_path)],
+            # Include fd 3 so Python's post-fork fd cleanup doesn't close the
+            # dup2'd copy before exec.
+            pass_fds=(listen_fd, 3),
+            preexec_fn=_preexec,  # noqa: PLW1509 — session-scoped, pre-threads
+            stderr=stderr_file,
+        ) as proc,
+    ):
+        listen_sock.close()
+        try:
+            # Block until the launcher reports READY=1.
+            notify_sock.settimeout(0.5)
+            deadline = time.monotonic() + 10
+            while True:
+                if proc.poll() is not None:
+                    raise RuntimeError(
+                        f"dbus-broker-launch exited with {proc.returncode} "
+                        f"before readiness: {stderr_path.read_text()}"
+                    )
+                if time.monotonic() > deadline:
+                    raise RuntimeError("dbus-broker-launch readiness timed out")
+                try:
+                    if b"READY=1" in notify_sock.recv(4096):
+                        break
+                except TimeoutError:
+                    continue
+            notify_sock.close()
+            yield f"unix:path={socket_path}"
+        finally:
+            proc.terminate()
 
 
 @pytest.fixture
