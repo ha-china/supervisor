@@ -315,14 +315,15 @@ def dbus_session(tmp_path_factory: pytest.TempPathFactory) -> Generator[str]:
         os.environ["LISTEN_FDS"] = "1"
         os.environ["NOTIFY_SOCKET"] = str(notify_path)
 
+    # preexec_fn is safe: this session-scoped fixture runs before any threads.
     with (
         stderr_path.open("wb") as stderr_file,
-        subprocess.Popen(
+        subprocess.Popen(  # pylint: disable=subprocess-popen-preexec-fn
             ["dbus-broker-launch", "--config-file", str(config_path)],
             # Include fd 3 so Python's post-fork fd cleanup doesn't close the
             # dup2'd copy before exec.
             pass_fds=(listen_fd, 3),
-            preexec_fn=_preexec,  # noqa: PLW1509 — session-scoped, pre-threads
+            preexec_fn=_preexec,  # noqa: PLW1509
             stderr=stderr_file,
         ) as proc,
     ):
