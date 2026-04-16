@@ -7,8 +7,10 @@ from aiodocker.containers import DockerContainer
 from awesomeversion import AwesomeVersion
 import pytest
 
+from supervisor.const import FeatureFlag
 from supervisor.coresys import CoreSys
 from supervisor.docker.const import (
+    MOUNT_CORE_RUN,
     DockerMount,
     MountBindOptions,
     MountType,
@@ -142,6 +144,30 @@ async def test_homeassistant_start_with_duplicate_log_file(
         env = run.call_args.kwargs["environment"]
         assert "HA_DUPLICATE_LOG_FILE" in env
         assert env["HA_DUPLICATE_LOG_FILE"] == "1"
+
+
+@pytest.mark.usefixtures("tmp_supervisor_data", "path_extern")
+async def test_homeassistant_start_with_unix_socket(
+    coresys: CoreSys, container: DockerContainer
+):
+    """Test starting homeassistant with unix socket env var for supported version."""
+    coresys.homeassistant.version = AwesomeVersion("2026.4.0")
+    coresys.config.set_feature_flag(FeatureFlag.UNIX_SOCKET_CORE_API, True)
+
+    with (
+        patch.object(DockerAPI, "run", return_value=container.show.return_value) as run,
+        patch.object(
+            DockerHomeAssistant, "is_running", side_effect=[False, False, True]
+        ),
+        patch("supervisor.homeassistant.core.asyncio.sleep"),
+    ):
+        await coresys.homeassistant.core.start()
+
+        run.assert_called_once()
+        env = run.call_args.kwargs["environment"]
+        assert "SUPERVISOR_CORE_API_SOCKET" in env
+        assert env["SUPERVISOR_CORE_API_SOCKET"] == "/run/supervisor/core.sock"
+        assert MOUNT_CORE_RUN in run.call_args.kwargs["mounts"]
 
 
 @pytest.mark.usefixtures("tmp_supervisor_data", "path_extern")
