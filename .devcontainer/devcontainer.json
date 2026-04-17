@@ -1,6 +1,6 @@
 {
   "name": "Supervisor dev",
-  "image": "ghcr.io/home-assistant/devcontainer:5-supervisor",
+  "image": "ghcr.io/home-assistant/devcontainer:6-supervisor",
   "overrideCommand": false,
   "remoteUser": "vscode",
   "containerEnv": {
