@@ -9,7 +9,7 @@ from aiohttp import web
 import voluptuous as vol
 
 from ..const import (
-    ATTR_APPS,
+    ATTR_ADDONS,
     ATTR_APPS_REPOSITORIES,
     ATTR_ARCH,
     ATTR_AUTO_UPDATE,
@@ -113,9 +113,9 @@ class APISupervisor(CoreSysAttributes):
                 feature.value: self.sys_config.feature_flags.get(feature, False)
                 for feature in FeatureFlag
             },
-            # Depricated
+            # Deprecated
             ATTR_WAIT_BOOT: self.sys_config.wait_boot,
-            ATTR_APPS: [
+            ATTR_ADDONS: [
                 {
                     ATTR_NAME: app.name,
                     ATTR_SLUG: app.slug,
