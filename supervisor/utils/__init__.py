@@ -11,7 +11,6 @@ import re
 import socket
 import subprocess
 from tempfile import TemporaryDirectory
-from typing import Any
 
 from awesomeversion import AwesomeVersion
 
@@ -57,18 +56,27 @@ async def check_port(address: IPv4Address, port: int) -> bool:
     return True
 
 
-def check_exception_chain(err: BaseException, object_type: Any) -> bool:
-    """Check if exception chain include sub exception.
+def check_exception_chain(
+    err: BaseException,
+    object_type: type[BaseException] | tuple[type[BaseException], ...],
+) -> bool:
+    """Check if exception chain contains the target type.
 
-    It's not full recursive because we need mostly only access to the latest.
+    Walks the __cause__ chain, which Python sets when code explicitly chains
+    exceptions via `raise B() from a`. Our codebase consistently uses that
+    pattern for re-raises, so __cause__ reliably reflects the "caused by"
+    relationship we want to match. __context__ is not used because it can
+    include unrelated in-flight exceptions from surrounding except blocks.
+
+    Not fully recursive because we mostly only need access to the latest.
     """
-    if issubclass(type(err), object_type):
+    if isinstance(err, object_type):
         return True
 
-    if not err.__context__:
+    if err.__cause__ is None:
         return False
 
-    return check_exception_chain(err.__context__, object_type)
+    return check_exception_chain(err.__cause__, object_type)
 
 
 def get_message_from_exception_chain(err: BaseException) -> str:
