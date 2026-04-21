@@ -7,7 +7,6 @@ import logging
 
 import aiohttp
 from aiohttp import WSCloseCode, WSMessageTypeError, web
-from aiohttp.client_exceptions import ClientConnectorError
 from aiohttp.client_ws import ClientWebSocketResponse
 from aiohttp.hdrs import AUTHORIZATION, CONTENT_TYPE
 from aiohttp.http_websocket import WSMsgType
@@ -29,13 +28,6 @@ FORWARD_HEADERS = (
     "MCP-Protocol-Version",
 )
 HEADER_HA_ACCESS = "X-Ha-Access"
-
-# Maximum message size for websocket messages from Home Assistant.
-# Since these are coming from core we want the largest possible size
-# that is not likely to cause a memory problem as most modern browsers
-# support large messages.
-# https://github.com/home-assistant/supervisor/issues/4392
-MAX_MESSAGE_SIZE_FROM_CORE = 64 * 1024 * 1024
 
 
 class APIProxy(CoreSysAttributes):
@@ -179,57 +171,14 @@ class APIProxy(CoreSysAttributes):
 
     async def _websocket_client(self) -> ClientWebSocketResponse:
         """Initialize a WebSocket API connection."""
-        url = f"{self.sys_homeassistant.api_url}/api/websocket"
-
         try:
-            client = await self.sys_websession.ws_connect(
-                url, heartbeat=30, ssl=False, max_msg_size=MAX_MESSAGE_SIZE_FROM_CORE
-            )
-
-            # Handle authentication
-            data = await client.receive_json()
-
-            if data.get("type") == "auth_ok":
-                return client
-
-            if data.get("type") != "auth_required":
-                # Invalid protocol
-                raise APIError(
-                    f"Got unexpected response from Home Assistant WebSocket: {data}",
-                    _LOGGER.error,
-                )
-
-            # Auth session
-            await self.sys_homeassistant.api.ensure_access_token()
-            await client.send_json(
-                {
-                    "type": "auth",
-                    "access_token": self.sys_homeassistant.api.access_token,
-                },
-                dumps=json_dumps,
-            )
-
-            data = await client.receive_json()
-
-            if data.get("type") == "auth_ok":
-                return client
-
-            # Renew the Token is invalid
-            if (
-                data.get("type") == "invalid_auth"
-                and self.sys_homeassistant.refresh_token
-            ):
-                self.sys_homeassistant.api.access_token = None
-                return await self._websocket_client()
-
-            raise HomeAssistantAuthError()
-
-        except (RuntimeError, ValueError, TypeError, ClientConnectorError) as err:
-            _LOGGER.error("Client error on WebSocket API %s.", err)
-        except HomeAssistantAuthError:
-            _LOGGER.error("Failed authentication to Home Assistant WebSocket")
-
-        raise APIError()
+            ws_client = await self.sys_homeassistant.api.connect_websocket()
+            return ws_client.client
+        except HomeAssistantAPIError as err:
+            raise APIError(
+                f"Error connecting to Home Assistant WebSocket: {err}",
+                _LOGGER.error,
+            ) from err
 
     async def _proxy_message(
         self,

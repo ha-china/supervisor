@@ -39,9 +39,10 @@ FILE_HASSIO_SECURITY = Path(SUPERVISOR_DATA, "security.json")
 FILE_SUFFIX_CONFIGURATION = [".yaml", ".yml", ".json"]
 
 MACHINE_ID = Path("/etc/machine-id")
+RUN_SUPERVISOR_STATE = Path("/run/supervisor")
+SOCKET_CORE = Path("/run/os/core.sock")
 SOCKET_DBUS = Path("/run/dbus/system_bus_socket")
 SOCKET_DOCKER = Path("/run/docker.sock")
-RUN_SUPERVISOR_STATE = Path("/run/supervisor")
 SYSTEMD_JOURNAL_PERSISTENT = Path("/var/log/journal")
 SYSTEMD_JOURNAL_VOLATILE = Path("/run/log/journal")
 
@@ -554,6 +555,7 @@ class FeatureFlag(StrEnum):
     """Development features that can be toggled."""
 
     SUPERVISOR_V2_API = "supervisor_v2_api"
+    UNIX_SOCKET_CORE_API = "unix_socket_core_api"
 
 
 @dataclass
