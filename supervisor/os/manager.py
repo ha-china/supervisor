@@ -22,7 +22,6 @@ from ..exceptions import (
 )
 from ..jobs.const import JobConcurrency, JobCondition
 from ..jobs.decorator import Job
-from ..utils.sentry import async_capture_exception
 from .data_disk import DataDisk
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -363,7 +362,6 @@ class OSManager(CoreSysAttributes):
                 RaucState.ACTIVE, self.get_slot_name(boot_name)
             )
         except DBusError as err:
-            await async_capture_exception(err)
             raise HassOSSlotUpdateError(
                 f"Can't mark {boot_name} as active!", _LOGGER.error
             ) from err

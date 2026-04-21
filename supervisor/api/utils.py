@@ -3,6 +3,7 @@
 import asyncio
 from collections.abc import Callable, Mapping
 import json
+import logging
 from typing import Any, cast
 
 from aiohttp import web
@@ -31,7 +32,10 @@ from ..jobs import JobSchedulerOptions, SupervisorJob
 from ..utils import check_exception_chain, get_message_from_exception_chain
 from ..utils.json import json_dumps, json_loads as json_loads_util
 from ..utils.log_format import format_message
+from ..utils.sentry import async_capture_exception
 from . import const
+
+_LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
 def extract_supervisor_token(request: web.Request) -> str | None:
@@ -72,6 +76,8 @@ def api_process(method):
                 err, status=err.status, job_id=err.job_id, headers=err.headers
             )
         except HassioError as err:
+            _LOGGER.exception("Unexpected error during API call: %s", err)
+            await async_capture_exception(err)
             return api_return_error(err)
 
         if isinstance(answer, (dict, list)):
@@ -119,6 +125,8 @@ def api_process_raw(content, *, error_type=None):
                     job_id=err.job_id,
                 )
             except HassioError as err:
+                _LOGGER.exception("Unexpected error during API call: %s", err)
+                await async_capture_exception(err)
                 return api_return_error(
                     err, error_type=error_type or const.CONTENT_TYPE_BINARY
                 )
