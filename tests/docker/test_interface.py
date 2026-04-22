@@ -20,13 +20,18 @@ from supervisor.docker.monitor import DockerContainerStateEvent
 from supervisor.exceptions import (
     DockerAPIError,
     DockerError,
+    DockerHubRateLimitExceeded,
     DockerNoSpaceOnDevice,
     DockerNotFound,
     DockerRegistryAuthError,
+    DockerRegistryRateLimitExceeded,
+    GithubContainerRegistryRateLimitExceeded,
 )
 from supervisor.homeassistant.const import WSEvent, WSType
 from supervisor.jobs import ChildJobSyncFilter, JobSchedulerOptions, SupervisorJob
 from supervisor.jobs.decorator import Job
+from supervisor.resolution.const import ContextType, IssueType
+from supervisor.resolution.data import Issue
 from supervisor.supervisor import Supervisor
 
 from tests.common import AsyncIterator, load_json_fixture
@@ -933,3 +938,181 @@ async def test_install_progress_containerd_snapshot(
         job_event(100),
         job_event(100, True),
     ]
+
+
+# Registry-aware rate limit handling. Three independent error shapes can
+# occur on the same Docker pull endpoint:
+#   1. HTTP 429 (true rate limit, rare in practice)
+#   2. HTTP 500 with "toomanyrequests" in body (daemon bug pre-28.3.0;
+#      fixed upstream by moby/moby 23fa0ae74a, large fleet still on older)
+#   3. HTTP 200 with toomanyrequests in a pull-stream JSON event (happens
+#      on all recent daemons when the rate limit hits during layer fetch)
+# All three should converge to a registry-aware exception + resolution issue.
+
+# Parameters: (image, expected_exception, expect_docker_ratelimit_issue)
+# Only Docker Hub produces a resolution issue since logging in lifts the
+# unauthenticated quota. GHCR has no actionable remediation so we just log +
+# raise a typed exception; no issue is created.
+_RATE_LIMIT_PARAMS = [
+    (
+        "homeassistant/amd64-supervisor",
+        DockerHubRateLimitExceeded,
+        True,
+    ),
+    (
+        "ghcr.io/home-assistant/amd64-hassio-supervisor",
+        GithubContainerRegistryRateLimitExceeded,
+        False,
+    ),
+]
+
+
+def _assert_docker_ratelimit_issue(coresys: CoreSys, expected: bool) -> None:
+    """Assert whether the DOCKER_RATELIMIT resolution issue was created."""
+    present = Issue(IssueType.DOCKER_RATELIMIT, ContextType.SYSTEM) in (
+        coresys.resolution.issues
+    )
+    assert present is expected
+
+
+@pytest.mark.parametrize("image,expected_exception,expect_issue", _RATE_LIMIT_PARAMS)
+async def test_install_pull_429_raises_registry_specific_exception(
+    coresys: CoreSys,
+    test_docker_interface: DockerInterface,
+    capture_exception: Mock,
+    image: str,
+    expected_exception: type[Exception],
+    expect_issue: bool,
+):
+    """Test HTTP 429 from pull raises the right typed exception per registry.
+
+    Docker Hub also gets a DOCKER_RATELIMIT resolution issue (user can log
+    in to lift the quota). GHCR gets the typed exception only; no issue.
+    """
+    coresys.docker.images.pull.side_effect = aiodocker.DockerError(
+        HTTPStatus.TOO_MANY_REQUESTS, {"message": "ratelimit"}
+    )
+
+    with (
+        patch.object(
+            type(coresys.supervisor), "arch", PropertyMock(return_value="amd64")
+        ),
+        pytest.raises(expected_exception),
+    ):
+        await test_docker_interface.install(
+            AwesomeVersion("1.2.3"), image, arch=CpuArch.AMD64
+        )
+
+    _assert_docker_ratelimit_issue(coresys, expect_issue)
+    capture_exception.assert_not_called()
+
+
+@pytest.mark.parametrize("image,expected_exception,expect_issue", _RATE_LIMIT_PARAMS)
+async def test_install_pull_500_with_toomanyrequests_body_treated_as_rate_limit(
+    coresys: CoreSys,
+    test_docker_interface: DockerInterface,
+    capture_exception: Mock,
+    image: str,
+    expected_exception: type[Exception],
+    expect_issue: bool,
+):
+    """Test that 500 with toomanyrequests in body is treated as a rate limit.
+
+    Docker daemons before 28.3.0 wrap upstream 429s as HTTP 500 to the
+    client (fixed upstream in moby/moby 23fa0ae74a). The large fleet on
+    older daemons still produces this shape, so we detect it from the
+    message body regardless of HTTP status.
+    """
+    coresys.docker.images.pull.side_effect = aiodocker.DockerError(
+        HTTPStatus.INTERNAL_SERVER_ERROR,
+        "toomanyrequests: retry-after: 777.482µs, allowed: 44000/minute",
+    )
+
+    with (
+        patch.object(
+            type(coresys.supervisor), "arch", PropertyMock(return_value="amd64")
+        ),
+        pytest.raises(expected_exception),
+    ):
+        await test_docker_interface.install(
+            AwesomeVersion("1.2.3"), image, arch=CpuArch.AMD64
+        )
+
+    _assert_docker_ratelimit_issue(coresys, expect_issue)
+    capture_exception.assert_not_called()
+
+
+@pytest.mark.parametrize("image,expected_exception,expect_issue", _RATE_LIMIT_PARAMS)
+async def test_install_streaming_pull_rate_limit(
+    coresys: CoreSys,
+    test_docker_interface: DockerInterface,
+    capture_exception: Mock,
+    image: str,
+    expected_exception: type[Exception],
+    expect_issue: bool,
+):
+    """Test toomanyrequests in pull stream is treated as a rate limit.
+
+    Docker's pull endpoint is a long-running streaming API - once the daemon
+    has started writing the response body it can no longer change the HTTP
+    status, so errors that occur during layer download are surfaced as JSON
+    error events in the stream. The text-detection in PullLogEntry must
+    convert these into a typed exception that install() can refine into a
+    registry-specific one. Happens on all recent daemon versions.
+    """
+    coresys.docker.images.pull.return_value = AsyncIterator(
+        [
+            {
+                "error": (
+                    "toomanyrequests: retry-after: 1.265943ms, allowed: 44000/minute"
+                )
+            },
+        ]
+    )
+
+    with (
+        patch.object(
+            type(coresys.supervisor), "arch", PropertyMock(return_value="amd64")
+        ),
+        pytest.raises(expected_exception),
+    ):
+        await test_docker_interface.install(
+            AwesomeVersion("1.2.3"), image, arch=CpuArch.AMD64
+        )
+
+    _assert_docker_ratelimit_issue(coresys, expect_issue)
+    capture_exception.assert_not_called()
+
+
+async def test_install_unknown_registry_rate_limit_raises_generic_exception(
+    coresys: CoreSys,
+    test_docker_interface: DockerInterface,
+    capture_exception: Mock,
+):
+    """Test rate limit on unknown registry raises generic exception, no issue.
+
+    For registries we don't have specific guidance for (not Docker Hub, not
+    GHCR), we still raise a typed rate limit exception (so retry logic works),
+    but skip the resolution issue since we have no actionable suggestion.
+    """
+    image = "myregistry.example.com/some/image"
+
+    coresys.docker.images.pull.side_effect = aiodocker.DockerError(
+        HTTPStatus.TOO_MANY_REQUESTS, {"message": "ratelimit"}
+    )
+
+    with (
+        patch.object(
+            type(coresys.supervisor), "arch", PropertyMock(return_value="amd64")
+        ),
+        pytest.raises(DockerRegistryRateLimitExceeded) as exc_info,
+    ):
+        await test_docker_interface.install(
+            AwesomeVersion("1.2.3"), image, arch=CpuArch.AMD64
+        )
+
+    # Generic base class only - not refined to either subclass
+    assert not isinstance(exc_info.value, DockerHubRateLimitExceeded)
+    assert not isinstance(exc_info.value, GithubContainerRegistryRateLimitExceeded)
+    _assert_docker_ratelimit_issue(coresys, False)
+    capture_exception.assert_not_called()
