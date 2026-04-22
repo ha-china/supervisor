@@ -24,7 +24,7 @@ from ..const import (
     OBSERVER_DOCKER_NAME,
     SUPERVISOR_DOCKER_NAME,
 )
-from ..exceptions import DockerError
+from ..exceptions import DockerError, DockerNotFound
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -290,6 +290,8 @@ class DockerNetwork:
         try:
             container = await self.docker.containers.get(name)
         except aiodocker.DockerError as err:
+            if err.status == HTTPStatus.NOT_FOUND:
+                raise DockerNotFound(f"Can't find {name}") from err
             raise DockerError(f"Can't find {name}: {err}", _LOGGER.error) from err
 
         if container.id not in self.containers:
