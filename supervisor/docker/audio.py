@@ -2,7 +2,7 @@
 
 import logging
 
-from ..const import DOCKER_CPU_RUNTIME_ALLOCATION
+from ..const import AUDIO_DOCKER_NAME, DOCKER_CPU_RUNTIME_ALLOCATION
 from ..coresys import CoreSysAttributes
 from ..exceptions import DockerJobError
 from ..hardware.const import PolicyGroup
@@ -23,8 +23,6 @@ from .const import (
 from .interface import DockerInterface
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
-
-AUDIO_DOCKER_NAME: str = "hassio_audio"
 
 
 class DockerAudio(DockerInterface, CoreSysAttributes):

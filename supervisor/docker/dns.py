@@ -2,6 +2,7 @@
 
 import logging
 
+from ..const import DNS_DOCKER_NAME
 from ..coresys import CoreSysAttributes
 from ..exceptions import DockerJobError
 from ..jobs.const import JobConcurrency
@@ -10,8 +11,6 @@ from .const import ENV_TIME, MOUNT_DBUS, DockerMount, MountType
 from .interface import DockerInterface
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
-
-DNS_DOCKER_NAME: str = "hassio_dns"
 
 
 class DockerDNS(DockerInterface, CoreSysAttributes):

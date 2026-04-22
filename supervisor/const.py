@@ -14,6 +14,9 @@ SUPERVISOR_VERSION = "9999.09.9.dev9999"
 SERVER_SOFTWARE = f"HomeAssistantSupervisor/{SUPERVISOR_VERSION} aiohttp/{aiohttpversion} Python/{systemversion[0]}.{systemversion[1]}"
 
 DOCKER_PREFIX: str = "hassio"
+AUDIO_DOCKER_NAME: str = f"{DOCKER_PREFIX}_audio"
+CLI_DOCKER_NAME: str = f"{DOCKER_PREFIX}_cli"
+DNS_DOCKER_NAME: str = f"{DOCKER_PREFIX}_dns"
 OBSERVER_DOCKER_NAME: str = f"{DOCKER_PREFIX}_observer"
 SUPERVISOR_DOCKER_NAME: str = f"{DOCKER_PREFIX}_supervisor"
 
