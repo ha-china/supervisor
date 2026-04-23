@@ -272,7 +272,7 @@ def get_connection_from_interface(
         wireless = {
             CONF_ATTR_802_WIRELESS_ASSIGNED_MAC: Variant("s", "preserve"),
             CONF_ATTR_802_WIRELESS_MODE: Variant("s", "infrastructure"),
-            CONF_ATTR_802_WIRELESS_POWERSAVE: Variant("i", 1),
+            CONF_ATTR_802_WIRELESS_POWERSAVE: Variant("i", 0),
         }
         if interface.wifi and interface.wifi.ssid:
             wireless[CONF_ATTR_802_WIRELESS_SSID] = Variant(
