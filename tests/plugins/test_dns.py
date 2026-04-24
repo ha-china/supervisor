@@ -417,18 +417,18 @@ async def test_dns_restart_triggers_connectivity_check(coresys: CoreSys):
     # Verify listener was registered (connectivity check listener should be stored)
     assert dns_plugin._connectivity_check_listener is not None
 
-    # Create event to signal when connectivity check is called
+    # Create event to signal when connectivity check is requested
     connectivity_check_event = asyncio.Event()
 
-    # Mock connectivity check to set the event when called
-    async def mock_check_connectivity():
+    # Mock the fire-and-forget request to set the event when called
+    def mock_request_connectivity_check(*, force: bool = False):
         connectivity_check_event.set()
 
     with (
         patch.object(
             coresys.supervisor,
-            "check_connectivity",
-            side_effect=mock_check_connectivity,
+            "request_connectivity_check",
+            side_effect=mock_request_connectivity_check,
         ),
         patch("supervisor.plugins.dns.asyncio.sleep") as mock_sleep,
     ):

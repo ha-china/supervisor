@@ -43,7 +43,7 @@ async def test_fixup(coresys: CoreSys, supervisor_internet):
 async def test_store_execute_reload_runs_on_connectivity_true(coresys: CoreSys):
     """Test fixup runs when connectivity goes from false to true."""
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
-    coresys.supervisor.connectivity = False
+    coresys.supervisor._update_connectivity(False)  # pylint: disable=protected-access
     await asyncio.sleep(0)
 
     mock_repository = AsyncMock()
@@ -59,7 +59,7 @@ async def test_store_execute_reload_runs_on_connectivity_true(coresys: CoreSys):
 
     with patch.object(coresys.store, "reload") as mock_reload:
         # Fire event with connectivity True
-        coresys.supervisor.connectivity = True
+        coresys.supervisor._update_connectivity(True)  # pylint: disable=protected-access
         await asyncio.sleep(0.1)
 
         mock_repository.load.assert_called_once()
@@ -72,7 +72,7 @@ async def test_store_execute_reload_does_not_run_on_connectivity_false(
 ):
     """Test fixup does not run when connectivity goes from true to false."""
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
-    coresys.supervisor.connectivity = True
+    coresys.supervisor._update_connectivity(True)  # pylint: disable=protected-access
     await asyncio.sleep(0)
 
     mock_repository = AsyncMock()
@@ -87,7 +87,7 @@ async def test_store_execute_reload_does_not_run_on_connectivity_false(
     )
 
     # Fire event with connectivity True
-    coresys.supervisor.connectivity = False
+    coresys.supervisor._update_connectivity(False)  # pylint: disable=protected-access
     await asyncio.sleep(0.1)
 
     mock_repository.load.assert_not_called()
@@ -99,7 +99,7 @@ async def test_store_execute_reload_dismiss_suggestion_removes_listener(
 ):
     """Test fixup does not run on event if suggestion has been dismissed."""
     coresys.hardware.disk.get_disk_free_space = lambda x: 5000
-    coresys.supervisor.connectivity = True
+    coresys.supervisor._update_connectivity(True)  # pylint: disable=protected-access
     await asyncio.sleep(0)
 
     mock_repository = AsyncMock()

@@ -116,7 +116,7 @@ async def test_delayed_fetch_for_connectivity(
     coresys.bus.register_event(BusEvent.SUPERVISOR_JOB_START, find_fetch_data_job_start)
 
     # Start with no connectivity and confirm there is no version fetch on load
-    coresys.supervisor.connectivity = False
+    coresys.supervisor._connectivity = False  # pylint: disable=protected-access
     network_manager_service.connectivity = ConnectivityState.CONNECTIVITY_NONE.value
     await coresys.host.network.load()
     await coresys.host.network.check_connectivity()

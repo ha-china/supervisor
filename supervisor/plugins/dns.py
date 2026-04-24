@@ -122,7 +122,10 @@ class PluginDns(PluginBase):
             await asyncio.sleep(5)
 
             _LOGGER.debug("CoreDNS started, checking connectivity")
-            await self.sys_supervisor.check_connectivity()
+            # DNS resolution has just changed; force a fresh probe so a check
+            # in flight while DNS was restarting doesn't leave us with a
+            # stale failure cached.
+            self.sys_supervisor.request_connectivity_check(force=True)
 
     async def _restart_dns_after_locals_change(self) -> None:
         """Restart DNS after a debounced delay for local changes."""
