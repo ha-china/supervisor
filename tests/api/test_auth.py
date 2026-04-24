@@ -82,12 +82,13 @@ def fixture_mock_check_login(coresys: CoreSys):
 
 
 async def test_password_reset(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     caplog: pytest.LogCaptureFixture,
     websession: MagicMock,
 ):
     """Test password reset api."""
+    api_client, prefix = api_client_with_prefix
     coresys.homeassistant.api._access_token = "abc123"  # pylint: disable=protected-access
     # pylint: disable-next=protected-access
     coresys.homeassistant.api._access_token_expires = datetime.now(tz=UTC) + timedelta(
@@ -96,7 +97,7 @@ async def test_password_reset(
 
     websession.request = MagicMock(return_value=MockResponse(status=200))
     resp = await api_client.post(
-        "/auth/reset", json={"username": "john", "password": "doe"}
+        f"{prefix}/auth/reset", json={"username": "john", "password": "doe"}
     )
     assert resp.status == 200
     assert "Successful password reset for 'john'" in caplog.text
@@ -116,7 +117,7 @@ async def test_password_reset(
     ],
 )
 async def test_failed_password_reset(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     caplog: pytest.LogCaptureFixture,
     websession: MagicMock,
@@ -124,6 +125,7 @@ async def test_failed_password_reset(
     expected_log: str,
 ):
     """Test failed password reset."""
+    api_client, prefix = api_client_with_prefix
     coresys.homeassistant.api._access_token = "abc123"  # pylint: disable=protected-access
     # pylint: disable-next=protected-access
     coresys.homeassistant.api._access_token_expires = datetime.now(tz=UTC) + timedelta(
@@ -132,7 +134,7 @@ async def test_failed_password_reset(
 
     websession.request = request_mock
     resp = await api_client.post(
-        "/auth/reset", json={"username": "john", "password": "doe"}
+        f"{prefix}/auth/reset", json={"username": "john", "password": "doe"}
     )
     assert resp.status == 400
     body = await resp.json()
@@ -149,11 +151,14 @@ async def test_failed_password_reset(
 
 
 async def test_list_users(
-    api_client: TestClient, coresys: CoreSys, ha_ws_client: AsyncMock
+    api_client_with_prefix: tuple[TestClient, str],
+    coresys: CoreSys,
+    ha_ws_client: AsyncMock,
 ):
     """Test list users api."""
+    api_client, prefix = api_client_with_prefix
     ha_ws_client.async_send_command.return_value = LIST_USERS_RESPONSE
-    resp = await api_client.get("/auth/list")
+    resp = await api_client.get(f"{prefix}/auth/list")
     assert resp.status == 200
     result = await resp.json()
     assert result["data"]["users"] == [
@@ -169,15 +174,16 @@ async def test_list_users(
 
 
 async def test_list_users_ws_error(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     ha_ws_client: AsyncMock,
     caplog: pytest.LogCaptureFixture,
 ):
     """Test WS error when listing users via API."""
+    api_client, prefix = api_client_with_prefix
     ha_ws_client.async_send_command = AsyncMock(
         side_effect=HomeAssistantWSError("fail")
     )
-    resp = await api_client.get("/auth/list")
+    resp = await api_client.get(f"{prefix}/auth/list")
     assert resp.status == 500
     result = await resp.json()
     assert result == {
@@ -350,9 +356,14 @@ async def test_auth_app_no_auth_access(
     assert resp.status == 403
 
 
-async def test_non_app_token_no_auth_access(api_client: TestClient):
+async def test_non_app_token_no_auth_access(
+    api_client_with_prefix: tuple[TestClient, str],
+):
     """Test auth where app is not allowed to access auth API."""
-    resp = await api_client.post("/auth", json={"username": "test", "password": "pass"})
+    api_client, prefix = api_client_with_prefix
+    resp = await api_client.post(
+        f"{prefix}/auth", json={"username": "test", "password": "pass"}
+    )
     assert resp.status == 403
 
 

@@ -108,6 +108,11 @@ class RestAPI(CoreSysAttributes):
         enabled_versions = list(AppVersion) if v2_enabled else [AppVersion.V1]
         static_resource_configs: list[tuple[web.Application, StaticResourceConfig]] = []
 
+        # Panel is V1-only: the frontend assets are served from the root webapp only.
+        static_resource_configs.extend(
+            (self.versions[AppVersion.V1], config) for config in self._register_panel()
+        )
+
         for version in enabled_versions:
             app = self.versions[version]
             self._register_apps(app)
@@ -128,9 +133,6 @@ class RestAPI(CoreSysAttributes):
             self._register_network(app)
             self._register_observer(app)
             self._register_os(app)
-            static_resource_configs.extend(
-                (app, config) for config in self._register_panel()
-            )
             self._register_proxy(app)
             self._register_resolution(app)
             self._register_root(app)

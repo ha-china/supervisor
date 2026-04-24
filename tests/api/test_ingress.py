@@ -23,11 +23,14 @@ async def fixture_real_websession(
     await session.close()
 
 
-async def test_validate_session(api_client: TestClient, coresys: CoreSys):
+async def test_validate_session(
+    api_client_with_prefix: tuple[TestClient, str], coresys: CoreSys
+):
     """Test validating ingress session."""
+    api_client, prefix = api_client_with_prefix
     with patch("aiohttp.web_request.BaseRequest.__getitem__", return_value=None):
         resp = await api_client.post(
-            "/ingress/validate_session",
+            f"{prefix}/ingress/validate_session",
             json={"session": "non-existing"},
         )
         assert resp.status == 401
@@ -36,7 +39,7 @@ async def test_validate_session(api_client: TestClient, coresys: CoreSys):
         "aiohttp.web_request.BaseRequest.__getitem__",
         return_value=coresys.homeassistant,
     ):
-        resp = await api_client.post("/ingress/session")
+        resp = await api_client.post(f"{prefix}/ingress/session")
         result = await resp.json()
 
         assert "session" in result["data"]
@@ -46,7 +49,7 @@ async def test_validate_session(api_client: TestClient, coresys: CoreSys):
         valid_time = coresys.ingress.sessions[session]
 
         resp = await api_client.post(
-            "/ingress/validate_session",
+            f"{prefix}/ingress/validate_session",
             json={"session": session},
         )
         assert resp.status == 200
@@ -56,12 +59,15 @@ async def test_validate_session(api_client: TestClient, coresys: CoreSys):
 
 
 async def test_validate_session_with_user_id(
-    api_client: TestClient, coresys: CoreSys, ha_ws_client: AsyncMock
+    api_client_with_prefix: tuple[TestClient, str],
+    coresys: CoreSys,
+    ha_ws_client: AsyncMock,
 ):
     """Test validating ingress session with user ID passed."""
+    api_client, prefix = api_client_with_prefix
     with patch("aiohttp.web_request.BaseRequest.__getitem__", return_value=None):
         resp = await api_client.post(
-            "/ingress/validate_session",
+            f"{prefix}/ingress/validate_session",
             json={"session": "non-existing"},
         )
         assert resp.status == 401
@@ -74,7 +80,9 @@ async def test_validate_session_with_user_id(
             {"id": "some-id", "name": "Some Name", "username": "sn"}
         ]
 
-        resp = await api_client.post("/ingress/session", json={"user_id": "some-id"})
+        resp = await api_client.post(
+            f"{prefix}/ingress/session", json={"user_id": "some-id"}
+        )
         result = await resp.json()
 
         assert {"type": "config/auth/list"} in [
@@ -88,7 +96,7 @@ async def test_validate_session_with_user_id(
         valid_time = coresys.ingress.sessions[session]
 
         resp = await api_client.post(
-            "/ingress/validate_session",
+            f"{prefix}/ingress/validate_session",
             json={"session": session},
         )
         assert resp.status == 200
@@ -103,9 +111,12 @@ async def test_validate_session_with_user_id(
 
 
 async def test_ingress_proxy_no_content_type_for_empty_body_responses(
-    api_client: TestClient, coresys: CoreSys, real_websession: aiohttp.ClientSession
+    api_client_with_prefix: tuple[TestClient, str],
+    coresys: CoreSys,
+    real_websession: aiohttp.ClientSession,
 ):
     """Test that empty body responses don't get Content-Type header."""
+    api_client, prefix = api_client_with_prefix
 
     # Create a mock app backend server that returns various status codes
     async def mock_app_handler(request: web.Request) -> web.Response:
@@ -146,7 +157,7 @@ async def test_ingress_proxy_no_content_type_for_empty_body_responses(
 
     try:
         # Create ingress session
-        resp = await api_client.post("/ingress/session")
+        resp = await api_client.post(f"{prefix}/ingress/session")
         result = await resp.json()
         session = result["data"]["session"]
 
@@ -162,7 +173,7 @@ async def test_ingress_proxy_no_content_type_for_empty_body_responses(
         with patch.object(coresys.ingress, "get", return_value=mock_app):
             # Test 204 No Content - should NOT have Content-Type
             resp = await api_client.get(
-                f"/ingress/{ingress_token}/204",
+                f"{prefix}/ingress/{ingress_token}/204",
                 cookies={"ingress_session": session},
             )
             assert resp.status == 204
@@ -170,7 +181,7 @@ async def test_ingress_proxy_no_content_type_for_empty_body_responses(
 
             # Test 304 Not Modified - should NOT have Content-Type
             resp = await api_client.get(
-                f"/ingress/{ingress_token}/304",
+                f"{prefix}/ingress/{ingress_token}/304",
                 cookies={"ingress_session": session},
             )
             assert resp.status == 304
@@ -179,7 +190,7 @@ async def test_ingress_proxy_no_content_type_for_empty_body_responses(
             # Test HEAD request - SHOULD have Content-Type (same as GET)
             # per RFC 9110: HEAD should return same headers as GET
             resp = await api_client.head(
-                f"/ingress/{ingress_token}/head",
+                f"{prefix}/ingress/{ingress_token}/head",
                 cookies={"ingress_session": session},
             )
             assert resp.status == 200
@@ -191,7 +202,7 @@ async def test_ingress_proxy_no_content_type_for_empty_body_responses(
 
             # Test 200 OK with body - SHOULD have Content-Type
             resp = await api_client.get(
-                f"/ingress/{ingress_token}/200",
+                f"{prefix}/ingress/{ingress_token}/200",
                 cookies={"ingress_session": session},
             )
             assert resp.status == 200
@@ -202,7 +213,7 @@ async def test_ingress_proxy_no_content_type_for_empty_body_responses(
 
             # Test 200 OK without explicit Content-Type - SHOULD get default
             resp = await api_client.get(
-                f"/ingress/{ingress_token}/200-no-content-type",
+                f"{prefix}/ingress/{ingress_token}/200-no-content-type",
                 cookies={"ingress_session": session},
             )
             assert resp.status == 200
@@ -212,7 +223,7 @@ async def test_ingress_proxy_no_content_type_for_empty_body_responses(
 
             # Test 200 OK with JSON - SHOULD preserve Content-Type
             resp = await api_client.get(
-                f"/ingress/{ingress_token}/200-json",
+                f"{prefix}/ingress/{ingress_token}/200-json",
                 cookies={"ingress_session": session},
             )
             assert resp.status == 200

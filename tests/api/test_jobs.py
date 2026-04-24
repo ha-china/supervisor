@@ -12,39 +12,46 @@ from supervisor.jobs.const import ATTR_IGNORE_CONDITIONS, JobCondition
 from supervisor.jobs.decorator import Job
 
 
-async def test_api_jobs_info(api_client: TestClient):
+async def test_api_jobs_info(api_client_with_prefix: tuple[TestClient, str]):
     """Test jobs info api."""
-    resp = await api_client.get("/jobs/info")
+    api_client, prefix = api_client_with_prefix
+    resp = await api_client.get(f"{prefix}/jobs/info")
     result = await resp.json()
 
     assert result["data"][ATTR_IGNORE_CONDITIONS] == []
     assert result["data"]["jobs"] == []
 
 
-async def test_api_jobs_options(api_client: TestClient, coresys: CoreSys):
+async def test_api_jobs_options(
+    api_client_with_prefix: tuple[TestClient, str], coresys: CoreSys
+):
     """Test jobs options api."""
+    api_client, prefix = api_client_with_prefix
     resp = await api_client.post(
-        "/jobs/options", json={ATTR_IGNORE_CONDITIONS: [JobCondition.HEALTHY]}
+        f"{prefix}/jobs/options", json={ATTR_IGNORE_CONDITIONS: [JobCondition.HEALTHY]}
     )
     result = await resp.json()
     assert result["result"] == "ok"
 
-    resp = await api_client.get("/jobs/info")
+    resp = await api_client.get(f"{prefix}/jobs/info")
     result = await resp.json()
     assert result["data"][ATTR_IGNORE_CONDITIONS] == [JobCondition.HEALTHY]
 
     assert coresys.jobs.save_data.called
 
 
-async def test_api_jobs_reset(api_client: TestClient, coresys: CoreSys):
+async def test_api_jobs_reset(
+    api_client_with_prefix: tuple[TestClient, str], coresys: CoreSys
+):
     """Test jobs reset api."""
+    api_client, prefix = api_client_with_prefix
     resp = await api_client.post(
-        "/jobs/options", json={ATTR_IGNORE_CONDITIONS: [JobCondition.HEALTHY]}
+        f"{prefix}/jobs/options", json={ATTR_IGNORE_CONDITIONS: [JobCondition.HEALTHY]}
     )
     result = await resp.json()
     assert result["result"] == "ok"
 
-    resp = await api_client.get("/jobs/info")
+    resp = await api_client.get(f"{prefix}/jobs/info")
     result = await resp.json()
     assert result["data"][ATTR_IGNORE_CONDITIONS] == [JobCondition.HEALTHY]
 
@@ -52,7 +59,7 @@ async def test_api_jobs_reset(api_client: TestClient, coresys: CoreSys):
     assert coresys.jobs.ignore_conditions == [JobCondition.HEALTHY]
 
     coresys.jobs.save_data.reset_mock()
-    resp = await api_client.post("/jobs/reset")
+    resp = await api_client.post(f"{prefix}/jobs/reset")
     result = await resp.json()
     assert result["result"] == "ok"
 
@@ -234,9 +241,12 @@ async def test_job_manual_cleanup(api_client: TestClient, coresys: CoreSys):
     ("method", "url"),
     [("get", "/jobs/bad"), ("delete", "/jobs/bad")],
 )
-async def test_job_not_found(api_client: TestClient, method: str, url: str):
+async def test_job_not_found(
+    api_client_with_prefix: tuple[TestClient, str], method: str, url: str
+):
     """Test job not found error."""
-    resp = await api_client.request(method, url)
+    api_client, prefix = api_client_with_prefix
+    resp = await api_client.request(method, f"{prefix}{url}")
     assert resp.status == 404
     body = await resp.json()
     assert body["message"] == "Job does not exist"

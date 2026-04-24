@@ -34,6 +34,7 @@ async def test_api_core_logs(
     await advanced_logs_tester(
         f"/{'homeassistant' if legacy_route else 'core'}",
         "homeassistant",
+        v2_path_prefix="/core",
     )
 
 

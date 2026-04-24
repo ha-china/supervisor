@@ -80,7 +80,9 @@ async def test_api_app_logs(
     advanced_logs_tester: Callable[[str, str], Awaitable[None]],
 ):
     """Test app logs."""
-    await advanced_logs_tester("/addons/local_ssh", "addon_local_ssh")
+    await advanced_logs_tester(
+        "/addons/local_ssh", "addon_local_ssh", v2_path_prefix="/apps/local_ssh"
+    )
 
 
 async def test_api_app_logs_not_installed(api_client: TestClient):

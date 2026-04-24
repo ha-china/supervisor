@@ -37,16 +37,17 @@ async def fixture_mount(
     yield mount
 
 
-async def test_api_mounts_info(api_client: TestClient):
+async def test_api_mounts_info(api_client_with_prefix: tuple[TestClient, str]):
     """Test mounts info api."""
-    resp = await api_client.get("/mounts")
+    api_client, prefix = api_client_with_prefix
+    resp = await api_client.get(f"{prefix}/mounts")
     result = await resp.json()
 
     assert result["data"]["mounts"] == []
 
 
 async def test_api_create_mount(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     tmp_supervisor_data,
     path_extern,
@@ -54,8 +55,9 @@ async def test_api_create_mount(
     mock_is_mount,
 ):
     """Test creating a mount via API."""
+    api_client, prefix = api_client_with_prefix
     resp = await api_client.post(
-        "/mounts",
+        f"{prefix}/mounts",
         json={
             "name": "backup_test",
             "type": "cifs",
@@ -68,7 +70,7 @@ async def test_api_create_mount(
     result = await resp.json()
     assert result["result"] == "ok"
 
-    resp = await api_client.get("/mounts")
+    resp = await api_client.get(f"{prefix}/mounts")
     result = await resp.json()
 
     assert result["data"]["mounts"] == [
@@ -87,10 +89,13 @@ async def test_api_create_mount(
     coresys.mounts.save_data.assert_called_once()
 
 
-async def test_api_create_error_mount_exists(api_client: TestClient, mount):
+async def test_api_create_error_mount_exists(
+    api_client_with_prefix: tuple[TestClient, str], mount
+):
     """Test create mount API errors when mount exists."""
+    api_client, prefix = api_client_with_prefix
     resp = await api_client.post(
-        "/mounts",
+        f"{prefix}/mounts",
         json={
             "name": "backup_test",
             "type": "cifs",
@@ -106,13 +111,14 @@ async def test_api_create_error_mount_exists(api_client: TestClient, mount):
 
 
 async def test_api_create_dbus_error_mount_not_added(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     all_dbus_services: dict[str, DBusServiceMock],
     tmp_supervisor_data,
     path_extern,
     mount_propagation,
 ):
     """Test mount not added to list of mounts if a dbus error occurs."""
+    api_client, prefix = api_client_with_prefix
     systemd_service: SystemdService = all_dbus_services["systemd"]
     systemd_unit_service: SystemdUnitService = all_dbus_services["systemd_unit"]
     systemd_service.response_get_unit = DBusError(
@@ -121,7 +127,7 @@ async def test_api_create_dbus_error_mount_not_added(
     systemd_service.response_start_transient_unit = DBusError(ErrorType.FAILED, "fail")
 
     resp = await api_client.post(
-        "/mounts",
+        f"{prefix}/mounts",
         json={
             "name": "backup_test",
             "type": "cifs",
@@ -135,7 +141,7 @@ async def test_api_create_dbus_error_mount_not_added(
     assert result["result"] == "error"
     assert result["message"] == "Could not mount backup_test due to: fail"
 
-    resp = await api_client.get("/mounts")
+    resp = await api_client.get(f"{prefix}/mounts")
     result = await resp.json()
     assert result["data"]["mounts"] == []
 
@@ -148,7 +154,7 @@ async def test_api_create_dbus_error_mount_not_added(
     systemd_unit_service.active_state = ["failed", "failed", "inactive"]
 
     resp = await api_client.post(
-        "/mounts",
+        f"{prefix}/mounts",
         json={
             "name": "backup_test",
             "type": "cifs",
@@ -165,21 +171,22 @@ async def test_api_create_dbus_error_mount_not_added(
         == "Mounting backup_test did not succeed. Check host logs for errors from mount or systemd unit mnt-data-supervisor-mounts-backup_test.mount for details."
     )
 
-    resp = await api_client.get("/mounts")
+    resp = await api_client.get(f"{prefix}/mounts")
     result = await resp.json()
     assert result["data"]["mounts"] == []
 
 
 @pytest.mark.parametrize("os_available", ["9.5"], indirect=True)
 async def test_api_create_mount_fails_os_out_of_date(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     os_available,
     mount_propagation,
 ):
     """Test creating a mount via API fails when mounting isn't supported due to OS version."""
+    api_client, prefix = api_client_with_prefix
     resp = await api_client.post(
-        "/mounts",
+        f"{prefix}/mounts",
         json={
             "name": "backup_test",
             "type": "cifs",
@@ -198,13 +205,14 @@ async def test_api_create_mount_fails_os_out_of_date(
 
 
 async def test_api_create_mount_fails_missing_mount_propagation(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     os_available,
 ):
     """Test creating a mount via API fails when mounting isn't supported due to container config."""
+    api_client, prefix = api_client_with_prefix
     resp = await api_client.post(
-        "/mounts",
+        f"{prefix}/mounts",
         json={
             "name": "backup_test",
             "type": "cifs",
@@ -223,18 +231,19 @@ async def test_api_create_mount_fails_missing_mount_propagation(
 
 
 async def test_api_update_mount(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     all_dbus_services: dict[str, DBusServiceMock],
     mount,
     mock_is_mount,
 ):
     """Test updating a mount via API."""
+    api_client, prefix = api_client_with_prefix
     systemd_service: SystemdService = all_dbus_services["systemd"]
     systemd_unit_service: SystemdUnitService = all_dbus_services["systemd_unit"]
     systemd_service.mock_systemd_unit = systemd_unit_service
     resp = await api_client.put(
-        "/mounts/backup_test",
+        f"{prefix}/mounts/backup_test",
         json={
             "type": "cifs",
             "usage": "backup",
@@ -245,7 +254,7 @@ async def test_api_update_mount(
     result = await resp.json()
     assert result["result"] == "ok"
 
-    resp = await api_client.get("/mounts")
+    resp = await api_client.get(f"{prefix}/mounts")
     result = await resp.json()
 
     assert result["data"]["mounts"] == [
@@ -265,7 +274,7 @@ async def test_api_update_mount(
 
 
 async def test_api_update_dbus_error_mount_remains(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     all_dbus_services: dict[str, DBusServiceMock],
     mount,
     tmp_supervisor_data,
@@ -273,6 +282,7 @@ async def test_api_update_dbus_error_mount_remains(
     mount_propagation,
 ):
     """Test mount remains in list with unsuccessful state if dbus error occurs during update."""
+    api_client, prefix = api_client_with_prefix
     systemd_service: SystemdService = all_dbus_services["systemd"]
     systemd_unit_service: SystemdUnitService = all_dbus_services["systemd_unit"]
     systemd_unit_service.active_state = ["failed", "inactive"]
@@ -283,7 +293,7 @@ async def test_api_update_dbus_error_mount_remains(
     systemd_service.response_start_transient_unit = DBusError(ErrorType.FAILED, "fail")
 
     resp = await api_client.put(
-        "/mounts/backup_test",
+        f"{prefix}/mounts/backup_test",
         json={
             "type": "cifs",
             "usage": "backup",
@@ -296,7 +306,7 @@ async def test_api_update_dbus_error_mount_remains(
     assert result["result"] == "error"
     assert result["message"] == "Could not mount backup_test due to: fail"
 
-    resp = await api_client.get("/mounts")
+    resp = await api_client.get(f"{prefix}/mounts")
     result = await resp.json()
     assert result["data"]["mounts"] == [
         {
@@ -328,7 +338,7 @@ async def test_api_update_dbus_error_mount_remains(
     ]
 
     resp = await api_client.put(
-        "/mounts/backup_test",
+        f"{prefix}/mounts/backup_test",
         json={
             "type": "cifs",
             "usage": "backup",
@@ -344,7 +354,7 @@ async def test_api_update_dbus_error_mount_remains(
         == "Mounting backup_test did not succeed. Check host logs for errors from mount or systemd unit mnt-data-supervisor-mounts-backup_test.mount for details."
     )
 
-    resp = await api_client.get("/mounts")
+    resp = await api_client.get(f"{prefix}/mounts")
     result = await resp.json()
     assert result["data"]["mounts"] == [
         {
@@ -362,16 +372,17 @@ async def test_api_update_dbus_error_mount_remains(
 
 
 async def test_api_reload_mount(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     all_dbus_services: dict[str, DBusServiceMock],
     mount,
     mock_is_mount,
 ):
     """Test reloading a mount via API."""
+    api_client, prefix = api_client_with_prefix
     systemd_service: SystemdService = all_dbus_services["systemd"]
     systemd_service.ReloadOrRestartUnit.calls.clear()
 
-    resp = await api_client.post("/mounts/backup_test/reload")
+    resp = await api_client.post(f"{prefix}/mounts/backup_test/reload")
     result = await resp.json()
     assert result["result"] == "ok"
 
@@ -381,20 +392,21 @@ async def test_api_reload_mount(
 
 
 async def test_api_delete_mount(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     all_dbus_services: dict[str, DBusServiceMock],
     mount,
 ):
     """Test deleting a mount via API."""
+    api_client, prefix = api_client_with_prefix
     systemd_service: SystemdService = all_dbus_services["systemd"]
     systemd_unit_service: SystemdUnitService = all_dbus_services["systemd_unit"]
     systemd_service.mock_systemd_unit = systemd_unit_service
-    resp = await api_client.delete("/mounts/backup_test")
+    resp = await api_client.delete(f"{prefix}/mounts/backup_test")
     result = await resp.json()
     assert result["result"] == "ok"
 
-    resp = await api_client.get("/mounts")
+    resp = await api_client.get(f"{prefix}/mounts")
     result = await resp.json()
 
     assert result["data"]["mounts"] == []
@@ -403,7 +415,7 @@ async def test_api_delete_mount(
 
 
 async def test_api_create_backup_mount_sets_default(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     tmp_supervisor_data,
     path_extern,
@@ -411,11 +423,12 @@ async def test_api_create_backup_mount_sets_default(
     mock_is_mount,
 ):
     """Test creating backup mounts sets default if not set."""
+    api_client, prefix = api_client_with_prefix
     await coresys.mounts.load()
     assert coresys.mounts.default_backup_mount is None
 
     resp = await api_client.post(
-        "/mounts",
+        f"{prefix}/mounts",
         json={
             "name": "backup_test",
             "type": "cifs",
@@ -430,7 +443,7 @@ async def test_api_create_backup_mount_sets_default(
 
     # Confirm the default does not change if mount created after its been set
     resp = await api_client.post(
-        "/mounts",
+        f"{prefix}/mounts",
         json={
             "name": "backup_test_2",
             "type": "cifs",
@@ -445,20 +458,21 @@ async def test_api_create_backup_mount_sets_default(
 
 
 async def test_update_backup_mount_changes_default(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     all_dbus_services: dict[str, DBusServiceMock],
     mount,
     mock_is_mount,
 ):
     """Test updating a backup mount may unset the default."""
+    api_client, prefix = api_client_with_prefix
     systemd_unit_service: SystemdUnitService = all_dbus_services["systemd_unit"]
     systemd_service: SystemdService = all_dbus_services["systemd"]
     systemd_service.mock_systemd_unit = systemd_unit_service
 
     # Make another backup mount for testing
     resp = await api_client.post(
-        "/mounts",
+        f"{prefix}/mounts",
         json={
             "name": "other_backup_test",
             "type": "cifs",
@@ -472,7 +486,7 @@ async def test_update_backup_mount_changes_default(
 
     # Changing this mount should have no effect on the default
     resp = await api_client.put(
-        "/mounts/other_backup_test",
+        f"{prefix}/mounts/other_backup_test",
         json={
             "type": "cifs",
             "usage": "media",
@@ -486,7 +500,7 @@ async def test_update_backup_mount_changes_default(
 
     # Changing this one to non-backup should unset the default
     resp = await api_client.put(
-        "/mounts/backup_test",
+        f"{prefix}/mounts/backup_test",
         json={
             "type": "cifs",
             "usage": "media",
@@ -500,20 +514,21 @@ async def test_update_backup_mount_changes_default(
 
 
 async def test_delete_backup_mount_changes_default(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     all_dbus_services: dict[str, DBusServiceMock],
     mount,
     mock_is_mount,
 ):
     """Test deleting a backup mount may unset the default."""
+    api_client, prefix = api_client_with_prefix
     systemd_unit_service: SystemdUnitService = all_dbus_services["systemd_unit"]
     systemd_service: SystemdService = all_dbus_services["systemd"]
     systemd_service.mock_systemd_unit = systemd_unit_service
 
     # Make another backup mount for testing
     resp = await api_client.post(
-        "/mounts",
+        f"{prefix}/mounts",
         json={
             "name": "other_backup_test",
             "type": "cifs",
@@ -526,20 +541,20 @@ async def test_delete_backup_mount_changes_default(
     assert result["result"] == "ok"
 
     # Deleting this one should have no effect on the default
-    resp = await api_client.delete("/mounts/other_backup_test")
+    resp = await api_client.delete(f"{prefix}/mounts/other_backup_test")
     result = await resp.json()
     assert result["result"] == "ok"
     assert coresys.mounts.default_backup_mount.name == "backup_test"
 
     # Deleting this current default should unset it
-    resp = await api_client.delete("/mounts/backup_test")
+    resp = await api_client.delete(f"{prefix}/mounts/backup_test")
     result = await resp.json()
     assert result["result"] == "ok"
     assert coresys.mounts.default_backup_mount is None
 
 
 async def test_backup_mounts_reload_backups(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     all_dbus_services: dict[str, DBusServiceMock],
     tmp_supervisor_data,
@@ -548,6 +563,7 @@ async def test_backup_mounts_reload_backups(
     mock_is_mount,
 ):
     """Test actions on a backup mount reload backups."""
+    api_client, prefix = api_client_with_prefix
     systemd_unit_service: SystemdUnitService = all_dbus_services["systemd_unit"]
     systemd_service: SystemdService = all_dbus_services["systemd"]
     systemd_service.mock_systemd_unit = systemd_unit_service
@@ -556,7 +572,7 @@ async def test_backup_mounts_reload_backups(
     with patch.object(BackupManager, "reload") as reload:
         # Only creating a backup mount triggers reload
         resp = await api_client.post(
-            "/mounts",
+            f"{prefix}/mounts",
             json={
                 "name": "media_test",
                 "type": "cifs",
@@ -571,7 +587,7 @@ async def test_backup_mounts_reload_backups(
         reload.assert_not_called()
 
         resp = await api_client.post(
-            "/mounts",
+            f"{prefix}/mounts",
             json={
                 "name": "backup_test",
                 "type": "cifs",
@@ -588,7 +604,7 @@ async def test_backup_mounts_reload_backups(
         # Only updating a backup mount triggers reload
         reload.reset_mock()
         resp = await api_client.put(
-            "/mounts/media_test",
+            f"{prefix}/mounts/media_test",
             json={
                 "type": "cifs",
                 "usage": "media",
@@ -602,7 +618,7 @@ async def test_backup_mounts_reload_backups(
         reload.assert_not_called()
 
         resp = await api_client.put(
-            "/mounts/backup_test",
+            f"{prefix}/mounts/backup_test",
             json={
                 "type": "cifs",
                 "usage": "backup",
@@ -617,13 +633,13 @@ async def test_backup_mounts_reload_backups(
 
         # Only reloading a backup mount triggers reload
         reload.reset_mock()
-        resp = await api_client.post("/mounts/media_test/reload")
+        resp = await api_client.post(f"{prefix}/mounts/media_test/reload")
         result = await resp.json()
         assert result["result"] == "ok"
         await asyncio.sleep(0)
         reload.assert_not_called()
 
-        resp = await api_client.post("/mounts/backup_test/reload")
+        resp = await api_client.post(f"{prefix}/mounts/backup_test/reload")
         result = await resp.json()
         assert result["result"] == "ok"
         await asyncio.sleep(0)
@@ -631,23 +647,29 @@ async def test_backup_mounts_reload_backups(
 
         # Only deleting a backup mount triggers reload
         reload.reset_mock()
-        resp = await api_client.delete("/mounts/media_test")
+        resp = await api_client.delete(f"{prefix}/mounts/media_test")
         result = await resp.json()
         assert result["result"] == "ok"
         await asyncio.sleep(0)
         reload.assert_not_called()
 
-        resp = await api_client.delete("/mounts/backup_test")
+        resp = await api_client.delete(f"{prefix}/mounts/backup_test")
         result = await resp.json()
         assert result["result"] == "ok"
         await asyncio.sleep(0)
         reload.assert_called_once()
 
 
-async def test_options(api_client: TestClient, coresys: CoreSys, mount, mock_is_mount):
+async def test_options(
+    api_client_with_prefix: tuple[TestClient, str],
+    coresys: CoreSys,
+    mount,
+    mock_is_mount,
+):
     """Test changing options."""
+    api_client, prefix = api_client_with_prefix
     resp = await api_client.post(
-        "/mounts",
+        f"{prefix}/mounts",
         json={
             "name": "other_backup_test",
             "type": "cifs",
@@ -660,7 +682,7 @@ async def test_options(api_client: TestClient, coresys: CoreSys, mount, mock_is_
     assert result["result"] == "ok"
 
     resp = await api_client.post(
-        "/mounts",
+        f"{prefix}/mounts",
         json={
             "name": "media_test",
             "type": "cifs",
@@ -676,7 +698,7 @@ async def test_options(api_client: TestClient, coresys: CoreSys, mount, mock_is_
 
     # Not a backup mount, will fail
     resp = await api_client.post(
-        "/mounts/options",
+        f"{prefix}/mounts/options",
         json={
             "default_backup_mount": "media_test",
         },
@@ -686,7 +708,7 @@ async def test_options(api_client: TestClient, coresys: CoreSys, mount, mock_is_
 
     # Mount doesn't exist, will fail
     resp = await api_client.post(
-        "/mounts/options",
+        f"{prefix}/mounts/options",
         json={
             "default_backup_mount": "junk",
         },
@@ -699,7 +721,7 @@ async def test_options(api_client: TestClient, coresys: CoreSys, mount, mock_is_
 
     # Changes to new backup mount
     resp = await api_client.post(
-        "/mounts/options",
+        f"{prefix}/mounts/options",
         json={
             "default_backup_mount": "other_backup_test",
         },
@@ -712,7 +734,7 @@ async def test_options(api_client: TestClient, coresys: CoreSys, mount, mock_is_
 
     # Unsets default backup mount
     resp = await api_client.post(
-        "/mounts/options",
+        f"{prefix}/mounts/options",
         json={
             "default_backup_mount": None,
         },
@@ -725,15 +747,16 @@ async def test_options(api_client: TestClient, coresys: CoreSys, mount, mock_is_
 
 
 async def test_api_create_mount_fails_special_chars(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     tmp_supervisor_data,
     path_extern,
     mount_propagation,
 ):
     """Test creating a mount via API fails with special characters."""
+    api_client, prefix = api_client_with_prefix
     resp = await api_client.post(
-        "/mounts",
+        f"{prefix}/mounts",
         json={
             "name": "Überwachungskameras",
             "type": "cifs",
@@ -749,7 +772,7 @@ async def test_api_create_mount_fails_special_chars(
 
 
 async def test_api_create_read_only_cifs_mount(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     tmp_supervisor_data,
     path_extern,
@@ -757,8 +780,9 @@ async def test_api_create_read_only_cifs_mount(
     mock_is_mount,
 ):
     """Test creating a read-only cifs mount via API."""
+    api_client, prefix = api_client_with_prefix
     resp = await api_client.post(
-        "/mounts",
+        f"{prefix}/mounts",
         json={
             "name": "media_test",
             "type": "cifs",
@@ -772,7 +796,7 @@ async def test_api_create_read_only_cifs_mount(
     result = await resp.json()
     assert result["result"] == "ok"
 
-    resp = await api_client.get("/mounts")
+    resp = await api_client.get(f"{prefix}/mounts")
     result = await resp.json()
 
     assert result["data"]["mounts"] == [
@@ -792,7 +816,7 @@ async def test_api_create_read_only_cifs_mount(
 
 
 async def test_api_create_read_only_nfs_mount(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     tmp_supervisor_data,
     path_extern,
@@ -800,8 +824,9 @@ async def test_api_create_read_only_nfs_mount(
     mock_is_mount,
 ):
     """Test creating a read-only nfs mount via API."""
+    api_client, prefix = api_client_with_prefix
     resp = await api_client.post(
-        "/mounts",
+        f"{prefix}/mounts",
         json={
             "name": "media_test",
             "type": "nfs",
@@ -814,7 +839,7 @@ async def test_api_create_read_only_nfs_mount(
     result = await resp.json()
     assert result["result"] == "ok"
 
-    resp = await api_client.get("/mounts")
+    resp = await api_client.get(f"{prefix}/mounts")
     result = await resp.json()
 
     assert result["data"]["mounts"] == [
@@ -833,15 +858,16 @@ async def test_api_create_read_only_nfs_mount(
 
 
 async def test_api_read_only_backup_mount_invalid(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     tmp_supervisor_data,
     path_extern,
     mount_propagation,
 ):
     """Test cannot create a read-only backup mount."""
+    api_client, prefix = api_client_with_prefix
     resp = await api_client.post(
-        "/mounts",
+        f"{prefix}/mounts",
         json={
             "name": "backup_test",
             "type": "cifs",
@@ -866,9 +892,12 @@ async def test_api_read_only_backup_mount_invalid(
         ("post", "/mounts/bad/reload"),
     ],
 )
-async def test_mount_not_found(api_client: TestClient, method: str, url: str):
+async def test_mount_not_found(
+    api_client_with_prefix: tuple[TestClient, str], method: str, url: str
+):
     """Test mount not found error."""
-    resp = await api_client.request(method, url)
+    api_client, prefix = api_client_with_prefix
+    resp = await api_client.request(method, f"{prefix}{url}")
     assert resp.status == 404
     resp = await resp.json()
     assert resp["message"] == "No mount exists with name bad"

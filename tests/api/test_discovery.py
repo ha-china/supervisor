@@ -41,12 +41,13 @@ async def test_api_discovery_forbidden(
     "skip_state", [AppState.ERROR, AppState.STOPPED, AppState.STARTUP]
 )
 async def test_api_list_discovery(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     install_app_ssh: App,
     skip_state: AppState,
 ):
     """Test listing discovery messages only returns ones for healthy services."""
+    api_client, prefix = api_client_with_prefix
     with (
         patch(
             "supervisor.utils.common.read_json_or_yaml_file",
@@ -63,7 +64,7 @@ async def test_api_list_discovery(
     ]
 
     install_app_ssh.state = AppState.STARTED
-    resp = await api_client.get("/discovery")
+    resp = await api_client.get(f"{prefix}/discovery")
     assert resp.status == 200
     result = await resp.json()
     assert result["data"]["discovery"] == [
@@ -76,7 +77,7 @@ async def test_api_list_discovery(
     ]
 
     install_app_ssh.state = skip_state
-    resp = await api_client.get("/discovery")
+    resp = await api_client.get(f"{prefix}/discovery")
     assert resp.status == 200
     result = await resp.json()
     assert result["data"]["discovery"] == []
@@ -148,9 +149,12 @@ async def test_api_invalid_discovery(api_client: TestClient, install_app_ssh: Ap
     ("method", "url"),
     [("get", "/discovery/bad"), ("delete", "/discovery/bad")],
 )
-async def test_discovery_not_found(api_client: TestClient, method: str, url: str):
+async def test_discovery_not_found(
+    api_client_with_prefix: tuple[TestClient, str], method: str, url: str
+):
     """Test discovery not found error."""
-    resp = await api_client.request(method, url)
+    api_client, prefix = api_client_with_prefix
+    resp = await api_client.request(method, f"{prefix}{url}")
     assert resp.status == 404
     resp = await resp.json()
     assert resp["message"] == "Discovery message not found"

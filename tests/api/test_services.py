@@ -14,9 +14,12 @@ from tests.const import TEST_ADDON_SLUG
     ("method", "url"),
     [("get", "/services/bad"), ("post", "/services/bad"), ("delete", "/services/bad")],
 )
-async def test_service_not_found(api_client: TestClient, method: str, url: str):
+async def test_service_not_found(
+    api_client_with_prefix: tuple[TestClient, str], method: str, url: str
+):
     """Test service not found error."""
-    resp = await api_client.request(method, url)
+    api_client, prefix = api_client_with_prefix
+    resp = await api_client.request(method, f"{prefix}{url}")
     assert resp.status == 404
     body = await resp.json()
     assert body["message"] == "Service does not exist"
