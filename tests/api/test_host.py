@@ -272,7 +272,7 @@ async def test_advanced_logs(
     assert resp.status == 404
 
 
-async def test_advaced_logs_query_parameters(
+async def test_advanced_logs_query_parameters(
     api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     journald_logs: MagicMock,
