@@ -215,9 +215,20 @@ class DockerNetwork:
 
         await self.reload()
 
-        # Reattach Supervisor-managed containers; missing ones are expected on fresh install.
+        # Supervisor is running this code, so its container must exist.
+        try:
+            await self.attach_container_by_name(
+                SUPERVISOR_DOCKER_NAME, ipv4=self.supervisor
+            )
+        except DockerError as err:
+            _LOGGER.critical(
+                "Can't attach Supervisor to Supervisor network: %s",
+                err,
+                exc_info=True,
+            )
+
+        # Plugin containers don't exist yet on fresh install; that's expected.
         for container_name, ipv4 in (
-            (SUPERVISOR_DOCKER_NAME, self.supervisor),
             (OBSERVER_DOCKER_NAME, self.observer),
             (CLI_DOCKER_NAME, self.cli),
             (DNS_DOCKER_NAME, self.dns),
@@ -231,10 +242,11 @@ class DockerNetwork:
                     container_name,
                 )
             except DockerError as err:
-                _LOGGER.error(
+                _LOGGER.critical(
                     "Can't attach %s to Supervisor network: %s",
                     container_name,
                     err,
+                    exc_info=True,
                 )
 
     async def reload(self) -> None:
