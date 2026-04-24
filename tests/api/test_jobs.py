@@ -12,6 +12,99 @@ from supervisor.jobs.const import ATTR_IGNORE_CONDITIONS, JobCondition
 from supervisor.jobs.decorator import Job
 
 
+class _JobsTreeTestHelper:
+    """Helper class for test_jobs_tree_representation."""
+
+    def __init__(self, coresys: CoreSys):
+        """Initialize the test class."""
+        self.coresys = coresys
+        self.event = asyncio.Event()
+
+    @Job(name="test_jobs_tree_outer")
+    async def test_jobs_tree_outer(self):
+        """Outer test method."""
+        self.coresys.jobs.current.progress = 50
+        await self.test_jobs_tree_inner()
+
+    @Job(name="test_jobs_tree_inner")
+    async def test_jobs_tree_inner(self):
+        """Inner test method."""
+        await self.event.wait()
+
+    @Job(name="test_jobs_tree_alt", cleanup=False)
+    async def test_jobs_tree_alt(self):
+        """Alternate test method."""
+        self.coresys.jobs.current.stage = "init"
+        await self.test_jobs_tree_internal()
+        self.coresys.jobs.current.stage = "end"
+
+    @Job(name="test_jobs_tree_internal", internal=True)
+    async def test_jobs_tree_internal(self):
+        """Internal test method."""
+        await self.event.wait()
+
+
+class _JobManualCleanupTestHelper:
+    """Helper class for test_job_manual_cleanup."""
+
+    def __init__(self, coresys: CoreSys):
+        """Initialize the test class."""
+        self.coresys = coresys
+        self.event = asyncio.Event()
+        self.job_id: str | None = None
+
+    @Job(name="test_job_manual_cleanup", cleanup=False)
+    async def test_job_manual_cleanup(self) -> None:
+        """Job that requires manual cleanup."""
+        self.job_id = self.coresys.jobs.current.uuid
+        await self.event.wait()
+
+
+class _JobsSortedTestHelper:
+    """Helper class for test_jobs_sorted."""
+
+    def __init__(self, coresys: CoreSys):
+        """Initialize the test class."""
+        self.coresys = coresys
+
+    @Job(name="test_jobs_sorted_1", cleanup=False)
+    async def test_jobs_sorted_1(self):
+        """Sorted test method 1."""
+        await self.test_jobs_sorted_inner_1()
+        await self.test_jobs_sorted_inner_2()
+
+    @Job(name="test_jobs_sorted_inner_1", cleanup=False)
+    async def test_jobs_sorted_inner_1(self):
+        """Sorted test inner method 1."""
+
+    @Job(name="test_jobs_sorted_inner_2", cleanup=False)
+    async def test_jobs_sorted_inner_2(self):
+        """Sorted test inner method 2."""
+
+    @Job(name="test_jobs_sorted_2", cleanup=False)
+    async def test_jobs_sorted_2(self):
+        """Sorted test method 2."""
+
+
+class _JobWithErrorTestHelper:
+    """Helper class for test_job_with_error."""
+
+    def __init__(self, coresys: CoreSys):
+        """Initialize the test class."""
+        self.coresys = coresys
+
+    @Job(name="test_jobs_api_error_outer", cleanup=False)
+    async def test_jobs_api_error_outer(self):
+        """Error test outer method."""
+        self.coresys.jobs.current.stage = "test"
+        await self.test_jobs_api_error_inner()
+
+    @Job(name="test_jobs_api_error_inner", cleanup=False)
+    async def test_jobs_api_error_inner(self):
+        """Error test inner method."""
+        raise SupervisorError("bad")
+
+
 async def test_api_jobs_info(api_client_with_prefix: tuple[TestClient, str]):
     """Test jobs info api."""
     api_client, prefix = api_client_with_prefix
@@ -67,46 +160,17 @@ async def test_api_jobs_reset(
     coresys.jobs.save_data.assert_called_once()
 
 
-async def test_jobs_tree_representation(api_client: TestClient, coresys: CoreSys):
+async def test_jobs_tree_representation(
+    api_client_with_prefix: tuple[TestClient, str], coresys: CoreSys
+):
     """Test jobs are correctly represented in a tree."""
-
-    class TestClass:
-        """Test class."""
-
-        def __init__(self, coresys: CoreSys):
-            """Initialize the test class."""
-            self.coresys = coresys
-            self.event = asyncio.Event()
-
-        @Job(name="test_jobs_tree_outer")
-        async def test_jobs_tree_outer(self):
-            """Outer test method."""
-            coresys.jobs.current.progress = 50
-            await self.test_jobs_tree_inner()
-
-        @Job(name="test_jobs_tree_inner")
-        async def test_jobs_tree_inner(self):
-            """Inner test method."""
-            await self.event.wait()
-
-        @Job(name="test_jobs_tree_alt", cleanup=False)
-        async def test_jobs_tree_alt(self):
-            """Alternate test method."""
-            coresys.jobs.current.stage = "init"
-            await self.test_jobs_tree_internal()
-            coresys.jobs.current.stage = "end"
-
-        @Job(name="test_jobs_tree_internal", internal=True)
-        async def test_jobs_tree_internal(self):
-            """Internal test method."""
-            await self.event.wait()
-
-    test = TestClass(coresys)
+    api_client, prefix = api_client_with_prefix
+    test = _JobsTreeTestHelper(coresys)
     outer_task = asyncio.create_task(test.test_jobs_tree_outer())
     alt_task = asyncio.create_task(test.test_jobs_tree_alt())
     await asyncio.sleep(0)
 
-    resp = await api_client.get("/jobs/info")
+    resp = await api_client.get(f"{prefix}/jobs/info")
     result = await resp.json()
     assert result["data"]["jobs"] == [
         {
@@ -151,7 +215,7 @@ async def test_jobs_tree_representation(api_client: TestClient, coresys: CoreSys
     test.event.set()
     await asyncio.sleep(0)
 
-    resp = await api_client.get("/jobs/info")
+    resp = await api_client.get(f"{prefix}/jobs/info")
     result = await resp.json()
     assert result["data"]["jobs"] == [
         {
@@ -171,30 +235,17 @@ async def test_jobs_tree_representation(api_client: TestClient, coresys: CoreSys
     await alt_task
 
 
-async def test_job_manual_cleanup(api_client: TestClient, coresys: CoreSys):
+async def test_job_manual_cleanup(
+    api_client_with_prefix: tuple[TestClient, str], coresys: CoreSys
+):
     """Test manually cleaning up a job via API."""
-
-    class TestClass:
-        """Test class."""
-
-        def __init__(self, coresys: CoreSys):
-            """Initialize the test class."""
-            self.coresys = coresys
-            self.event = asyncio.Event()
-            self.job_id: str | None = None
-
-        @Job(name="test_job_manual_cleanup", cleanup=False)
-        async def test_job_manual_cleanup(self) -> None:
-            """Job that requires manual cleanup."""
-            self.job_id = coresys.jobs.current.uuid
-            await self.event.wait()
-
-    test = TestClass(coresys)
+    api_client, prefix = api_client_with_prefix
+    test = _JobManualCleanupTestHelper(coresys)
     task = asyncio.create_task(test.test_job_manual_cleanup())
     await asyncio.sleep(0)
 
     # Check the job details
-    resp = await api_client.get(f"/jobs/{test.job_id}")
+    resp = await api_client.get(f"{prefix}/jobs/{test.job_id}")
     assert resp.status == 200
     result = await resp.json()
     assert result["data"] == {
@@ -211,7 +262,7 @@ async def test_job_manual_cleanup(api_client: TestClient, coresys: CoreSys):
     }
 
     # Only done jobs can be deleted via API
-    resp = await api_client.delete(f"/jobs/{test.job_id}")
+    resp = await api_client.delete(f"{prefix}/jobs/{test.job_id}")
     assert resp.status == 400
     result = await resp.json()
     assert result["message"] == f"Job {test.job_id} is not done!"
@@ -221,17 +272,17 @@ async def test_job_manual_cleanup(api_client: TestClient, coresys: CoreSys):
     await task
 
     # Check that it is now done
-    resp = await api_client.get(f"/jobs/{test.job_id}")
+    resp = await api_client.get(f"{prefix}/jobs/{test.job_id}")
     assert resp.status == 200
     result = await resp.json()
     assert result["data"]["done"] is True
 
     # Delete it
-    resp = await api_client.delete(f"/jobs/{test.job_id}")
+    resp = await api_client.delete(f"{prefix}/jobs/{test.job_id}")
     assert resp.status == 200
 
     # Confirm it no longer exists
-    resp = await api_client.get(f"/jobs/{test.job_id}")
+    resp = await api_client.get(f"{prefix}/jobs/{test.job_id}")
     assert resp.status == 404
     result = await resp.json()
     assert result["message"] == "Job does not exist"
@@ -252,39 +303,16 @@ async def test_job_not_found(
     assert body["message"] == "Job does not exist"
 
 
-async def test_jobs_sorted(api_client: TestClient, coresys: CoreSys):
+async def test_jobs_sorted(
+    api_client_with_prefix: tuple[TestClient, str], coresys: CoreSys
+):
     """Test jobs are sorted by datetime in results."""
-
-    class TestClass:
-        """Test class."""
-
-        def __init__(self, coresys: CoreSys):
-            """Initialize the test class."""
-            self.coresys = coresys
-
-        @Job(name="test_jobs_sorted_1", cleanup=False)
-        async def test_jobs_sorted_1(self):
-            """Sorted test method 1."""
-            await self.test_jobs_sorted_inner_1()
-            await self.test_jobs_sorted_inner_2()
-
-        @Job(name="test_jobs_sorted_inner_1", cleanup=False)
-        async def test_jobs_sorted_inner_1(self):
-            """Sorted test inner method 1."""
-
-        @Job(name="test_jobs_sorted_inner_2", cleanup=False)
-        async def test_jobs_sorted_inner_2(self):
-            """Sorted test inner method 2."""
-
-        @Job(name="test_jobs_sorted_2", cleanup=False)
-        async def test_jobs_sorted_2(self):
-            """Sorted test method 2."""
-
-    test = TestClass(coresys)
+    api_client, prefix = api_client_with_prefix
+    test = _JobsSortedTestHelper(coresys)
     await test.test_jobs_sorted_1()
     await test.test_jobs_sorted_2()
 
-    resp = await api_client.get("/jobs/info")
+    resp = await api_client.get(f"{prefix}/jobs/info")
     result = await resp.json()
     assert result["data"]["jobs"] == [
         {
@@ -340,34 +368,16 @@ async def test_jobs_sorted(api_client: TestClient, coresys: CoreSys):
 
 
 async def test_job_with_error(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
 ):
     """Test job output with an error."""
-
-    class TestClass:
-        """Test class."""
-
-        def __init__(self, coresys: CoreSys):
-            """Initialize the test class."""
-            self.coresys = coresys
-
-        @Job(name="test_jobs_api_error_outer", cleanup=False)
-        async def test_jobs_api_error_outer(self):
-            """Error test outer method."""
-            coresys.jobs.current.stage = "test"
-            await self.test_jobs_api_error_inner()
-
-        @Job(name="test_jobs_api_error_inner", cleanup=False)
-        async def test_jobs_api_error_inner(self):
-            """Error test inner method."""
-            raise SupervisorError("bad")
-
-    test = TestClass(coresys)
+    api_client, prefix = api_client_with_prefix
+    test = _JobWithErrorTestHelper(coresys)
     with pytest.raises(SupervisorError):
         await test.test_jobs_api_error_outer()
 
-    resp = await api_client.get("/jobs/info")
+    resp = await api_client.get(f"{prefix}/jobs/info")
     result = await resp.json()
     assert result["data"]["jobs"] == [
         {

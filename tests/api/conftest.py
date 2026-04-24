@@ -203,6 +203,31 @@ async def fixture_api_client_with_prefix(
 
 
 @pytest.fixture(
+    name="core_api_client_with_root",
+    params=[
+        pytest.param("/core", id="v1-core"),
+        pytest.param("/homeassistant", id="v1-legacy"),
+        pytest.param("/v2/core", id="v2-core"),
+    ],
+)
+async def fixture_core_api_client_with_root(
+    request: pytest.FixtureRequest,
+    api_client: TestClient,
+    api_client_v2: TestClient,
+) -> tuple[TestClient, str]:
+    """Fixture providing (client, path_root) for Home Assistant Core API endpoints.
+
+    Parametrizes over all three registered access paths:
+      v1-core:   /core/...          (canonical v1 path)
+      v1-legacy: /homeassistant/... (legacy v1 alias, same handlers)
+      v2-core:   /v2/core/...       (canonical v2 path)
+    """
+    root: str = request.param
+    client = api_client_v2 if root.startswith("/v2") else api_client
+    return client, root
+
+
+@pytest.fixture(
     name="app_api_client_with_root",
     params=[pytest.param("/addons", id="v1"), pytest.param("/v2/apps", id="v2")],
 )
