@@ -18,6 +18,7 @@ from .const import (
 from .coresys import CoreSys, CoreSysAttributes
 from .dbus.const import StopUnitMode, UnitActiveState
 from .exceptions import (
+    AppFileReadError,
     HassioError,
     HomeAssistantCrashError,
     HomeAssistantError,
@@ -185,32 +186,27 @@ class Core(CoreSysAttributes):
 
         # Execute each load task in secure context
         for setup_task in setup_loads:
-            unhealthy_before = self.sys_resolution.unhealthy.copy()
             try:
                 await setup_task
-            except Exception as err:  # pylint: disable=broad-except
-                # If the error already caused a new unhealthy reason to
-                # be set (e.g. via check_oserror), it was handled by the
-                # resolution system and the user has been notified. Skip
-                # capturing to Sentry in that case.
-                capture_exception = self.sys_resolution.unhealthy == unhealthy_before
-
+            except AppFileReadError as err:
+                # Already reported to the user via the resolution system
+                # (unhealthy reason set by check_oserror). Log without
+                # stack trace and skip Sentry capture to avoid noise.
+                _LOGGER.error(
+                    "Error on load Task %s: %s",
+                    setup_task,
+                    err,
+                )
                 self.sys_resolution.add_unhealthy_reason(UnhealthyReason.SETUP)
-
-                if capture_exception:
-                    _LOGGER.critical(
-                        "Fatal error happening on load Task %s: %s",
-                        setup_task,
-                        err,
-                        exc_info=True,
-                    )
-                    await async_capture_exception(err)
-                else:
-                    _LOGGER.error(
-                        "Error on load Task %s: %s",
-                        setup_task,
-                        err,
-                    )
+            except Exception as err:  # pylint: disable=broad-except
+                _LOGGER.critical(
+                    "Fatal error happening on load Task %s: %s",
+                    setup_task,
+                    err,
+                    exc_info=True,
+                )
+                self.sys_resolution.add_unhealthy_reason(UnhealthyReason.SETUP)
+                await async_capture_exception(err)
 
     async def start(self) -> None:
         """Start Supervisor orchestration."""
