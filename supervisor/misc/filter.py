@@ -13,6 +13,7 @@ from sentry_sdk.types import Event, Hint
 from ..const import DOCKER_IPV4_NETWORK_MASK, HEADER_TOKEN, HEADER_TOKEN_OLD, CoreState
 from ..coresys import CoreSys
 from ..exceptions import APITooManyRequests, AppConfigurationError
+from ..utils import check_exception_chain
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -46,21 +47,16 @@ def sanitize_url(url: str) -> str:
 
 def filter_data(coresys: CoreSys, event: Event, hint: Hint) -> Event | None:
     """Filter event data before sending to sentry."""
-    # Ignore some exceptions. Walk the __cause__ chain because rate-limit
-    # errors are often wrapped (e.g. DockerHubRateLimitExceeded wrapped in
-    # SupervisorUpdateError by supervisor.update()).
+    # Ignore some exceptions. check_exception_chain walks __cause__ so
+    # wrapped rate limits (e.g. DockerHubRateLimitExceeded wrapped in
+    # SupervisorUpdateError via `raise X from err`) are also dropped.
     if "exc_info" in hint:
         _, exc_value, _ = hint["exc_info"]
-        err: BaseException | None = exc_value
-        while err is not None:
-            if isinstance(err, (AppConfigurationError, APITooManyRequests)):
-                _LOGGER.debug(
-                    "Skipping Sentry event for %s: %s",
-                    type(err).__name__,
-                    exc_value,
-                )
-                return None
-            err = err.__cause__
+        if exc_value is not None and check_exception_chain(
+            exc_value, (AppConfigurationError, APITooManyRequests)
+        ):
+            _LOGGER.debug("Skipping Sentry event for %s", type(exc_value).__name__)
+            return None
 
     # Ignore issue if system is not supported or diagnostics is disabled
     if not coresys.config.diagnostics or not coresys.core.supported or coresys.dev:
