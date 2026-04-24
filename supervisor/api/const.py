@@ -76,6 +76,13 @@ ATTR_VENDOR = "vendor"
 ATTR_VIRTUALIZATION = "virtualization"
 
 
+class AppVersion(StrEnum):
+    """API version identifiers."""
+
+    V1 = "v1"
+    V2 = "v2"
+
+
 class BootSlot(StrEnum):
     """Boot slots used by HAOS."""
 
