@@ -7,7 +7,11 @@ from awesomeversion import AwesomeVersion
 
 from ..const import HostFeature
 from ..coresys import CoreSysAttributes
-from ..exceptions import HostNotSupportedError
+from ..exceptions import (
+    DBusInvalidArgsError,
+    HostInvalidHostnameError,
+    HostNotSupportedError,
+)
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -73,7 +77,10 @@ class SystemControl(CoreSysAttributes):
         self._check_dbus(HostFeature.HOSTNAME)
 
         _LOGGER.info("Set hostname %s", hostname)
-        await self.sys_dbus.hostname.set_static_hostname(hostname)
+        try:
+            await self.sys_dbus.hostname.set_static_hostname(hostname)
+        except DBusInvalidArgsError as err:
+            raise HostInvalidHostnameError(hostname=hostname) from err
 
     async def set_datetime(self, new_time: datetime) -> None:
         """Update host clock with new (utc) datetime."""

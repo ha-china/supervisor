@@ -664,6 +664,23 @@ class HostLogError(HostError):
     """Internal error with host log."""
 
 
+class HostInvalidHostnameError(HostError, APIError):
+    """Hostname rejected by the host as semantically invalid."""
+
+    error_key = "host_invalid_hostname"
+    message_template = "Invalid hostname '{hostname}'"
+
+    def __init__(
+        self,
+        logger: Callable[..., None] | None = None,
+        *,
+        hostname: str,
+    ) -> None:
+        """Initialize exception."""
+        self.extra_fields = {"hostname": hostname}
+        super().__init__(None, logger)
+
+
 # Service / Discovery
 
 
@@ -743,6 +760,15 @@ class DBusInterfacePropertyError(DBusInterfaceError):
 
 class DBusInterfaceSignalError(DBusInterfaceError):
     """D-Bus signal not defined."""
+
+
+class DBusInvalidArgsError(DBusError):
+    """D-Bus argument value rejected by the service.
+
+    Distinct from DBusInterfaceMethodError: the method exists and the
+    argument types match the signature, but the service rejected an
+    argument's value as semantically invalid.
+    """
 
 
 class DBusParseError(DBusError):

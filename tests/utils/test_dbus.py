@@ -13,6 +13,8 @@ from supervisor.dbus.const import DBUS_OBJECT_BASE
 from supervisor.exceptions import (
     DBusFatalError,
     DBusInterfaceError,
+    DBusInterfaceMethodError,
+    DBusInvalidArgsError,
     DBusServiceUnkownError,
 )
 from supervisor.utils.dbus import DBus
@@ -190,3 +192,18 @@ def test_from_dbus_error():
     )
 
     assert type(DBus.from_dbus_error(dbus_fast_error)) is DBusServiceUnkownError
+
+
+@pytest.mark.parametrize(
+    "error_type,expected",
+    [
+        (ErrorType.UNKNOWN_METHOD, DBusInterfaceMethodError),
+        (ErrorType.INVALID_SIGNATURE, DBusInterfaceMethodError),
+        (ErrorType.INVALID_ARGS, DBusInvalidArgsError),
+    ],
+)
+def test_from_dbus_error_method_vs_args(
+    error_type: ErrorType, expected: type[Exception]
+):
+    """INVALID_ARGS must not collapse into DBusInterfaceMethodError."""
+    assert type(DBus.from_dbus_error(DBusFastDBusError(error_type, "boom"))) is expected
