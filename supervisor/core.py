@@ -460,8 +460,9 @@ class Core(CoreSysAttributes):
             )
 
         await self.sys_host.control.set_datetime(data.dt_utc)
-        # Time just jumped, so the last-check timestamp may be unreliable -
-        # force a fresh probe rather than trusting the cache.
+        # System time was just corrected. TLS certificates that previously
+        # appeared expired/not-yet-valid may now verify, so a connectivity
+        # probe that just failed for that reason can succeed now.
         await self.sys_supervisor.check_and_update_connectivity(force=True)
 
     async def repair(self) -> None:
