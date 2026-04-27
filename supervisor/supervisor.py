@@ -321,15 +321,27 @@ class Supervisor(CoreSysAttributes):
             if (self.sys_loop.time() - self._connectivity_last_check) < min_interval:
                 return
 
-        # The owner of the probe does NOT shield: if the owner is cancelled,
-        # the probe should be cancelled with it (preventing orphaned tasks
-        # running alongside a fresh probe a new caller would start).
-        self._connectivity_check = self.sys_create_task(self._do_connectivity_check())
+        # Awaiting a Task does not propagate cancellation INTO the task, so
+        # the owner explicitly cancels the probe on its own cancellation.
+        # That keeps the probe from being orphaned (with the next caller
+        # starting a second probe alongside the unfinished first).
+        probe = self.sys_create_task(self._do_connectivity_check())
+        self._connectivity_check = probe
         try:
-            await self._connectivity_check
+            await probe
+        except asyncio.CancelledError:
+            probe.cancel()
+            with suppress(asyncio.CancelledError):
+                await probe
+            raise
         finally:
-            self._connectivity_check = None
-            self._connectivity_last_check = self.sys_loop.time()
+            if self._connectivity_check is probe:
+                self._connectivity_check = None
+
+        # Only count as a recent probe on actual completion. On cancellation
+        # the timestamp must stay so the next caller doesn't see a "fresh"
+        # cached result that never actually ran.
+        self._connectivity_last_check = self.sys_loop.time()
 
         if self._connectivity_rerun_forced:
             self._connectivity_rerun_forced = False

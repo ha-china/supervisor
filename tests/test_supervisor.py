@@ -135,6 +135,40 @@ async def test_connectivity_check_force_during_in_flight_triggers_rerun(
     assert websession.head.call_count == 2
 
 
+async def test_connectivity_check_owner_cancellation_cancels_probe(
+    coresys: CoreSys, websession: MagicMock
+):
+    """Owner cancellation propagates to the probe and skips updating last-check."""
+    probe_started = asyncio.Event()
+    probe_release = asyncio.Event()
+
+    async def slow_head(*args, **kwargs):
+        probe_started.set()
+        await probe_release.wait()
+
+    websession.head = AsyncMock(side_effect=slow_head)
+    last_check_before = coresys.supervisor._connectivity_last_check  # pylint: disable=protected-access
+
+    owner = asyncio.create_task(
+        coresys.supervisor.check_and_update_connectivity(force=True)
+    )
+    await probe_started.wait()
+
+    owner.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await owner
+
+    # Owner cancellation must cancel the spawned probe, not orphan it,
+    # and the cached last-check timestamp must NOT advance.
+    assert coresys.supervisor._connectivity_check is None  # pylint: disable=protected-access
+    assert coresys.supervisor._connectivity_last_check == last_check_before  # pylint: disable=protected-access
+
+    # A subsequent non-forced call must therefore still run a probe.
+    websession.head = AsyncMock()
+    await coresys.supervisor.check_and_update_connectivity()
+    assert websession.head.call_count == 1
+
+
 async def test_update_connectivity_fires_event_on_change(coresys: CoreSys):
     """SUPERVISOR_CONNECTIVITY_CHANGE fires only when the cached value changes."""
     events: list[bool] = []
