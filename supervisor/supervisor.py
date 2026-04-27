@@ -83,6 +83,9 @@ class Supervisor(CoreSysAttributes):
         """
         if self._connectivity == state:
             return
+        _LOGGER.debug(
+            "Supervisor connectivity changed: %s -> %s", self._connectivity, state
+        )
         self._connectivity = state
         self.sys_bus.fire_event(BusEvent.SUPERVISOR_CONNECTIVITY_CHANGE, state)
         self.sys_homeassistant.websocket.supervisor_update_event(
@@ -287,6 +290,7 @@ class Supervisor(CoreSysAttributes):
         check. ``force`` is forwarded to :meth:`check_and_update_connectivity`
         for signals that carry fresh state-change information.
         """
+        _LOGGER.debug("Connectivity check requested (force=%s)", force)
         self.sys_create_task(self.check_and_update_connectivity(force=force))
 
     async def check_and_update_connectivity(self, *, force: bool = False) -> None:
@@ -308,7 +312,12 @@ class Supervisor(CoreSysAttributes):
             # Shield so a follower being cancelled cannot bring down the
             # probe that other callers are also waiting on.
             if force:
+                _LOGGER.debug(
+                    "Connectivity probe in flight; queued forced rerun on completion"
+                )
                 self._connectivity_rerun_forced = True
+            else:
+                _LOGGER.debug("Connectivity probe in flight; awaiting its result")
             await asyncio.shield(self._connectivity_check)
             return
 
@@ -318,7 +327,15 @@ class Supervisor(CoreSysAttributes):
                 if self._connectivity
                 else _CONNECTIVITY_MIN_INTERVAL_DISCONNECTED_SEC
             )
-            if (self.sys_loop.time() - self._connectivity_last_check) < min_interval:
+            elapsed = self.sys_loop.time() - self._connectivity_last_check
+            if elapsed < min_interval:
+                _LOGGER.debug(
+                    "Connectivity check within min-interval (%.1fs of %.1fs); "
+                    "using cached state %s",
+                    elapsed,
+                    min_interval,
+                    self._connectivity,
+                )
                 return
 
         # Awaiting a Task does not propagate cancellation INTO the task, so
@@ -330,6 +347,7 @@ class Supervisor(CoreSysAttributes):
         try:
             await probe
         except asyncio.CancelledError:
+            _LOGGER.debug("Connectivity probe owner cancelled; cancelling probe")
             probe.cancel()
             with suppress(asyncio.CancelledError):
                 await probe
@@ -344,6 +362,7 @@ class Supervisor(CoreSysAttributes):
         self._connectivity_last_check = self.sys_loop.time()
 
         if self._connectivity_rerun_forced:
+            _LOGGER.debug("Running queued forced rerun after probe completion")
             self._connectivity_rerun_forced = False
             await self.check_and_update_connectivity(force=True)
 
