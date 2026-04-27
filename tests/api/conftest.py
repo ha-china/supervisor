@@ -124,7 +124,7 @@ async def _common_test_api_advanced_logs(
 
 @pytest.fixture
 async def advanced_logs_tester(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     journald_logs: MagicMock,
     coresys: CoreSys,
     os_available,
@@ -138,14 +138,22 @@ async def advanced_logs_tester(
         async def test_my_logs(advanced_logs_tester):
             await advanced_logs_tester("/path/prefix", "syslog_identifier")
     """
+    api_client, api_prefix = api_client_with_prefix
 
     async def test_logs(
         path_prefix: str,
         syslog_identifier: str,
         formatter: LogFormatter = LogFormatter.PLAIN,
+        *,
+        v2_path_prefix: str | None = None,
     ):
+        effective_path = (
+            v2_path_prefix
+            if (api_prefix and v2_path_prefix is not None)
+            else path_prefix
+        )
         await _common_test_api_advanced_logs(
-            path_prefix,
+            f"{api_prefix}{effective_path}",
             syslog_identifier,
             formatter,
             api_client,
@@ -192,6 +200,31 @@ async def fixture_api_client_with_prefix(
     if request.param == "":
         return api_client, ""
     return api_client_v2, "/v2"
+
+
+@pytest.fixture(
+    name="core_api_client_with_root",
+    params=[
+        pytest.param("/core", id="v1-core"),
+        pytest.param("/homeassistant", id="v1-legacy"),
+        pytest.param("/v2/core", id="v2-core"),
+    ],
+)
+async def fixture_core_api_client_with_root(
+    request: pytest.FixtureRequest,
+    api_client: TestClient,
+    api_client_v2: TestClient,
+) -> tuple[TestClient, str]:
+    """Fixture providing (client, path_root) for Home Assistant Core API endpoints.
+
+    Parametrizes over all three registered access paths:
+      v1-core:   /core/...          (canonical v1 path)
+      v1-legacy: /homeassistant/... (legacy v1 alias, same handlers)
+      v2-core:   /v2/core/...       (canonical v2 path)
+    """
+    root: str = request.param
+    client = api_client_v2 if root.startswith("/v2") else api_client
+    return client, root
 
 
 @pytest.fixture(

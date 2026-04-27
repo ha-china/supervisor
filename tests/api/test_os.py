@@ -32,9 +32,10 @@ async def fixture_boards_service(
     yield os_agent_services["agent_boards"]
 
 
-async def test_api_os_info(api_client: TestClient):
+async def test_api_os_info(api_client_with_prefix: tuple[TestClient, str]):
     """Test os info api."""
-    resp = await api_client.get("/os/info")
+    api_client, prefix = api_client_with_prefix
+    resp = await api_client.get(f"{prefix}/os/info")
     result = await resp.json()
 
     for attr in (
@@ -49,20 +50,24 @@ async def test_api_os_info(api_client: TestClient):
         assert attr in result["data"]
 
 
-async def test_api_os_info_with_agent(api_client: TestClient, coresys: CoreSys):
+async def test_api_os_info_with_agent(
+    api_client_with_prefix: tuple[TestClient, str], coresys: CoreSys
+):
     """Test os info api for data disk."""
-    resp = await api_client.get("/os/info")
+    api_client, prefix = api_client_with_prefix
+    resp = await api_client.get(f"{prefix}/os/info")
     result = await resp.json()
 
     assert result["data"]["data_disk"] == "BJTD4R-0x97cde291"
 
 
 async def test_api_os_info_boot_slots(
-    api_client: TestClient, coresys: CoreSys, os_available
+    api_client_with_prefix: tuple[TestClient, str], coresys: CoreSys, os_available
 ):
     """Test os info api for boot slots."""
+    api_client, prefix = api_client_with_prefix
     await coresys.os.load()
-    resp = await api_client.get("/os/info")
+    resp = await api_client.get(f"{prefix}/os/info")
     result = await resp.json()
 
     assert result["data"]["boot_slots"] == {
@@ -81,21 +86,27 @@ async def test_api_os_info_boot_slots(
     ids=["non-existent", "unavailable drive by path", "unavailable drive by id"],
 )
 async def test_api_os_datadisk_move_fail(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     new_disk: str,
     os_available,
 ):
     """Test datadisk move to non-existent or invalid devices."""
-    resp = await api_client.post("/os/datadisk/move", json={"device": new_disk})
+    api_client, prefix = api_client_with_prefix
+    resp = await api_client.post(
+        f"{prefix}/os/datadisk/move", json={"device": new_disk}
+    )
     result = await resp.json()
 
     assert result["message"] == f"'{new_disk}' not a valid data disk target!"
 
 
-async def test_api_os_datadisk_list(api_client: TestClient, coresys: CoreSys):
+async def test_api_os_datadisk_list(
+    api_client_with_prefix: tuple[TestClient, str], coresys: CoreSys
+):
     """Test datadisk list function."""
-    resp = await api_client.get("/os/datadisk/list")
+    api_client, prefix = api_client_with_prefix
+    resp = await api_client.get(f"{prefix}/os/datadisk/list")
     result = await resp.json()
 
     assert result["data"]["devices"] == ["SSK-SSK-Storage-DF56419883D56"]
@@ -118,18 +129,21 @@ async def test_api_os_datadisk_list(api_client: TestClient, coresys: CoreSys):
     ids=["by drive id", "by device path"],
 )
 async def test_api_os_datadisk_migrate(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     os_agent_services: dict[str, DBusServiceMock],
     new_disk: str,
     os_available,
 ):
     """Test migrating datadisk."""
+    api_client, prefix = api_client_with_prefix
     datadisk_service: DataDiskService = os_agent_services["agent_datadisk"]
     datadisk_service.ChangeDevice.calls.clear()
 
     with patch.object(SystemControl, "reboot") as reboot:
-        resp = await api_client.post("/os/datadisk/move", json={"device": new_disk})
+        resp = await api_client.post(
+            f"{prefix}/os/datadisk/move", json={"device": new_disk}
+        )
         assert resp.status == 200
 
         assert datadisk_service.ChangeDevice.calls == [("/dev/sda",)]
@@ -137,16 +151,17 @@ async def test_api_os_datadisk_migrate(
 
 
 async def test_api_os_datadisk_wipe(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     os_agent_services: dict[str, DBusServiceMock],
     os_available,
 ):
     """Test datadisk wipe."""
+    api_client, prefix = api_client_with_prefix
     system_service: SystemService = os_agent_services["agent_system"]
     system_service.ScheduleWipeDevice.calls.clear()
 
     with patch.object(SystemControl, "reboot") as reboot:
-        resp = await api_client.post("/os/datadisk/wipe")
+        resp = await api_client.post(f"{prefix}/os/datadisk/wipe")
         assert resp.status == 200
 
         assert system_service.ScheduleWipeDevice.calls == [()]
@@ -154,58 +169,67 @@ async def test_api_os_datadisk_wipe(
 
 
 async def test_api_set_boot_slot(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     all_dbus_services: dict[str, DBusServiceMock],
     coresys: CoreSys,
     os_available,
 ):
     """Test changing the boot slot via API."""
+    api_client, prefix = api_client_with_prefix
     rauc_service: RaucService = all_dbus_services["rauc"]
+    rauc_service.Mark.calls.clear()
     await coresys.os.load()
 
     with patch.object(SystemControl, "reboot") as reboot:
-        resp = await api_client.post("/os/boot-slot", json={"boot_slot": "A"})
+        resp = await api_client.post(f"{prefix}/os/boot-slot", json={"boot_slot": "A"})
         assert resp.status == 200
 
         reboot.assert_called_once()
         assert rauc_service.Mark.calls == [("active", "kernel.0")]
 
 
-async def test_api_set_boot_slot_invalid(api_client: TestClient):
+async def test_api_set_boot_slot_invalid(
+    api_client_with_prefix: tuple[TestClient, str],
+):
     """Test invalid calls to set boot slot."""
-    resp = await api_client.post("/os/boot-slot", json={"boot_slot": "C"})
+    api_client, prefix = api_client_with_prefix
+    resp = await api_client.post(f"{prefix}/os/boot-slot", json={"boot_slot": "C"})
     assert resp.status == 400
     result = await resp.json()
     assert "expected BootSlot or one of 'A', 'B'" in result["message"]
 
-    resp = await api_client.post("/os/boot-slot", json={"boot_slot": "A"})
+    resp = await api_client.post(f"{prefix}/os/boot-slot", json={"boot_slot": "A"})
     assert resp.status == 400
     result = await resp.json()
     assert "no Home Assistant OS available" in result["message"]
 
 
 async def test_api_set_boot_slot_error(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     all_dbus_services: dict[str, DBusServiceMock],
     coresys: CoreSys,
     capture_exception: Mock,
     os_available,
 ):
     """Test changing the boot slot via API."""
+    api_client, prefix = api_client_with_prefix
     rauc_service: RaucService = all_dbus_services["rauc"]
     rauc_service.response_mark = DBusError(ErrorType.FAILED, "fail")
     await coresys.os.load()
 
-    resp = await api_client.post("/os/boot-slot", json={"boot_slot": "A"})
+    resp = await api_client.post(f"{prefix}/os/boot-slot", json={"boot_slot": "A"})
     assert resp.status == 400
     result = await resp.json()
     assert result["message"] == "Can't mark A as active!"
     capture_exception.assert_called_once()
 
 
-async def test_api_board_yellow_info(api_client: TestClient, coresys: CoreSys):
+async def test_api_board_yellow_info(
+    api_client_with_prefix: tuple[TestClient, str], coresys: CoreSys
+):
     """Test yellow board info."""
-    resp = await api_client.get("/os/boards/yellow")
+    api_client, prefix = api_client_with_prefix
+    resp = await api_client.get(f"{prefix}/os/boards/yellow")
     assert resp.status == 200
 
     result = await resp.json()
@@ -213,17 +237,18 @@ async def test_api_board_yellow_info(api_client: TestClient, coresys: CoreSys):
     assert result["data"]["heartbeat_led"] is True
     assert result["data"]["power_led"] is True
 
-    assert (await api_client.get("/os/boards/green")).status == 400
-    assert (await api_client.get("/os/boards/supervised")).status == 400
-    assert (await api_client.get("/os/boards/not-real")).status == 400
+    assert (await api_client.get(f"{prefix}/os/boards/green")).status == 400
+    assert (await api_client.get(f"{prefix}/os/boards/supervised")).status == 400
+    assert (await api_client.get(f"{prefix}/os/boards/not-real")).status == 400
 
 
 async def test_api_board_yellow_options(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     os_agent_services: dict[str, DBusServiceMock | dict[str, DBusServiceMock]],
 ):
     """Test yellow board options."""
+    api_client, prefix = api_client_with_prefix
     yellow_service: YellowService = os_agent_services["agent_boards_yellow"]
 
     assert coresys.dbus.agent.board.yellow.disk_led is True
@@ -232,7 +257,7 @@ async def test_api_board_yellow_options(
     assert len(coresys.resolution.issues) == 0
     with patch.object(BoardProxy, "save_data") as save_data:
         resp = await api_client.post(
-            "/os/boards/yellow",
+            f"{prefix}/os/boards/yellow",
             json={"disk_led": False, "heartbeat_led": False, "power_led": False},
         )
         assert resp.status == 200
@@ -254,14 +279,17 @@ async def test_api_board_yellow_options(
 
 
 async def test_api_board_green_info(
-    api_client: TestClient, coresys: CoreSys, boards_service: BoardsService
+    api_client_with_prefix: tuple[TestClient, str],
+    coresys: CoreSys,
+    boards_service: BoardsService,
 ):
     """Test green board info."""
+    api_client, prefix = api_client_with_prefix
     await mock_dbus_services({"agent_boards_green": None}, coresys.dbus.bus)
     boards_service.board = "Green"
     await coresys.dbus.agent.board.connect(coresys.dbus.bus)
 
-    resp = await api_client.get("/os/boards/green")
+    resp = await api_client.get(f"{prefix}/os/boards/green")
     assert resp.status == 200
 
     result = await resp.json()
@@ -269,17 +297,18 @@ async def test_api_board_green_info(
     assert result["data"]["power_led"] is True
     assert result["data"]["system_health_led"] is True
 
-    assert (await api_client.get("/os/boards/yellow")).status == 400
-    assert (await api_client.get("/os/boards/supervised")).status == 400
-    assert (await api_client.get("/os/boards/not-real")).status == 400
+    assert (await api_client.get(f"{prefix}/os/boards/yellow")).status == 400
+    assert (await api_client.get(f"{prefix}/os/boards/supervised")).status == 400
+    assert (await api_client.get(f"{prefix}/os/boards/not-real")).status == 400
 
 
 async def test_api_board_green_options(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     boards_service: BoardsService,
 ):
     """Test yellow board options."""
+    api_client, prefix = api_client_with_prefix
     green_service: GreenService = (
         await mock_dbus_services({"agent_boards_green": None}, coresys.dbus.bus)
     )["agent_boards_green"]
@@ -292,7 +321,7 @@ async def test_api_board_green_options(
     assert len(coresys.resolution.issues) == 0
     with patch.object(BoardProxy, "save_data") as save_data:
         resp = await api_client.post(
-            "/os/boards/green",
+            f"{prefix}/os/boards/green",
             json={
                 "activity_led": False,
                 "power_led": False,
@@ -310,9 +339,12 @@ async def test_api_board_green_options(
 
 
 async def test_api_board_supervised_info(
-    api_client: TestClient, coresys: CoreSys, boards_service: BoardsService
+    api_client_with_prefix: tuple[TestClient, str],
+    coresys: CoreSys,
+    boards_service: BoardsService,
 ):
     """Test supervised board info."""
+    api_client, prefix = api_client_with_prefix
     await mock_dbus_services({"agent_boards_supervised": None}, coresys.dbus.bus)
     boards_service.board = "Supervised"
     await coresys.dbus.agent.board.connect(coresys.dbus.bus)
@@ -320,34 +352,42 @@ async def test_api_board_supervised_info(
     with patch("supervisor.os.manager.CPE.get_product", return_value=["not-hassos"]):
         await coresys.os.load()
 
-        assert (await api_client.get("/os/boards/supervised")).status == 200
-        assert (await api_client.post("/os/boards/supervised", json={})).status == 405
-        assert (await api_client.get("/os/boards/yellow")).status == 400
-        assert (await api_client.get("/os/boards/not-real")).status == 400
+        assert (await api_client.get(f"{prefix}/os/boards/supervised")).status == 200
+        assert (
+            await api_client.post(f"{prefix}/os/boards/supervised", json={})
+        ).status == 405
+        assert (await api_client.get(f"{prefix}/os/boards/yellow")).status == 400
+        assert (await api_client.get(f"{prefix}/os/boards/not-real")).status == 400
 
 
 async def test_api_board_other_info(
-    api_client: TestClient, coresys: CoreSys, boards_service: BoardsService
+    api_client_with_prefix: tuple[TestClient, str],
+    coresys: CoreSys,
+    boards_service: BoardsService,
 ):
     """Test info for other board without dbus object."""
+    api_client, prefix = api_client_with_prefix
     boards_service.board = "not-real"
     await coresys.dbus.agent.board.connect(coresys.dbus.bus)
 
     with patch.object(OSManager, "board", new=PropertyMock(return_value="not-real")):
-        assert (await api_client.get("/os/boards/not-real")).status == 200
-        assert (await api_client.post("/os/boards/not-real", json={})).status == 405
-        assert (await api_client.get("/os/boards/yellow")).status == 400
-        assert (await api_client.get("/os/boards/supervised")).status == 400
+        assert (await api_client.get(f"{prefix}/os/boards/not-real")).status == 200
+        assert (
+            await api_client.post(f"{prefix}/os/boards/not-real", json={})
+        ).status == 405
+        assert (await api_client.get(f"{prefix}/os/boards/yellow")).status == 400
+        assert (await api_client.get(f"{prefix}/os/boards/supervised")).status == 400
 
 
 @pytest.mark.parametrize("os_available", ["15.0"], indirect=True)
 async def test_api_config_swap_info(
-    api_client: TestClient, coresys: CoreSys, os_available
+    api_client_with_prefix: tuple[TestClient, str], coresys: CoreSys, os_available
 ):
     """Test swap info."""
+    api_client, prefix = api_client_with_prefix
     await coresys.dbus.agent.swap.connect(coresys.dbus.bus)
 
-    resp = await api_client.get("/os/config/swap")
+    resp = await api_client.get(f"{prefix}/os/config/swap")
 
     assert resp.status == 200
     result = await resp.json()
@@ -357,12 +397,13 @@ async def test_api_config_swap_info(
 
 @pytest.mark.parametrize("os_available", ["15.0"], indirect=True)
 async def test_api_config_swap_options(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     os_agent_services: dict[str, DBusServiceMock],
     os_available,
 ):
     """Test swap setting."""
+    api_client, prefix = api_client_with_prefix
     swap_service: SwapService = os_agent_services["agent_swap"]
     await coresys.dbus.agent.swap.connect(coresys.dbus.bus)
 
@@ -370,7 +411,7 @@ async def test_api_config_swap_options(
     assert coresys.dbus.agent.swap.swappiness == 1
 
     resp = await api_client.post(
-        "/os/config/swap",
+        f"{prefix}/os/config/swap",
         json={
             "swap_size": "2M",
             "swappiness": 10,
@@ -394,7 +435,7 @@ async def test_api_config_swap_options(
 
     # test setting only the swap size
     resp = await api_client.post(
-        "/os/config/swap",
+        f"{prefix}/os/config/swap",
         json={
             "swap_size": "10M",
         },
@@ -408,7 +449,7 @@ async def test_api_config_swap_options(
 
     # test setting only the swappiness
     resp = await api_client.post(
-        "/os/config/swap",
+        f"{prefix}/os/config/swap",
         json={
             "swappiness": 100,
         },
@@ -423,17 +464,18 @@ async def test_api_config_swap_options(
 
 @pytest.mark.parametrize("os_available", ["15.0"], indirect=True)
 async def test_api_config_swap_options_no_reboot(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     os_agent_services: dict[str, DBusServiceMock],
     os_available,
 ):
     """Test no resolution is shown when setting are submitted empty or unchanged."""
+    api_client, prefix = api_client_with_prefix
     await coresys.dbus.agent.swap.connect(coresys.dbus.bus)
 
     # empty options
     resp = await api_client.post(
-        "/os/config/swap",
+        f"{prefix}/os/config/swap",
         json={},
     )
     assert resp.status == 200
@@ -448,7 +490,7 @@ async def test_api_config_swap_options_no_reboot(
 
     # no change
     resp = await api_client.post(
-        "/os/config/swap",
+        f"{prefix}/os/config/swap",
         json={
             "swappiness": coresys.dbus.agent.swap.swappiness,
             "swap_size": coresys.dbus.agent.swap.swap_size,
@@ -466,18 +508,19 @@ async def test_api_config_swap_options_no_reboot(
 
 
 async def test_api_config_swap_not_os(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     os_agent_services: dict[str, DBusServiceMock],
 ):
     """Test 404 is returned for swap endpoints if not running on HAOS."""
+    api_client, prefix = api_client_with_prefix
     await coresys.dbus.agent.swap.connect(coresys.dbus.bus)
 
-    resp = await api_client.get("/os/config/swap")
+    resp = await api_client.get(f"{prefix}/os/config/swap")
     assert resp.status == 404
 
     resp = await api_client.post(
-        "/os/config/swap",
+        f"{prefix}/os/config/swap",
         json={
             "swap_size": "2M",
             "swappiness": 10,
@@ -488,19 +531,20 @@ async def test_api_config_swap_not_os(
 
 @pytest.mark.parametrize("os_available", ["14.2"], indirect=True)
 async def test_api_config_swap_old_os(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     os_agent_services: dict[str, DBusServiceMock],
     os_available,
 ):
     """Test 404 is returned for swap endpoints if OS is older than 15.0."""
+    api_client, prefix = api_client_with_prefix
     await coresys.dbus.agent.swap.connect(coresys.dbus.bus)
 
-    resp = await api_client.get("/os/config/swap")
+    resp = await api_client.get(f"{prefix}/os/config/swap")
     assert resp.status == 404
 
     resp = await api_client.post(
-        "/os/config/swap",
+        f"{prefix}/os/config/swap",
         json={
             "swap_size": "2M",
             "swappiness": 10,

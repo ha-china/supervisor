@@ -12,9 +12,10 @@ from tests.dbus_service_mocks.base import DBusServiceMock
 
 
 @pytest.mark.asyncio
-async def test_api_docker_info(api_client: TestClient):
+async def test_api_docker_info(api_client_with_prefix: tuple[TestClient, str]):
     """Test docker info api."""
-    resp = await api_client.get("/docker/info")
+    api_client, prefix = api_client_with_prefix
+    resp = await api_client.get(f"{prefix}/docker/info")
     result = await resp.json()
 
     assert result["data"]["logging"] == "journald"
@@ -22,70 +23,80 @@ async def test_api_docker_info(api_client: TestClient):
     assert result["data"]["version"] == "1.0.0"
 
 
-async def test_api_network_enable_ipv6(coresys: CoreSys, api_client: TestClient):
+async def test_api_network_enable_ipv6(
+    coresys: CoreSys, api_client_with_prefix: tuple[TestClient, str]
+):
     """Test setting docker network for enabled IPv6."""
+    api_client, prefix = api_client_with_prefix
     assert coresys.docker.config.enable_ipv6 is None
 
-    resp = await api_client.post("/docker/options", json={"enable_ipv6": True})
+    resp = await api_client.post(f"{prefix}/docker/options", json={"enable_ipv6": True})
     assert resp.status == 200
 
     assert coresys.docker.config.enable_ipv6 is True
 
-    resp = await api_client.get("/docker/info")
+    resp = await api_client.get(f"{prefix}/docker/info")
     assert resp.status == 200
     body = await resp.json()
     assert body["data"]["enable_ipv6"] is True
 
 
-async def test_api_network_mtu(coresys: CoreSys, api_client: TestClient):
+async def test_api_network_mtu(
+    coresys: CoreSys, api_client_with_prefix: tuple[TestClient, str]
+):
     """Test setting docker network MTU."""
+    api_client, prefix = api_client_with_prefix
     assert coresys.docker.config.mtu is None
 
-    resp = await api_client.post("/docker/options", json={"mtu": 1450})
+    resp = await api_client.post(f"{prefix}/docker/options", json={"mtu": 1450})
     assert resp.status == 200
 
     assert coresys.docker.config.mtu == 1450
 
-    resp = await api_client.get("/docker/info")
+    resp = await api_client.get(f"{prefix}/docker/info")
     assert resp.status == 200
     body = await resp.json()
     assert body["data"]["mtu"] == 1450
 
     # Test setting MTU to None
-    resp = await api_client.post("/docker/options", json={"mtu": None})
+    resp = await api_client.post(f"{prefix}/docker/options", json={"mtu": None})
     assert resp.status == 200
 
     assert coresys.docker.config.mtu is None
 
-    resp = await api_client.get("/docker/info")
+    resp = await api_client.get(f"{prefix}/docker/info")
     assert resp.status == 200
     body = await resp.json()
     assert body["data"]["mtu"] is None
 
 
-async def test_api_network_combined_options(coresys: CoreSys, api_client: TestClient):
+async def test_api_network_combined_options(
+    coresys: CoreSys, api_client_with_prefix: tuple[TestClient, str]
+):
     """Test setting both IPv6 and MTU together."""
+    api_client, prefix = api_client_with_prefix
     assert coresys.docker.config.enable_ipv6 is None
     assert coresys.docker.config.mtu is None
 
     resp = await api_client.post(
-        "/docker/options", json={"enable_ipv6": True, "mtu": 1400}
+        f"{prefix}/docker/options", json={"enable_ipv6": True, "mtu": 1400}
     )
     assert resp.status == 200
 
     assert coresys.docker.config.enable_ipv6 is True
     assert coresys.docker.config.mtu == 1400
 
-    resp = await api_client.get("/docker/info")
+    resp = await api_client.get(f"{prefix}/docker/info")
     assert resp.status == 200
     body = await resp.json()
     assert body["data"]["enable_ipv6"] is True
     assert body["data"]["mtu"] == 1400
 
 
-async def test_registry_not_found(api_client: TestClient):
+async def test_registry_not_found(api_client_with_prefix: tuple[TestClient, str]):
     """Test registry not found error."""
-    resp = await api_client.delete("/docker/registries/bad")
+    api_client, prefix = api_client_with_prefix
+    resp = await api_client.delete(f"{prefix}/docker/registries/bad")
     assert resp.status == 404
     body = await resp.json()
     assert body["message"] == "Hostname bad does not exist in registries"
@@ -93,17 +104,18 @@ async def test_registry_not_found(api_client: TestClient):
 
 @pytest.mark.parametrize("os_available", ["17.0.rc1"], indirect=True)
 async def test_api_migrate_docker_storage_driver(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     os_agent_services: dict[str, DBusServiceMock],
     os_available,
 ):
     """Test Docker storage driver migration."""
+    api_client, prefix = api_client_with_prefix
     system_service: SystemService = os_agent_services["agent_system"]
     system_service.MigrateDockerStorageDriver.calls.clear()
 
     resp = await api_client.post(
-        "/docker/migrate-storage-driver",
+        f"{prefix}/docker/migrate-storage-driver",
         json={"storage_driver": "overlayfs"},
     )
     assert resp.status == 200
@@ -121,24 +133,26 @@ async def test_api_migrate_docker_storage_driver(
 
 @pytest.mark.parametrize("os_available", ["17.0.rc1"], indirect=True)
 async def test_api_migrate_docker_storage_driver_invalid_backend(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     os_available,
 ):
     """Test 400 is returned for invalid storage driver."""
+    api_client, prefix = api_client_with_prefix
     resp = await api_client.post(
-        "/docker/migrate-storage-driver",
+        f"{prefix}/docker/migrate-storage-driver",
         json={"storage_driver": "invalid"},
     )
     assert resp.status == 400
 
 
 async def test_api_migrate_docker_storage_driver_not_os(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
 ):
     """Test 404 is returned if not running on HAOS."""
+    api_client, prefix = api_client_with_prefix
     resp = await api_client.post(
-        "/docker/migrate-storage-driver",
+        f"{prefix}/docker/migrate-storage-driver",
         json={"storage_driver": "overlayfs"},
     )
     assert resp.status == 404
@@ -146,13 +160,14 @@ async def test_api_migrate_docker_storage_driver_not_os(
 
 @pytest.mark.parametrize("os_available", ["16.2"], indirect=True)
 async def test_api_migrate_docker_storage_driver_old_os(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     os_available,
 ):
     """Test 404 is returned if OS is older than 17.0."""
+    api_client, prefix = api_client_with_prefix
     resp = await api_client.post(
-        "/docker/migrate-storage-driver",
+        f"{prefix}/docker/migrate-storage-driver",
         json={"storage_driver": "overlayfs"},
     )
     assert resp.status == 404

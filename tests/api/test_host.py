@@ -38,8 +38,11 @@ async def fixture_coresys_disk_info(coresys: CoreSys) -> AsyncGenerator[CoreSys]
 
 
 @pytest.mark.asyncio
-async def test_api_host_info(api_client: TestClient, coresys_disk_info: CoreSys):
+async def test_api_host_info(
+    api_client_with_prefix: tuple[TestClient, str], coresys_disk_info: CoreSys
+):
     """Test host info api."""
+    api_client, prefix = api_client_with_prefix
     coresys = coresys_disk_info
     dt_utc = datetime(2026, 2, 17, 1, 23, 45, 678901, tzinfo=UTC)
 
@@ -47,7 +50,7 @@ async def test_api_host_info(api_client: TestClient, coresys_disk_info: CoreSys)
     await coresys.dbus.agent.update()
 
     with time_machine.travel(dt_utc, tick=False):
-        resp = await api_client.get("/host/info")
+        resp = await api_client.get(f"{prefix}/host/info")
         result = await resp.json()
 
     assert result["data"]["apparmor_version"] == "2.13.2"
@@ -55,9 +58,12 @@ async def test_api_host_info(api_client: TestClient, coresys_disk_info: CoreSys)
 
 
 async def test_api_host_features(
-    api_client: TestClient, coresys_disk_info: CoreSys, dbus_is_connected
+    api_client_with_prefix: tuple[TestClient, str],
+    coresys_disk_info: CoreSys,
+    dbus_is_connected,
 ):
     """Test host info features."""
+    api_client, prefix = api_client_with_prefix
     coresys = coresys_disk_info
 
     coresys.host.sys_dbus.systemd.is_connected = False
@@ -68,7 +74,7 @@ async def test_api_host_features(
     coresys.host.sys_dbus.resolved.is_connected = False
     coresys.host.sys_dbus.udisks2.is_connected = False
 
-    resp = await api_client.get("/host/info")
+    resp = await api_client.get(f"{prefix}/host/info")
     result = await resp.json()
     assert "reboot" not in result["data"]["features"]
     assert "services" not in result["data"]["features"]
@@ -82,7 +88,7 @@ async def test_api_host_features(
 
     coresys.host.sys_dbus.systemd.is_connected = True
     coresys.host.supported_features.cache_clear()
-    resp = await api_client.get("/host/info")
+    resp = await api_client.get(f"{prefix}/host/info")
     result = await resp.json()
     assert "reboot" in result["data"]["features"]
     assert "services" in result["data"]["features"]
@@ -90,49 +96,52 @@ async def test_api_host_features(
 
     coresys.host.sys_dbus.network.is_connected = True
     coresys.host.supported_features.cache_clear()
-    resp = await api_client.get("/host/info")
+    resp = await api_client.get(f"{prefix}/host/info")
     result = await resp.json()
     assert "network" in result["data"]["features"]
 
     coresys.host.sys_dbus.hostname.is_connected = True
     coresys.host.supported_features.cache_clear()
-    resp = await api_client.get("/host/info")
+    resp = await api_client.get(f"{prefix}/host/info")
     result = await resp.json()
     assert "hostname" in result["data"]["features"]
 
     coresys.host.sys_dbus.timedate.is_connected = True
     coresys.host.supported_features.cache_clear()
-    resp = await api_client.get("/host/info")
+    resp = await api_client.get(f"{prefix}/host/info")
     result = await resp.json()
     assert "timedate" in result["data"]["features"]
 
     coresys.host.sys_dbus.agent.is_connected = True
     coresys.host.supported_features.cache_clear()
-    resp = await api_client.get("/host/info")
+    resp = await api_client.get(f"{prefix}/host/info")
     result = await resp.json()
     assert "os_agent" in result["data"]["features"]
 
     coresys.host.sys_dbus.resolved.is_connected = True
     coresys.host.supported_features.cache_clear()
-    resp = await api_client.get("/host/info")
+    resp = await api_client.get(f"{prefix}/host/info")
     result = await resp.json()
     assert "resolved" in result["data"]["features"]
 
     coresys.host.sys_dbus.udisks2.is_connected = True
     coresys.host.supported_features.cache_clear()
-    resp = await api_client.get("/host/info")
+    resp = await api_client.get(f"{prefix}/host/info")
     result = await resp.json()
     assert "disk" in result["data"]["features"]
 
 
-async def test_api_llmnr_mdns_info(api_client: TestClient, coresys_disk_info: CoreSys):
+async def test_api_llmnr_mdns_info(
+    api_client_with_prefix: tuple[TestClient, str], coresys_disk_info: CoreSys
+):
     """Test llmnr and mdns details in info."""
+    api_client, prefix = api_client_with_prefix
     coresys = coresys_disk_info
     # pylint: disable=protected-access
     coresys.host.sys_dbus._resolved = Resolved()
     # pylint: enable=protected-access
 
-    resp = await api_client.get("/host/info")
+    resp = await api_client.get(f"{prefix}/host/info")
     result = await resp.json()
     assert result["data"]["broadcast_llmnr"] is None
     assert result["data"]["broadcast_mdns"] is None
@@ -140,23 +149,29 @@ async def test_api_llmnr_mdns_info(api_client: TestClient, coresys_disk_info: Co
 
     await coresys.dbus.resolved.connect(coresys.dbus.bus)
 
-    resp = await api_client.get("/host/info")
+    resp = await api_client.get(f"{prefix}/host/info")
     result = await resp.json()
     assert result["data"]["broadcast_llmnr"] is True
     assert result["data"]["broadcast_mdns"] is False
     assert result["data"]["llmnr_hostname"] == "homeassistant"
 
 
-async def test_api_boot_ids_info(api_client: TestClient, journald_logs: MagicMock):
+async def test_api_boot_ids_info(
+    api_client_with_prefix: tuple[TestClient, str], journald_logs: MagicMock
+):
     """Test getting boot IDs."""
-    resp = await api_client.get("/host/logs/boots")
+    api_client, prefix = api_client_with_prefix
+    resp = await api_client.get(f"{prefix}/host/logs/boots")
     result = await resp.json()
     assert result["data"] == {"boots": {"0": "ccc", "-1": "bbb", "-2": "aaa"}}
 
 
-async def test_api_identifiers_info(api_client: TestClient, journald_logs: MagicMock):
+async def test_api_identifiers_info(
+    api_client_with_prefix: tuple[TestClient, str], journald_logs: MagicMock
+):
     """Test getting syslog identifiers."""
-    resp = await api_client.get("/host/logs/identifiers")
+    api_client, prefix = api_client_with_prefix
+    resp = await api_client.get(f"{prefix}/host/logs/identifiers")
     result = await resp.json()
     assert result["data"] == {
         "identifiers": ["hassio_supervisor", "hassos-config", "kernel"]
@@ -164,30 +179,34 @@ async def test_api_identifiers_info(api_client: TestClient, journald_logs: Magic
 
 
 async def test_api_virtualization_info(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     all_dbus_services: dict[str, DBusServiceMock | dict[str, DBusServiceMock]],
     coresys_disk_info: CoreSys,
 ):
     """Test getting virtualization info."""
+    api_client, prefix = api_client_with_prefix
     systemd_service: SystemdService = all_dbus_services["systemd"]
 
-    resp = await api_client.get("/host/info")
+    resp = await api_client.get(f"{prefix}/host/info")
     result = await resp.json()
     assert result["data"]["virtualization"] == ""
 
     systemd_service.virtualization = "vmware"
     await coresys_disk_info.dbus.systemd.update()
 
-    resp = await api_client.get("/host/info")
+    resp = await api_client.get(f"{prefix}/host/info")
     result = await resp.json()
     assert result["data"]["virtualization"] == "vmware"
 
 
 async def test_advanced_logs(
-    api_client: TestClient, coresys: CoreSys, journald_logs: MagicMock
+    api_client_with_prefix: tuple[TestClient, str],
+    coresys: CoreSys,
+    journald_logs: MagicMock,
 ):
     """Test advanced logging API entries with identifier and custom boot."""
-    await api_client.get("/host/logs")
+    api_client, prefix = api_client_with_prefix
+    await api_client.get(f"{prefix}/host/logs")
     journald_logs.assert_called_once_with(
         params={"SYSLOG_IDENTIFIER": coresys.host.logs.default_identifiers},
         range_header=DEFAULT_RANGE,
@@ -197,7 +216,7 @@ async def test_advanced_logs(
     journald_logs.reset_mock()
 
     identifier = "dropbear"
-    await api_client.get(f"/host/logs/identifiers/{identifier}")
+    await api_client.get(f"{prefix}/host/logs/identifiers/{identifier}")
     journald_logs.assert_called_once_with(
         params={"SYSLOG_IDENTIFIER": identifier},
         range_header=DEFAULT_RANGE,
@@ -207,7 +226,7 @@ async def test_advanced_logs(
     journald_logs.reset_mock()
 
     bootid = "798cc03bcd77465482b6a1c43dc6a5fc"
-    await api_client.get(f"/host/logs/boots/{bootid}")
+    await api_client.get(f"{prefix}/host/logs/boots/{bootid}")
     journald_logs.assert_called_once_with(
         params={
             "_BOOT_ID": bootid,
@@ -219,7 +238,7 @@ async def test_advanced_logs(
 
     journald_logs.reset_mock()
 
-    await api_client.get(f"/host/logs/boots/{bootid}/identifiers/{identifier}")
+    await api_client.get(f"{prefix}/host/logs/boots/{bootid}/identifiers/{identifier}")
     journald_logs.assert_called_once_with(
         params={"_BOOT_ID": bootid, "SYSLOG_IDENTIFIER": identifier},
         range_header=DEFAULT_RANGE,
@@ -229,7 +248,7 @@ async def test_advanced_logs(
     journald_logs.reset_mock()
 
     headers = {"Range": "entries=:-19:10"}
-    await api_client.get("/host/logs", headers=headers)
+    await api_client.get(f"{prefix}/host/logs", headers=headers)
     journald_logs.assert_called_once_with(
         params={"SYSLOG_IDENTIFIER": coresys.host.logs.default_identifiers},
         range_header=headers["Range"],
@@ -238,7 +257,7 @@ async def test_advanced_logs(
 
     journald_logs.reset_mock()
 
-    await api_client.get("/host/logs/follow")
+    await api_client.get(f"{prefix}/host/logs/follow")
     journald_logs.assert_called_once_with(
         params={
             "SYSLOG_IDENTIFIER": coresys.host.logs.default_identifiers,
@@ -249,19 +268,20 @@ async def test_advanced_logs(
     )
 
     # Host logs don't have a /latest endpoint
-    resp = await api_client.get("/host/logs/latest")
+    resp = await api_client.get(f"{prefix}/host/logs/latest")
     assert resp.status == 404
 
 
-async def test_advaced_logs_query_parameters(
-    api_client: TestClient,
+async def test_advanced_logs_query_parameters(
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     journald_logs: MagicMock,
     journal_logs_reader: MagicMock,
 ):
     """Test advanced logging API entries controlled by query parameters."""
+    api_client, prefix = api_client_with_prefix
     # Check lines query parameter
-    await api_client.get("/host/logs?lines=53")
+    await api_client.get(f"{prefix}/host/logs?lines=53")
     journald_logs.assert_called_once_with(
         params={"SYSLOG_IDENTIFIER": coresys.host.logs.default_identifiers},
         range_header="entries=:-52:53",
@@ -271,7 +291,7 @@ async def test_advaced_logs_query_parameters(
     journald_logs.reset_mock()
 
     # Check verbose logs formatter via query parameter
-    await api_client.get("/host/logs?verbose")
+    await api_client.get(f"{prefix}/host/logs?verbose")
     journald_logs.assert_called_once_with(
         params={"SYSLOG_IDENTIFIER": coresys.host.logs.default_identifiers},
         range_header=DEFAULT_RANGE,
@@ -284,7 +304,7 @@ async def test_advaced_logs_query_parameters(
 
     # Query parameters should take precedence over headers
     await api_client.get(
-        "/host/logs?lines=53&verbose",
+        f"{prefix}/host/logs?lines=53&verbose",
         headers={
             "Range": "entries=:-19:10",
             "Accept": "text/plain",
@@ -301,7 +321,7 @@ async def test_advaced_logs_query_parameters(
     journald_logs.reset_mock()
 
     # Check no_colors query parameter
-    await api_client.get("/host/logs?no_colors")
+    await api_client.get(f"{prefix}/host/logs?no_colors")
     journald_logs.assert_called_once_with(
         params={"SYSLOG_IDENTIFIER": coresys.host.logs.default_identifiers},
         range_header=DEFAULT_RANGE,
@@ -311,10 +331,13 @@ async def test_advaced_logs_query_parameters(
 
 
 async def test_advanced_logs_boot_id_offset(
-    api_client: TestClient, coresys: CoreSys, journald_logs: MagicMock
+    api_client_with_prefix: tuple[TestClient, str],
+    coresys: CoreSys,
+    journald_logs: MagicMock,
 ):
     """Test advanced logging API when using an offset as boot ID."""
-    await api_client.get("/host/logs/boots/0")
+    api_client, prefix = api_client_with_prefix
+    await api_client.get(f"{prefix}/host/logs/boots/0")
     journald_logs.assert_called_once_with(
         params={
             "_BOOT_ID": "ccc",
@@ -326,7 +349,7 @@ async def test_advanced_logs_boot_id_offset(
 
     journald_logs.reset_mock()
 
-    await api_client.get("/host/logs/boots/-2")
+    await api_client.get(f"{prefix}/host/logs/boots/-2")
     journald_logs.assert_called_once_with(
         params={
             "_BOOT_ID": "aaa",
@@ -338,7 +361,7 @@ async def test_advanced_logs_boot_id_offset(
 
     journald_logs.reset_mock()
 
-    await api_client.get("/host/logs/boots/2")
+    await api_client.get(f"{prefix}/host/logs/boots/2")
     journald_logs.assert_called_once_with(
         params={
             "_BOOT_ID": "bbb",
@@ -353,51 +376,57 @@ async def test_advanced_logs_boot_id_offset(
 
 async def test_advanced_logs_formatters(
     journald_gateway: MagicMock,
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     journal_logs_reader: MagicMock,
 ):
     """Test advanced logs formatters varying on Accept header."""
+    api_client, prefix = api_client_with_prefix
 
-    await api_client.get("/host/logs")
+    await api_client.get(f"{prefix}/host/logs")
     journal_logs_reader.assert_called_once_with(ANY, LogFormatter.VERBOSE, False)
 
     journal_logs_reader.reset_mock()
 
     headers = {"Accept": "text/x-log"}
-    await api_client.get("/host/logs", headers=headers)
+    await api_client.get(f"{prefix}/host/logs", headers=headers)
     journal_logs_reader.assert_called_once_with(ANY, LogFormatter.VERBOSE, False)
 
     journal_logs_reader.reset_mock()
 
-    await api_client.get("/host/logs/identifiers/test")
+    await api_client.get(f"{prefix}/host/logs/identifiers/test")
     journal_logs_reader.assert_called_once_with(ANY, LogFormatter.PLAIN, False)
 
     journal_logs_reader.reset_mock()
 
     headers = {"Accept": "text/x-log"}
-    await api_client.get("/host/logs/identifiers/test", headers=headers)
+    await api_client.get(f"{prefix}/host/logs/identifiers/test", headers=headers)
     journal_logs_reader.assert_called_once_with(ANY, LogFormatter.VERBOSE, False)
 
     journal_logs_reader.reset_mock()
 
-    await api_client.get("/host/logs/identifiers/test", skip_auto_headers={"Accept"})
+    await api_client.get(
+        f"{prefix}/host/logs/identifiers/test", skip_auto_headers={"Accept"}
+    )
     journal_logs_reader.assert_called_once_with(ANY, LogFormatter.PLAIN, False)
 
 
-async def test_advanced_logs_errors(coresys: CoreSys, api_client: TestClient):
+async def test_advanced_logs_errors(
+    coresys: CoreSys, api_client_with_prefix: tuple[TestClient, str]
+):
     """Test advanced logging API errors."""
+    api_client, prefix = api_client_with_prefix
     with patch("supervisor.host.logs.SYSTEMD_JOURNAL_GATEWAYD_SOCKET") as socket:
         socket.is_socket.return_value = False
         await coresys.host.logs.post_init()
-        resp = await api_client.get("/host/logs")
+        resp = await api_client.get(f"{prefix}/host/logs")
         assert resp.content_type == "text/plain"
         assert resp.status == 400
         content = await resp.text()
         assert content == "No systemd-journal-gatewayd Unix socket available"
 
     headers = {"Accept": "application/json"}
-    resp = await api_client.get("/host/logs", headers=headers)
+    resp = await api_client.get(f"{prefix}/host/logs", headers=headers)
     assert resp.content_type == "text/plain"
     assert resp.status == 400
     content = await resp.text()
@@ -407,8 +436,11 @@ async def test_advanced_logs_errors(coresys: CoreSys, api_client: TestClient):
     )
 
 
-async def test_disk_usage_api(api_client: TestClient, coresys: CoreSys):
+async def test_disk_usage_api(
+    api_client_with_prefix: tuple[TestClient, str], coresys: CoreSys
+):
     """Test disk usage API endpoint."""
+    api_client, prefix = api_client_with_prefix
     # Mock the disk usage methods
     with (
         patch.object(coresys.hardware.disk, "disk_usage") as mock_disk_usage,
@@ -488,7 +520,7 @@ async def test_disk_usage_api(api_client: TestClient, coresys: CoreSys):
         ]
 
         # Test default max_depth=1
-        resp = await api_client.get("/host/disks/default/usage")
+        resp = await api_client.get(f"{prefix}/host/disks/default/usage")
         assert resp.status == 200
         result = await resp.json()
 
@@ -552,9 +584,10 @@ async def test_disk_usage_api(api_client: TestClient, coresys: CoreSys):
 
 
 async def test_disk_usage_api_with_custom_depth(
-    api_client: TestClient, coresys: CoreSys
+    api_client_with_prefix: tuple[TestClient, str], coresys: CoreSys
 ):
     """Test disk usage API endpoint with custom max_depth parameter."""
+    api_client, prefix = api_client_with_prefix
     with (
         patch.object(coresys.hardware.disk, "disk_usage") as mock_disk_usage,
         patch.object(coresys.hardware.disk, "get_dir_sizes") as mock_dir_sizes,
@@ -699,7 +732,7 @@ async def test_disk_usage_api_with_custom_depth(
         ]
 
         # Test with custom max_depth=2
-        resp = await api_client.get("/host/disks/default/usage?max_depth=2")
+        resp = await api_client.get(f"{prefix}/host/disks/default/usage?max_depth=2")
         assert resp.status == 200
         result = await resp.json()
         assert result["data"]["used_bytes"] == 500000000
@@ -711,8 +744,11 @@ async def test_disk_usage_api_with_custom_depth(
         assert call_args[0][1] == 2  # max_depth parameter
 
 
-async def test_disk_usage_api_invalid_depth(api_client: TestClient, coresys: CoreSys):
+async def test_disk_usage_api_invalid_depth(
+    api_client_with_prefix: tuple[TestClient, str], coresys: CoreSys
+):
     """Test disk usage API endpoint with invalid max_depth parameter."""
+    api_client, prefix = api_client_with_prefix
     with (
         patch.object(coresys.hardware.disk, "disk_usage") as mock_disk_usage,
         patch.object(coresys.hardware.disk, "get_dir_sizes") as mock_dir_sizes,
@@ -757,7 +793,9 @@ async def test_disk_usage_api_invalid_depth(api_client: TestClient, coresys: Cor
         ]
 
         # Test with invalid max_depth (non-integer)
-        resp = await api_client.get("/host/disks/default/usage?max_depth=invalid")
+        resp = await api_client.get(
+            f"{prefix}/host/disks/default/usage?max_depth=invalid"
+        )
         assert resp.status == 200
         result = await resp.json()
         assert result["data"]["used_bytes"] == 500000000
@@ -770,9 +808,10 @@ async def test_disk_usage_api_invalid_depth(api_client: TestClient, coresys: Cor
 
 
 async def test_disk_usage_api_empty_directories(
-    api_client: TestClient, coresys: CoreSys
+    api_client_with_prefix: tuple[TestClient, str], coresys: CoreSys
 ):
     """Test disk usage API endpoint with empty directories."""
+    api_client, prefix = api_client_with_prefix
     with (
         patch.object(coresys.hardware.disk, "disk_usage") as mock_disk_usage,
         patch.object(coresys.hardware.disk, "get_dir_sizes") as mock_dir_sizes,
@@ -818,7 +857,7 @@ async def test_disk_usage_api_empty_directories(
             },
         ]
 
-        resp = await api_client.get("/host/disks/default/usage")
+        resp = await api_client.get(f"{prefix}/host/disks/default/usage")
         assert resp.status == 200
         result = await resp.json()
 
@@ -836,14 +875,15 @@ async def test_disk_usage_api_empty_directories(
 
 @pytest.mark.parametrize("action", ["reboot", "shutdown"])
 async def test_migration_blocks_shutdown(
-    api_client: TestClient,
+    api_client_with_prefix: tuple[TestClient, str],
     coresys: CoreSys,
     action: str,
 ):
     """Test that an offline db migration in progress stops users from shuting down or rebooting system."""
+    api_client, prefix = api_client_with_prefix
     coresys.homeassistant.api.get_api_state.return_value = APIState("NOT_RUNNING", True)
 
-    resp = await api_client.post(f"/host/{action}")
+    resp = await api_client.post(f"{prefix}/host/{action}")
     assert resp.status == 503
     result = await resp.json()
     assert (
@@ -852,21 +892,25 @@ async def test_migration_blocks_shutdown(
     )
 
 
-async def test_force_reboot_during_migration(api_client: TestClient, coresys: CoreSys):
+async def test_force_reboot_during_migration(
+    api_client_with_prefix: tuple[TestClient, str], coresys: CoreSys
+):
     """Test force option reboots even during a migration."""
+    api_client, prefix = api_client_with_prefix
     coresys.homeassistant.api.get_api_state.return_value = APIState("NOT_RUNNING", True)
 
     with patch.object(SystemControl, "reboot") as reboot:
-        await api_client.post("/host/reboot", json={"force": True})
+        await api_client.post(f"{prefix}/host/reboot", json={"force": True})
         reboot.assert_called_once()
 
 
 async def test_force_shutdown_during_migration(
-    api_client: TestClient, coresys: CoreSys
+    api_client_with_prefix: tuple[TestClient, str], coresys: CoreSys
 ):
     """Test force option shutdown even during a migration."""
+    api_client, prefix = api_client_with_prefix
     coresys.homeassistant.api.get_api_state.return_value = APIState("NOT_RUNNING", True)
 
     with patch.object(SystemControl, "shutdown") as shutdown:
-        await api_client.post("/host/shutdown", json={"force": True})
+        await api_client.post(f"{prefix}/host/shutdown", json={"force": True})
         shutdown.assert_called_once()
