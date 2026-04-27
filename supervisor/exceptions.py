@@ -278,7 +278,7 @@ class CliUpdateError(CliError):
     """Error on update of a HA cli."""
 
 
-class CliJobError(CliError, PluginJobError):
+class CliJobError(CliError, PluginJobError):  # pylint: disable=too-many-ancestors
     """Raise on job error with cli plugin."""
 
 
@@ -293,7 +293,7 @@ class ObserverUpdateError(ObserverError):
     """Error on update of a Observer."""
 
 
-class ObserverJobError(ObserverError, PluginJobError):
+class ObserverJobError(ObserverError, PluginJobError):  # pylint: disable=too-many-ancestors
     """Raise on job error with observer plugin."""
 
 
@@ -320,7 +320,7 @@ class MulticastUpdateError(MulticastError):
     """Error on update of a multicast."""
 
 
-class MulticastJobError(MulticastError, PluginJobError):
+class MulticastJobError(MulticastError, PluginJobError):  # pylint: disable=too-many-ancestors
     """Raise on job error with multicast plugin."""
 
 
@@ -335,7 +335,7 @@ class CoreDNSUpdateError(CoreDNSError):
     """Error on update of a CoreDNS."""
 
 
-class CoreDNSJobError(CoreDNSError, PluginJobError):
+class CoreDNSJobError(CoreDNSError, PluginJobError):  # pylint: disable=too-many-ancestors
     """Raise on job error with dns plugin."""
 
 
@@ -350,7 +350,7 @@ class AudioUpdateError(AudioError):
     """Error on update of a Audio."""
 
 
-class AudioJobError(AudioError, PluginJobError):
+class AudioJobError(AudioError, PluginJobError):  # pylint: disable=too-many-ancestors
     """Raise on job error with audio plugin."""
 
 
