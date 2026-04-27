@@ -278,7 +278,7 @@ class CliUpdateError(CliError):
     """Error on update of a HA cli."""
 
 
-class CliJobError(CliError, PluginJobError):  # pylint: disable=too-many-ancestors
+class CliJobError(CliError, PluginJobError):
     """Raise on job error with cli plugin."""
 
 
@@ -293,7 +293,7 @@ class ObserverUpdateError(ObserverError):
     """Error on update of a Observer."""
 
 
-class ObserverJobError(ObserverError, PluginJobError):  # pylint: disable=too-many-ancestors
+class ObserverJobError(ObserverError, PluginJobError):
     """Raise on job error with observer plugin."""
 
 
@@ -320,7 +320,7 @@ class MulticastUpdateError(MulticastError):
     """Error on update of a multicast."""
 
 
-class MulticastJobError(MulticastError, PluginJobError):  # pylint: disable=too-many-ancestors
+class MulticastJobError(MulticastError, PluginJobError):
     """Raise on job error with multicast plugin."""
 
 
@@ -335,7 +335,7 @@ class CoreDNSUpdateError(CoreDNSError):
     """Error on update of a CoreDNS."""
 
 
-class CoreDNSJobError(CoreDNSError, PluginJobError):  # pylint: disable=too-many-ancestors
+class CoreDNSJobError(CoreDNSError, PluginJobError):
     """Raise on job error with dns plugin."""
 
 
@@ -350,7 +350,7 @@ class AudioUpdateError(AudioError):
     """Error on update of a Audio."""
 
 
-class AudioJobError(AudioError, PluginJobError):  # pylint: disable=too-many-ancestors
+class AudioJobError(AudioError, PluginJobError):
     """Raise on job error with audio plugin."""
 
 
@@ -1025,7 +1025,7 @@ class ResolutionFixupJobError(ResolutionFixupError, JobException):
     """Raise on job error."""
 
 
-class ResolutionCheckNotFound(ResolutionNotFound, APINotFound):  # pylint: disable=too-many-ancestors
+class ResolutionCheckNotFound(ResolutionNotFound, APINotFound):
     """Raise if check does not exist."""
 
     error_key = "resolution_check_not_found_error"
@@ -1039,7 +1039,7 @@ class ResolutionCheckNotFound(ResolutionNotFound, APINotFound):  # pylint: disab
         super().__init__(None, logger)
 
 
-class ResolutionIssueNotFound(ResolutionNotFound, APINotFound):  # pylint: disable=too-many-ancestors
+class ResolutionIssueNotFound(ResolutionNotFound, APINotFound):
     """Raise if issue does not exist."""
 
     error_key = "resolution_issue_not_found_error"
@@ -1051,7 +1051,7 @@ class ResolutionIssueNotFound(ResolutionNotFound, APINotFound):  # pylint: disab
         super().__init__(None, logger)
 
 
-class ResolutionSuggestionNotFound(ResolutionNotFound, APINotFound):  # pylint: disable=too-many-ancestors
+class ResolutionSuggestionNotFound(ResolutionNotFound, APINotFound):
     """Raise if suggestion does not exist."""
 
     error_key = "resolution_suggestion_not_found_error"
