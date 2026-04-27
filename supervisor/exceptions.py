@@ -134,8 +134,14 @@ class APIUnknownSupervisorError(APIError):
 # JobManager
 
 
-class JobException(HassioError):
-    """Base job exception."""
+class JobException(APIError):
+    """Base job exception.
+
+    Job condition and concurrency failures are considered handled from the
+    Supervisor's point of view and reported to the caller as client-side
+    errors. Inheriting APIError lets api_process surface them with their
+    explicit message (see #6739) instead of treating them as unexpected.
+    """
 
 
 class JobConditionException(JobException):

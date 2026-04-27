@@ -466,22 +466,27 @@ async def test_api_backup_errors(
 
 async def test_backup_immediate_errors(api_client: TestClient, coresys: CoreSys):
     """Test backup errors that return immediately even in background mode."""
-    await coresys.core.set_state(CoreState.FREEZE)
-    resp = await api_client.post(
-        "/backups/new/full",
-        json={"name": "Test", "background": True},
-    )
-    assert resp.status == 400
-    assert "freeze" in (await resp.json())["message"]
+    with patch("supervisor.api.utils.async_capture_exception") as capture_exception:
+        await coresys.core.set_state(CoreState.FREEZE)
+        resp = await api_client.post(
+            "/backups/new/full",
+            json={"name": "Test", "background": True},
+        )
+        assert resp.status == 400
+        assert "freeze" in (await resp.json())["message"]
 
-    await coresys.core.set_state(CoreState.RUNNING)
-    coresys.hardware.disk.get_disk_free_space = lambda x: 0.5
-    resp = await api_client.post(
-        "/backups/new/partial",
-        json={"name": "Test", "homeassistant": True, "background": True},
-    )
-    assert resp.status == 400
-    assert "not enough free space" in (await resp.json())["message"]
+        await coresys.core.set_state(CoreState.RUNNING)
+        coresys.hardware.disk.get_disk_free_space = lambda x: 0.5
+        resp = await api_client.post(
+            "/backups/new/partial",
+            json={"name": "Test", "homeassistant": True, "background": True},
+        )
+        assert resp.status == 400
+        assert "not enough free space" in (await resp.json())["message"]
+
+        # Job condition failures are user/environment driven; api_process
+        # must not capture them to Sentry.
+        capture_exception.assert_not_called()
 
 
 async def test_restore_immediate_errors(
