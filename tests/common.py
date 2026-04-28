@@ -19,6 +19,36 @@ from supervisor.utils.yaml import read_yaml_file
 from .dbus_service_mocks.base import DBusServiceMock
 
 
+async def wait_for_task_by_name(
+    coresys, qualname_prefix: str, *, max_iterations: int = 3
+) -> None:
+    """Await any task whose coroutine qualname starts with prefix.
+
+    Looks at the per-test list of tasks captured by the ``coresys``
+    fixture's ``create_task`` interceptor — that includes tasks that
+    have already completed, which ``asyncio.all_tasks()`` would miss.
+    Yields up to ``max_iterations`` times so a task created indirectly
+    via a 0-delay ``call_later`` (the timer needs the loop to advance
+    before its callback runs) can show up. Raises ``LookupError`` if
+    no matching task is ever recorded — the call site expects the
+    task to be scheduled.
+    """
+    for _ in range(max_iterations):
+        matched = [
+            t
+            for t in coresys.test_created_tasks
+            if t.get_coro().__qualname__.startswith(qualname_prefix)
+        ]
+        if matched:
+            # gather() is fine on already-done tasks (returns immediately).
+            # return_exceptions swallows fire-and-forget task errors so the
+            # helper doesn't surface unrelated background failures.
+            await asyncio.gather(*matched, return_exceptions=True)
+            return
+        await asyncio.sleep(0)
+    raise LookupError(f"No task with qualname prefix {qualname_prefix!r} was created")
+
+
 def get_fixture_path(filename: str) -> Path:
     """Get path for fixture."""
     return Path(Path(__file__).parent.joinpath("fixtures"), filename)

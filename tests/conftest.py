@@ -574,6 +574,22 @@ async def coresys(
     if not request.node.get_closest_marker("no_mock_init_websession"):
         coresys_obj.init_websession = AsyncMock()
 
+    # Capture every task spawned via coresys.create_task so tests can wait
+    # on fire-and-forget background jobs (e.g. BackupManager.reload) by
+    # name even if they have already finished. ``asyncio.all_tasks()`` only
+    # returns pending tasks, so a fast task can race the test's lookup;
+    # holding our own reference avoids that.
+    created_tasks: list[asyncio.Task] = []
+    _orig_create_task = coresys_obj.create_task
+
+    def _capturing_create_task(*args, **kwargs):
+        task = _orig_create_task(*args, **kwargs)
+        created_tasks.append(task)
+        return task
+
+    coresys_obj.create_task = _capturing_create_task
+    coresys_obj.test_created_tasks = created_tasks
+
     # Don't remove files/folders related to apps and stores
     with patch("supervisor.store.git.GitRepo.remove"):
         yield coresys_obj
