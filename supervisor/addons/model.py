@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from contextlib import suppress
 from datetime import datetime
 import logging
@@ -91,6 +91,7 @@ from ..const import (
 from ..coresys import CoreSys
 from ..docker.const import Capabilities
 from ..exceptions import (
+    AppFileReadError,
     AppNotSupportedArchitectureError,
     AppNotSupportedError,
     AppNotSupportedHomeAssistantVersionError,
@@ -682,9 +683,15 @@ class AppModel(JobGroup, ABC):
             # Return data
             return readme.read_text(encoding="utf-8", errors="replace")
 
-        return await self.sys_run_in_executor(read_readme)
+        try:
+            return await self.sys_run_in_executor(read_readme)
+        except OSError as err:
+            self.sys_resolution.check_oserror(err)
+            raise AppFileReadError(
+                _LOGGER.error, app=self.slug, error=str(err)
+            ) from err
 
-    def refresh_path_cache(self) -> Awaitable[None]:
+    async def refresh_path_cache(self) -> None:
         """Refresh cache of existing paths."""
 
         def check_paths():
@@ -693,7 +700,13 @@ class AppModel(JobGroup, ABC):
             self._path_changelog_exists = self.path_changelog.exists()
             self._path_documentation_exists = self.path_documentation.exists()
 
-        return self.sys_run_in_executor(check_paths)
+        try:
+            await self.sys_run_in_executor(check_paths)
+        except OSError as err:
+            self.sys_resolution.check_oserror(err)
+            raise AppFileReadError(
+                _LOGGER.error, app=self.slug, error=str(err)
+            ) from err
 
     def validate_availability(self) -> None:
         """Validate if app is available for current system."""

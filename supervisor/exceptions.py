@@ -557,6 +557,26 @@ class AppBuildFailedUnknownError(AppsError, APIUnknownSupervisorError):
         super().__init__(logger)
 
 
+class AppFileReadError(AppsError, APIError):
+    """Raise when an app metadata file cannot be read due to a filesystem error."""
+
+    error_key = "addon_file_read_error"
+    message_template = (
+        "Could not read metadata for app {addon} due to a filesystem error: {error}"
+    )
+
+    def __init__(
+        self,
+        logger: Callable[..., None] | None = None,
+        *,
+        app: str,
+        error: str,
+    ) -> None:
+        """Initialize exception."""
+        self.extra_fields = {"addon": app, "error": error}
+        super().__init__(None, logger)
+
+
 class AppsJobError(AppsError, JobException):
     """Raise on job errors."""
 

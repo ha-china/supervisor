@@ -18,6 +18,7 @@ from .const import (
 from .coresys import CoreSys, CoreSysAttributes
 from .dbus.const import StopUnitMode, UnitActiveState
 from .exceptions import (
+    AppFileReadError,
     HassioError,
     HomeAssistantCrashError,
     HomeAssistantError,
@@ -187,6 +188,16 @@ class Core(CoreSysAttributes):
         for setup_task in setup_loads:
             try:
                 await setup_task
+            except AppFileReadError as err:
+                # Already reported to the user via the resolution system
+                # (unhealthy reason set by check_oserror). Log without
+                # stack trace and skip Sentry capture to avoid noise.
+                _LOGGER.error(
+                    "Error on load Task %s: %s",
+                    setup_task,
+                    err,
+                )
+                self.sys_resolution.add_unhealthy_reason(UnhealthyReason.SETUP)
             except Exception as err:  # pylint: disable=broad-except
                 _LOGGER.critical(
                     "Fatal error happening on load Task %s: %s",

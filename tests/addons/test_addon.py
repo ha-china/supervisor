@@ -25,6 +25,7 @@ from supervisor.docker.const import ContainerState
 from supervisor.docker.manager import CommandReturn, DockerAPI
 from supervisor.docker.monitor import DockerContainerStateEvent
 from supervisor.exceptions import (
+    AppFileReadError,
     AppPortConflict,
     AppPrePostBackupCommandReturnedError,
     AppsJobError,
@@ -35,7 +36,12 @@ from supervisor.exceptions import (
 )
 from supervisor.hardware.helper import HwHelper
 from supervisor.ingress import Ingress
-from supervisor.resolution.const import ContextType, IssueType, SuggestionType
+from supervisor.resolution.const import (
+    ContextType,
+    IssueType,
+    SuggestionType,
+    UnhealthyReason,
+)
 from supervisor.resolution.data import Issue
 from supervisor.utils.dt import utcnow
 
@@ -888,6 +894,54 @@ async def test_app_pulse_error(
 
         assert "can't write pulse/client.config" in caplog.text
         assert coresys.core.healthy is False
+
+
+@pytest.mark.usefixtures("tmp_supervisor_data")
+async def test_long_description_bad_message(coresys: CoreSys, install_app_example: App):
+    """Test long_description raises AppFileReadError and marks unhealthy on EBADMSG."""
+    err = OSError()
+    err.errno = errno.EBADMSG
+    with (
+        patch("supervisor.addons.model.Path.exists", side_effect=err),
+        pytest.raises(AppFileReadError),
+    ):
+        await install_app_example.long_description()
+
+    assert coresys.core.healthy is False
+    assert UnhealthyReason.OSERROR_BAD_MESSAGE in coresys.resolution.unhealthy
+
+
+@pytest.mark.usefixtures("tmp_supervisor_data")
+async def test_long_description_other_oserror(
+    coresys: CoreSys, install_app_example: App
+):
+    """Test long_description raises AppFileReadError without unhealthy on other OSError."""
+    err = OSError()
+    err.errno = errno.EIO
+    with (
+        patch("supervisor.addons.model.Path.exists", side_effect=err),
+        pytest.raises(AppFileReadError),
+    ):
+        await install_app_example.long_description()
+
+    assert coresys.core.healthy is True
+
+
+@pytest.mark.usefixtures("tmp_supervisor_data")
+async def test_refresh_path_cache_bad_message(
+    coresys: CoreSys, install_app_example: App
+):
+    """Test refresh_path_cache raises AppFileReadError and marks unhealthy on EBADMSG."""
+    err = OSError()
+    err.errno = errno.EBADMSG
+    with (
+        patch("supervisor.addons.model.Path.exists", side_effect=err),
+        pytest.raises(AppFileReadError),
+    ):
+        await install_app_example.refresh_path_cache()
+
+    assert coresys.core.healthy is False
+    assert UnhealthyReason.OSERROR_BAD_MESSAGE in coresys.resolution.unhealthy
 
 
 @pytest.mark.usefixtures("coresys")
