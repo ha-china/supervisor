@@ -21,6 +21,7 @@ from ..exceptions import (
     DBusInterfaceMethodError,
     DBusInterfacePropertyError,
     DBusInterfaceSignalError,
+    DBusInvalidArgsError,
     DBusNoReplyError,
     DBusNotConnectedError,
     DBusObjectError,
@@ -84,12 +85,10 @@ class DBus:
             return DBusServiceUnkownError(err.text)
         if err.type == ErrorType.UNKNOWN_INTERFACE:
             return DBusInterfaceError(err.text)
-        if err.type in {
-            ErrorType.UNKNOWN_METHOD,
-            ErrorType.INVALID_SIGNATURE,
-            ErrorType.INVALID_ARGS,
-        }:
+        if err.type in {ErrorType.UNKNOWN_METHOD, ErrorType.INVALID_SIGNATURE}:
             return DBusInterfaceMethodError(err.text)
+        if err.type == ErrorType.INVALID_ARGS:
+            return DBusInvalidArgsError(err.text)
         if err.type == ErrorType.UNKNOWN_OBJECT:
             return DBusObjectError(err.text)
         if err.type in {ErrorType.UNKNOWN_PROPERTY, ErrorType.PROPERTY_READ_ONLY}:

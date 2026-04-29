@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from unittest.mock import ANY, MagicMock, patch
 
 from aiohttp.test_utils import TestClient
+from dbus_fast import DBusError, ErrorType
 import pytest
 import time_machine
 
@@ -15,6 +16,7 @@ from supervisor.host.const import LogFormat, LogFormatter
 from supervisor.host.control import SystemControl
 
 from tests.dbus_service_mocks.base import DBusServiceMock
+from tests.dbus_service_mocks.hostname import Hostname as HostnameService
 from tests.dbus_service_mocks.systemd import Systemd as SystemdService
 
 DEFAULT_RANGE = "entries=:-99:100"
@@ -914,3 +916,22 @@ async def test_force_shutdown_during_migration(
     with patch.object(SystemControl, "shutdown") as shutdown:
         await api_client.post(f"{prefix}/host/shutdown", json={"force": True})
         shutdown.assert_called_once()
+
+
+async def test_set_hostname_invalid_returns_400(
+    api_client: TestClient,
+    all_dbus_services: dict[str, DBusServiceMock | dict[str, DBusServiceMock]],
+):
+    """An INVALID_ARGS rejection from hostnamed becomes a 400 with a structured body."""
+    hostname_service: HostnameService = all_dbus_services["hostname"]
+    hostname_service.response_set_static_hostname = DBusError(
+        ErrorType.INVALID_ARGS, "Invalid static hostname 'bad name'"
+    )
+
+    resp = await api_client.post("/host/options", json={"hostname": "bad name"})
+    assert resp.status == 400
+    body = await resp.json()
+    assert body["result"] == "error"
+    assert body["message"] == "Invalid hostname 'bad name'"
+    assert body["error_key"] == "host_invalid_hostname"
+    assert body["extra_fields"] == {"hostname": "bad name"}

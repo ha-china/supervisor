@@ -1,8 +1,10 @@
 """Test host control."""
 
+from dbus_fast import DBusError, ErrorType
 import pytest
 
 from supervisor.coresys import CoreSys
+from supervisor.exceptions import HostInvalidHostnameError
 
 from tests.dbus_service_mocks.base import DBusServiceMock
 from tests.dbus_service_mocks.hostname import Hostname as HostnameService
@@ -23,6 +25,24 @@ async def test_set_hostname(
     assert hostname_service.SetStaticHostname.calls == [("test", False)]
     await hostname_service.ping()
     assert coresys.dbus.hostname.hostname == "test"
+
+
+async def test_set_hostname_rejected_by_host(
+    coresys: CoreSys,
+    all_dbus_services: dict[str, DBusServiceMock | dict[str, DBusServiceMock]],
+):
+    """A hostname rejected by hostnamed surfaces as HostInvalidHostnameError."""
+    hostname_service: HostnameService = all_dbus_services["hostname"]
+    hostname_service.response_set_static_hostname = DBusError(
+        ErrorType.INVALID_ARGS, "Invalid static hostname 'bad name'"
+    )
+
+    with pytest.raises(HostInvalidHostnameError) as exc_info:
+        await coresys.host.control.set_hostname("bad name")
+
+    assert exc_info.value.error_key == "host_invalid_hostname"
+    assert exc_info.value.extra_fields == {"hostname": "bad name"}
+    assert str(exc_info.value) == "Invalid hostname 'bad name'"
 
 
 @pytest.mark.parametrize("os_available", ["16.2"], indirect=True)

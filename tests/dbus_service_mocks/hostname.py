@@ -2,6 +2,7 @@
 
 from json import dumps
 
+from dbus_fast import DBusError
 from dbus_fast.service import PropertyAccess, dbus_property
 
 from .base import DBusServiceMock, dbus_method
@@ -22,6 +23,7 @@ class Hostname(DBusServiceMock):
 
     object_path = "/org/freedesktop/hostname1"
     interface = "org.freedesktop.hostname1"
+    response_set_static_hostname: DBusError | None = None
 
     @dbus_property(access=PropertyAccess.READ)
     def Hostname(self) -> "s":
@@ -96,6 +98,9 @@ class Hostname(DBusServiceMock):
     @dbus_method()
     def SetStaticHostname(self, hostname: "s", interactive: "b") -> None:
         """Set static hostname."""
+        if isinstance(self.response_set_static_hostname, DBusError):
+            # pylint: disable=raising-bad-type
+            raise self.response_set_static_hostname
         self.emit_properties_changed({"StaticHostname": hostname})
 
     @dbus_method()
