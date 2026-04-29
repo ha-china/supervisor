@@ -134,8 +134,14 @@ class APIUnknownSupervisorError(APIError):
 # JobManager
 
 
-class JobException(HassioError):
-    """Base job exception."""
+class JobException(APIError):
+    """Base job exception.
+
+    Job condition and concurrency failures are considered handled from the
+    Supervisor's point of view and reported to the caller as client-side
+    errors. Inheriting APIError lets api_process surface them with their
+    explicit message (see #6739) instead of treating them as unexpected.
+    """
 
 
 class JobConditionException(JobException):
@@ -1065,7 +1071,7 @@ class ResolutionFixupJobError(ResolutionFixupError, JobException):
     """Raise on job error."""
 
 
-class ResolutionCheckNotFound(ResolutionNotFound, APINotFound):  # pylint: disable=too-many-ancestors
+class ResolutionCheckNotFound(ResolutionNotFound, APINotFound):
     """Raise if check does not exist."""
 
     error_key = "resolution_check_not_found_error"
@@ -1079,7 +1085,7 @@ class ResolutionCheckNotFound(ResolutionNotFound, APINotFound):  # pylint: disab
         super().__init__(None, logger)
 
 
-class ResolutionIssueNotFound(ResolutionNotFound, APINotFound):  # pylint: disable=too-many-ancestors
+class ResolutionIssueNotFound(ResolutionNotFound, APINotFound):
     """Raise if issue does not exist."""
 
     error_key = "resolution_issue_not_found_error"
@@ -1091,7 +1097,7 @@ class ResolutionIssueNotFound(ResolutionNotFound, APINotFound):  # pylint: disab
         super().__init__(None, logger)
 
 
-class ResolutionSuggestionNotFound(ResolutionNotFound, APINotFound):  # pylint: disable=too-many-ancestors
+class ResolutionSuggestionNotFound(ResolutionNotFound, APINotFound):
     """Raise if suggestion does not exist."""
 
     error_key = "resolution_suggestion_not_found_error"
