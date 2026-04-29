@@ -372,7 +372,10 @@ class Job(CoreSysAttributes):
             )
 
         if JobCondition.INTERNET_SYSTEM in used_conditions:
-            await coresys.sys_supervisor.check_connectivity()
+            # Precondition wants a recent result, not necessarily a fresh one;
+            # the min-interval short-circuit inside check_and_update_connectivity
+            # reuses the cached state when it's still within window.
+            await coresys.sys_supervisor.check_and_update_connectivity()
             if not coresys.sys_supervisor.connectivity:
                 raise JobConditionException(
                     f"'{method_name}' blocked from execution, no supervisor internet connection"

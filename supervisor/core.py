@@ -140,7 +140,7 @@ class Core(CoreSysAttributes):
         await self.coresys.init_websession()
 
         # Check internet on startup
-        await self.sys_supervisor.check_connectivity()
+        await self.sys_supervisor.check_and_update_connectivity(force=True)
 
         # Order can be important!
         setup_loads: list[Awaitable[None]] = [
@@ -471,7 +471,10 @@ class Core(CoreSysAttributes):
             )
 
         await self.sys_host.control.set_datetime(data.dt_utc)
-        await self.sys_supervisor.check_connectivity()
+        # System time was just corrected. TLS certificates that previously
+        # appeared expired/not-yet-valid may now verify, so a connectivity
+        # probe that just failed for that reason can succeed now.
+        await self.sys_supervisor.check_and_update_connectivity(force=True)
 
     async def repair(self) -> None:
         """Repair system integrity."""

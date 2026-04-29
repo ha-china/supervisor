@@ -69,8 +69,11 @@ class NetworkManager(CoreSysAttributes):
         self.sys_homeassistant.websocket.supervisor_update_event(
             "network", {ATTR_HOST_INTERNET: state}
         )
-        if state and not self.sys_supervisor.connectivity:
-            self.sys_create_task(self.sys_supervisor.check_connectivity())
+        if state:
+            # Host just regained connectivity; kick a fresh Supervisor probe.
+            # Coalescing in request_connectivity_check means redundant calls
+            # are safe, so no "only if supervisor is False" guard is needed.
+            self.sys_supervisor.request_connectivity_check(force=True)
 
     @property
     def interfaces(self) -> list[Interface]:

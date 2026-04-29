@@ -708,7 +708,7 @@ async def api_client(
 def supervisor_internet(coresys: CoreSys) -> Generator[AsyncMock]:
     """Fixture which simluate Supervsior internet connection."""
     connectivity_check = AsyncMock(return_value=True)
-    coresys.supervisor.check_connectivity = connectivity_check
+    coresys.supervisor.check_and_update_connectivity = connectivity_check
     yield connectivity_check
 
 

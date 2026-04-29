@@ -273,9 +273,15 @@ async def test_events_on_issue_changes(
         "issue_changed", issue_expected | {"suggestions": [suggestion_expected]}
     ) in [call.args[0] for call in ha_ws_client.async_send_command.call_args_list]
 
-    # Applying a suggestion should only fire an issue removed event
+    # Applying a suggestion should only fire an issue removed event.
+    # Mock healthcheck to avoid running the system-checks fan-out, which is
+    # not relevant to this assertion (ISSUE_REMOVED is fired by dismiss_issue
+    # inside the fixup, before apply_suggestion calls healthcheck).
     ha_ws_client.async_send_command.reset_mock()
-    with patch("shutil.disk_usage", return_value=(42, 42, 2 * (1024.0**3))):
+    with (
+        patch("shutil.disk_usage", return_value=(42, 42, 2 * (1024.0**3))),
+        patch.object(coresys.resolution, "healthcheck", new_callable=AsyncMock),
+    ):
         await coresys.resolution.apply_suggestion(suggestion)
 
     await asyncio.sleep(0)

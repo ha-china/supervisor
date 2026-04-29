@@ -101,7 +101,9 @@ async def test_adjust_system_datetime_if_time_behind(
             InfoCenter, "dt_synchronized", new=PropertyMock(return_value=False)
         ),
         patch.object(InfoCenter, "use_ntp", new=PropertyMock(return_value=True)),
-        patch.object(Supervisor, "check_connectivity") as mock_check_connectivity,
+        patch.object(
+            Supervisor, "check_and_update_connectivity"
+        ) as mock_check_connectivity,
     ):
         # Start the time adjustment which will wait for timesyncd to stop
         task = asyncio.create_task(coresys.core._adjust_system_datetime())

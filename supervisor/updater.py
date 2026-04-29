@@ -272,7 +272,9 @@ class Updater(FileConfiguration, CoreSysAttributes):
                 data = await request.read()
 
         except (aiohttp.ClientError, TimeoutError) as err:
-            self.sys_supervisor.connectivity = False
+            # Nudge a fresh connectivity check; the probe is authoritative,
+            # this error path only hints that something may be wrong.
+            self.sys_supervisor.request_connectivity_check()
             raise UpdaterError(
                 f"Can't fetch versions from {url}: {str(err) or 'Timeout'}",
                 _LOGGER.warning,

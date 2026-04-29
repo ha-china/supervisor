@@ -45,7 +45,10 @@ class CheckAppPwned(CheckBase):
                 try:
                     await self.sys_security.verify_secret(secret)
                 except PwnedConnectivityError:
-                    self.sys_supervisor.connectivity = False
+                    # Nudge a fresh connectivity check; the probe is
+                    # authoritative, this error path only hints that
+                    # something may be wrong.
+                    self.sys_supervisor.request_connectivity_check()
                     return
                 except PwnedSecret:
                     # Check possible suggestion

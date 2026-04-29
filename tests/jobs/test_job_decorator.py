@@ -26,10 +26,7 @@ from supervisor.jobs.job_group import JobGroup
 from supervisor.os.manager import OSManager
 from supervisor.plugins.audio import PluginAudio
 from supervisor.resolution.const import UnhealthyReason, UnsupportedReason
-from supervisor.supervisor import Supervisor
 from supervisor.utils.dt import utcnow
-
-from tests.common import reset_last_call
 
 
 async def test_healthy(coresys: CoreSys, caplog: pytest.LogCaptureFixture):
@@ -76,7 +73,6 @@ async def test_internet(
 ):
     """Test the internet decorator."""
     await coresys.core.set_state(CoreState.RUNNING)
-    reset_last_call(Supervisor.check_connectivity)
 
     class TestClass:
         """Test class."""
@@ -105,7 +101,9 @@ async def test_internet(
 
     mock_websession = AsyncMock()
     mock_websession.head.side_effect = head_side_effect
-    coresys.supervisor.connectivity = None
+    # Reset cached state so the precondition path actually runs a probe.
+    coresys.supervisor._connectivity = True  # pylint: disable=protected-access
+    coresys.supervisor._connectivity_last_check = float("-inf")  # pylint: disable=protected-access
     with (
         patch("supervisor.utils.dbus.DBus.call_dbus", return_value=connectivity),
         patch.object(
