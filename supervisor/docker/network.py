@@ -10,21 +10,18 @@ import aiodocker
 from aiodocker.networks import DockerNetwork as AiodockerNetwork
 
 from ..const import (
-    ATTR_AUDIO,
-    ATTR_CLI,
-    ATTR_DNS,
-    ATTR_OBSERVER,
-    ATTR_SUPERVISOR,
+    AUDIO_DOCKER_NAME,
+    CLI_DOCKER_NAME,
+    DNS_DOCKER_NAME,
     DOCKER_IPV4_NETWORK_MASK,
     DOCKER_IPV4_NETWORK_RANGE,
     DOCKER_IPV6_NETWORK_MASK,
     DOCKER_NETWORK,
     DOCKER_NETWORK_DRIVER,
-    DOCKER_PREFIX,
     OBSERVER_DOCKER_NAME,
     SUPERVISOR_DOCKER_NAME,
 )
-from ..exceptions import DockerError
+from ..exceptions import DockerError, DockerNotFound
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -218,24 +215,38 @@ class DockerNetwork:
 
         await self.reload()
 
-        with suppress(DockerError):
+        # Supervisor is running this code, so its container must exist.
+        try:
             await self.attach_container_by_name(
-                SUPERVISOR_DOCKER_NAME, [ATTR_SUPERVISOR], self.supervisor
+                SUPERVISOR_DOCKER_NAME, ipv4=self.supervisor
+            )
+        except DockerError as err:
+            _LOGGER.critical(
+                "Can't attach Supervisor to Supervisor network: %s",
+                err,
+                exc_info=True,
             )
 
-        with suppress(DockerError):
-            await self.attach_container_by_name(
-                OBSERVER_DOCKER_NAME, [ATTR_OBSERVER], self.observer
-            )
-
-        for name, ip in (
-            (ATTR_CLI, self.cli),
-            (ATTR_DNS, self.dns),
-            (ATTR_AUDIO, self.audio),
+        # Plugin containers don't exist yet on fresh install; that's expected.
+        for container_name, ipv4 in (
+            (OBSERVER_DOCKER_NAME, self.observer),
+            (CLI_DOCKER_NAME, self.cli),
+            (DNS_DOCKER_NAME, self.dns),
+            (AUDIO_DOCKER_NAME, self.audio),
         ):
-            with suppress(DockerError):
-                await self.attach_container_by_name(
-                    f"{DOCKER_PREFIX}_{name}", [name], ip
+            try:
+                await self.attach_container_by_name(container_name, ipv4=ipv4)
+            except DockerNotFound:
+                _LOGGER.debug(
+                    "No %s container to attach to Supervisor network",
+                    container_name,
+                )
+            except DockerError as err:
+                _LOGGER.critical(
+                    "Can't attach %s to Supervisor network: %s",
+                    container_name,
+                    err,
+                    exc_info=True,
                 )
 
     async def reload(self) -> None:
@@ -284,16 +295,18 @@ class DockerNetwork:
             ) from err
 
     async def attach_container_by_name(
-        self, name: str, alias: list[str] | None = None, ipv4: IPv4Address | None = None
+        self, name: str, ipv4: IPv4Address | None = None
     ) -> None:
         """Attach container to Supervisor network."""
         try:
             container = await self.docker.containers.get(name)
         except aiodocker.DockerError as err:
-            raise DockerError(f"Can't find {name}: {err}", _LOGGER.error) from err
+            if err.status == HTTPStatus.NOT_FOUND:
+                raise DockerNotFound(f"Can't find {name}") from err
+            raise DockerError(f"Can't find {name}: {err}") from err
 
         if container.id not in self.containers:
-            await self.attach_container(container.id, name, alias, ipv4)
+            await self.attach_container(container.id, name, ipv4=ipv4)
 
     async def detach_default_bridge(
         self, container_id: str, name: str | None = None

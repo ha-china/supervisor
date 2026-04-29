@@ -2,6 +2,7 @@
 
 import logging
 
+from ..const import CLI_DOCKER_NAME
 from ..coresys import CoreSysAttributes
 from ..exceptions import DockerJobError
 from ..jobs.const import JobConcurrency
@@ -10,8 +11,6 @@ from .const import ENV_TIME, ENV_TOKEN
 from .interface import DockerInterface
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
-
-CLI_DOCKER_NAME: str = "hassio_cli"
 
 
 class DockerCli(DockerInterface, CoreSysAttributes):
