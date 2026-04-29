@@ -38,7 +38,7 @@ async def test_set_service_already_provided(
     await coresys.services.load()
 
     coresys.services.data._data[service].update(  # pylint: disable=protected-access
-        {"host": "existing", "port": 1883, "addon": "core_mosquitto"}
+        {"host": "existing", "port": 1883, "app": "core_mosquitto"}
     )
 
     resp = await api_client.post(

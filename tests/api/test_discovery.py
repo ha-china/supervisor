@@ -59,17 +59,18 @@ async def test_api_list_discovery(
 
     await coresys.discovery.load()
     assert coresys.discovery.list_messages == [
-        Message(addon="core_mosquitto", service="mqtt", config=ANY, uuid=ANY),
-        Message(addon="local_ssh", service="adguard", config=ANY, uuid=ANY),
+        Message(app="core_mosquitto", service="mqtt", config=ANY, uuid=ANY),
+        Message(app="local_ssh", service="adguard", config=ANY, uuid=ANY),
     ]
 
     install_app_ssh.state = AppState.STARTED
     resp = await api_client.get(f"{prefix}/discovery")
     assert resp.status == 200
     result = await resp.json()
+    app_key = "app" if prefix == "/v2" else "addon"
     assert result["data"]["discovery"] == [
         {
-            "addon": "local_ssh",
+            app_key: "local_ssh",
             "service": "adguard",
             "config": ANY,
             "uuid": ANY,
@@ -111,7 +112,7 @@ async def test_api_send_del_discovery(
     }
 
     message = coresys.discovery.get(uuid)
-    assert message.addon == TEST_ADDON_SLUG
+    assert message.app == TEST_ADDON_SLUG
     assert message.service == "test"
     assert message.config == {}
 
