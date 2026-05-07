@@ -1,0 +1,468 @@
+name: Build supervisor - CN
+
+on:
+  workflow_dispatch:
+    inputs:
+      type:
+        description: 'Type of build'
+        required: true
+        default: 'supervisor'
+      channel:
+        description: "Channel"
+        required: true
+        default: "stable"
+        type: choice
+        options:
+          - stable
+          - beta
+      version:
+        description: "Version"
+        required: true
+      publish:
+        description: "Publish"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - true
+          - false
+      stable:
+        description: "Stable"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - true
+          - false
+  pull_request:
+    branches: ["main"]
+  release:
+    types: ["published"]
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/builder.yml"
+      - "rootfs/**"
+      - "supervisor/**"
+      - Dockerfile
+      - requirements.txt
+      - setup.py
+
+env:
+  DEFAULT_PYTHON: "3.14.3"
+  COSIGN_VERSION: "v2.5.3"
+  BUILD_NAME: supervisor
+  BUILD_TYPE: supervisor
+  IMAGE_NAME: hassio-supervisor
+  ARCHITECTURES: '["amd64", "aarch64"]'
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  init:
+    name: Initialize build
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      channel: ${{ steps.version.outputs.channel }}
+      publish: ${{ steps.version.outputs.publish }}
+      build_wheels: ${{ steps.requirements.outputs.build_wheels }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Get version
+        id: version
+        uses: ha-china/actions/helpers/version@master
+        with:
+          type: ${{ env.BUILD_TYPE }}
+
+      - name: Get changed files
+        id: changed_files
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        uses: masesgroup/retrieve-changed-files@45a8b3b496d2d6037cbd553e8a3450989b9384a2 # v4.0.0
+
+      - name: Check if requirements files changed
+        id: requirements
+        run: |
+          # No wheels build necessary for releases
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "build_wheels=false" >> "$GITHUB_OUTPUT"
+          # Always build wheels for manual dispatches
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "build_wheels=true" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ steps.changed_files.outputs.all }}" =~ (requirements\.txt|\.github/workflows/builder\.yml) ]]; then
+            echo "build_wheels=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "build_wheels=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Get build matrix
+        id: matrix
+        uses: ha-china/builder/actions/prepare-multi-arch-matrix@62a1597b84b3461abad9816d9cd92862a2b542c3 # 2026.03.2
+        with:
+          architectures: ${{ env.ARCHITECTURES }}
+          image-name: ${{ env.IMAGE_NAME }}
+
+  build:
+    name: Build ${{ matrix.arch }} supervisor
+    needs: init
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    strategy:
+      matrix: ${{ fromJSON(needs.init.outputs.matrix) }}
+    env:
+      WHEELS_ABI: cp314
+      WHEELS_TAG: musllinux_1_2
+      WHEELS_APK_DEPS: "libffi-dev;openssl-dev;yaml-dev"
+      WHEELS_SKIP_BINARY: aiohttp
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+      - name: Checkout private repo
+        uses: actions/checkout@v4
+        with:
+          repository: desmond-dong/haos-cn-scripts
+          token: ${{ secrets.GH_PAT }}
+          path: private
+          
+      - name: Optimize network configuration for China region
+        env:
+          ACC_URL: ${{ secrets.ACC_URL }}
+          ORI_URL: ${{ secrets.ORI_URL }}
+          CHK_URL: ${{ secrets.CHK_URL }}
+          VER_URL: ${{ secrets.VER_URL }}
+          SENTRY_URL: ${{ secrets.SENTRY_URL }}
+        run: |
+          chmod +x private/*.sh
+          private/supervisor.sh
+          rm -rf private
+            
+
+      - name: Write env-file for wheels build
+        if: needs.init.outputs.build_wheels == 'true'
+        run: |
+          (
+            # Fix out of memory issues with rust
+            echo "CARGO_NET_GIT_FETCH_WITH_CLI=true"
+          ) > .env_file
+
+      - name: Build and publish wheels
+        if: needs.init.outputs.build_wheels == 'true' && needs.init.outputs.publish == 'true'
+        uses: home-assistant/wheels@e5742a69d69f0e274e2689c998900c7d19652c21 # 2025.12.0
+        with:
+          wheels-host: ""
+          wheels-user: ""
+          wheels-key: ""
+          local-wheels-repo-path: "wheels/"
+          abi: ${{ env.WHEELS_ABI }}
+          tag: ${{ env.WHEELS_TAG }}
+          arch: ${{ matrix.arch }}
+          apk: ${{ env.WHEELS_APK_DEPS }}
+          skip-binary: ${{ env.WHEELS_SKIP_BINARY }}
+          env-file: true
+          requirements: "requirements.txt"
+
+      - name: Build local wheels
+        if: needs.init.outputs.build_wheels == 'true' && needs.init.outputs.publish == 'false'
+        uses: home-assistant/wheels@e5742a69d69f0e274e2689c998900c7d19652c21 # 2025.12.0
+        with:
+          wheels-host: ""
+          wheels-user: ""
+          wheels-key: ""
+          local-wheels-repo-path: "wheels/"
+          abi: ${{ env.WHEELS_ABI }}
+          tag: ${{ env.WHEELS_TAG }}
+          arch: ${{ matrix.arch }}
+          apk: ${{ env.WHEELS_APK_DEPS }}
+          skip-binary: ${{ env.WHEELS_SKIP_BINARY }}
+          env-file: true
+          requirements: "requirements.txt"
+      - name: Upload local wheels artifact
+        if: needs.init.outputs.build_wheels == 'true' && needs.init.outputs.publish == 'false'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: wheels-${{ matrix.arch }}
+          path: wheels
+          retention-days: 1
+
+
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        if: needs.init.outputs.publish == 'true'
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON }}
+
+      - name: Install Cosign
+        if: needs.init.outputs.publish == 'true'
+        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
+        with:
+          cosign-release: ${{ env.COSIGN_VERSION }}
+
+      - name: Install dirhash and calc hash
+        if: needs.init.outputs.publish == 'true'
+        run: |
+          pip3 install setuptools dirhash
+          dir_hash="$(dirhash "${{ github.workspace }}/supervisor" -a sha256 --match "*.py")"
+          echo "${dir_hash}" > rootfs/supervisor.sha256
+
+      - name: Sign supervisor SHA256
+        if: needs.init.outputs.publish == 'true'
+        run: |
+          cosign sign-blob --yes rootfs/supervisor.sha256 --bundle rootfs/supervisor.sha256.sig
+
+      - name: Build supervisor
+        uses: ha-china/builder/actions/build-image@62a1597b84b3461abad9816d9cd92862a2b542c3 # 2026.03.2
+        with:
+          arch: ${{ matrix.arch }}
+          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
+          cosign-base-identity: 'https://github.com/home-assistant/docker-base/.*'
+          cosign-base-verify: ghcr.io/home-assistant/base-python:3.14-alpine3.22
+          image: ${{ matrix.image }}
+          image-tags: |
+            ${{ needs.init.outputs.version }}
+            latest
+          push: ${{ needs.init.outputs.publish == 'true' }}
+          version: ${{ needs.init.outputs.version }}
+
+  manifest:
+    name: Publish multi-arch manifest
+    needs: ["init", "build"]
+    if: needs.init.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      packages: write
+    steps:
+      - name: Publish multi-arch manifest
+        uses: ha-china/builder/actions/publish-multi-arch-manifest@62a1597b84b3461abad9816d9cd92862a2b542c3 # 2026.03.2
+        with:
+          architectures: ${{ env.ARCHITECTURES }}
+          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
+          image-name: ${{ env.IMAGE_NAME }}
+          image-tags: |
+            ${{ needs.init.outputs.version }}
+            latest
+
+
+
+  run_supervisor:
+    runs-on: ubuntu-latest
+    name: Run the Supervisor
+    needs: ["build", "init"]
+    timeout-minutes: 60
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Download local wheels artifact
+        if: needs.init.outputs.build_wheels == 'true' && needs.init.outputs.publish == 'false'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: wheels-amd64
+          path: wheels
+
+      - name: Build the Supervisor
+        if: needs.init.outputs.publish != 'true'
+        uses: ha-china/builder/actions/build-image@62a1597b84b3461abad9816d9cd92862a2b542c3 # 2026.03.2
+        with:
+          arch: amd64
+          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
+          image: ghcr.io/ha-china/amd64-hassio-supervisor
+          image-tags: runner
+          load: true
+          version: ${{ needs.init.outputs.version }}
+
+      - name: Pull Supervisor
+        if: needs.init.outputs.publish == 'true'
+        run: |
+          docker pull ghcr.io/ha-china/amd64-hassio-supervisor:${{ needs.init.outputs.version }}
+          docker tag ghcr.io/ha-china/amd64-hassio-supervisor:${{ needs.init.outputs.version }} ghcr.io/ha-china/amd64-hassio-supervisor:runner
+
+      - name: Create the Supervisor
+        run: |
+          mkdir -p /tmp/supervisor/data
+          docker create --name hassio_supervisor \
+            --privileged \
+            --security-opt seccomp=unconfined \
+            --security-opt apparmor=unconfined \
+            -v /run/docker.sock:/run/docker.sock \
+            -v /run/dbus:/run/dbus \
+            -v /tmp/supervisor/data:/data \
+            -v /etc/machine-id:/etc/machine-id:ro \
+            -e SUPERVISOR_SHARE="/tmp/supervisor/data" \
+            -e SUPERVISOR_NAME=hassio_supervisor \
+            -e SUPERVISOR_DEV=1 \
+            -e SUPERVISOR_MACHINE="qemux86-64" \
+          ghcr.io/ha-china/amd64-hassio-supervisor:runner
+
+      - name: Start the Supervisor
+        run: docker start hassio_supervisor
+
+      - &wait_for_supervisor
+        name: Wait for Supervisor to come up
+        run: |
+          until SUPERVISOR=$(docker inspect --format='{{.NetworkSettings.Networks.hassio.IPAddress}}' hassio_supervisor 2>/dev/null) && \
+                [ -n "$SUPERVISOR" ] && [ "$SUPERVISOR" != "<no value>" ]; do
+            echo "Waiting for network configuration..."
+            sleep 1
+          done
+          echo "Waiting for Supervisor API at http://${SUPERVISOR}/supervisor/ping"
+          timeout=500
+          elapsed=0
+
+          while [ $elapsed -lt $timeout ]; do
+            if response=$(curl -sSf "http://${SUPERVISOR}/supervisor/ping" 2>/dev/null); then
+              if echo "$response" | jq -e '.result == "ok"' >/dev/null 2>&1; then
+                echo "Supervisor is up! (took ${elapsed}s)"
+                exit 0
+              fi
+            fi
+
+            if [ $((elapsed % 15)) -eq 0 ]; then
+              echo "Still waiting... (${elapsed}s/${timeout}s)"
+            fi
+
+            sleep 5
+            elapsed=$((elapsed + 5))
+          done
+
+          echo "ERROR: Supervisor failed to start within ${timeout}s"
+          echo "Last response: $response"
+          echo "Checking supervisor logs..."
+          docker logs --tail 50 hassio_supervisor
+          exit 1
+
+      # Wait for Core to come up so subsequent steps (backup, addon install) succeed.
+      # On first startup, Supervisor installs Core via the "home_assistant_core_install"
+      # job (which pulls the image and then starts Core). Jobs with cleanup=True are
+      # removed from the jobs list once done, so we poll until it's gone.
+      - name: Wait for Core to be started
+        run: |
+          echo "Waiting for Home Assistant Core to be installed and started..."
+          timeout=500
+          elapsed=0
+
+          while [ $elapsed -lt $timeout ]; do
+            jobs=$(docker exec hassio_cli ha jobs info --no-progress --raw-json | jq -r '.data.jobs[] | select(.name == "home_assistant_core_install" and .done == false) | .name' 2>/dev/null)
+            if [ -z "$jobs" ]; then
+              echo "Home Assistant Core install/start complete (took ${elapsed}s)"
+              exit 0
+            fi
+
+            if [ $((elapsed % 15)) -eq 0 ]; then
+              echo "Core still installing... (${elapsed}s/${timeout}s)"
+            fi
+
+            sleep 5
+            elapsed=$((elapsed + 5))
+          done
+
+          echo "ERROR: Home Assistant Core failed to install/start within ${timeout}s"
+          docker logs --tail 50 hassio_supervisor
+          exit 1
+
+      - name: Check the Supervisor
+        run: |
+          echo "Checking supervisor info"
+          test=$(docker exec hassio_cli ha supervisor info --no-progress --raw-json | jq -r '.result')
+          if [ "$test" != "ok" ]; then
+            exit 1
+          fi
+
+          echo "Checking supervisor network info"
+          test=$(docker exec hassio_cli ha network info --no-progress --raw-json | jq -r '.result')
+          if [ "$test" != "ok" ]; then
+            exit 1
+          fi
+
+      - name: Check the Store / App
+        run: |
+          echo "Install Core SSH app"
+          test=$(docker exec hassio_cli ha apps install core_ssh --no-progress --raw-json | jq -r '.result')
+          if [ "$test" != "ok" ]; then
+            exit 1
+          fi
+
+          # Make sure it actually installed
+          test=$(docker exec hassio_cli ha apps info core_ssh --no-progress --raw-json | jq -r '.data.version')
+          if [[ "$test" == "null" ]]; then
+            exit 1
+          fi
+
+          echo "Start Core SSH app"
+          test=$(docker exec hassio_cli ha apps start core_ssh --no-progress --raw-json | jq -r '.result')
+          if [ "$test" != "ok" ]; then
+            exit 1
+          fi
+
+          # Make sure its state is started
+          test="$(docker exec hassio_cli ha apps info core_ssh --no-progress --raw-json | jq -r '.data.state')"
+          if [ "$test" != "started" ]; then
+            exit 1
+          fi
+
+      - name: Create full backup
+        id: backup
+        run: |
+          test=$(docker exec hassio_cli ha backups new --no-progress --raw-json)
+          if [ "$(echo $test | jq -r '.result')" != "ok" ]; then
+            exit 1
+          fi
+          echo "slug=$(echo $test | jq -r '.data.slug')" >> "$GITHUB_OUTPUT"
+
+      - name: Uninstall SSH app
+        run: |
+          test=$(docker exec hassio_cli ha apps uninstall core_ssh --no-progress --raw-json | jq -r '.result')
+          if [ "$test" != "ok" ]; then
+            exit 1
+          fi
+
+      - name: Restart supervisor
+        run: |
+          test=$(docker exec hassio_cli ha supervisor restart --no-progress --raw-json | jq -r '.result')
+          if [ "$test" != "ok" ]; then
+            exit 1
+          fi
+
+      - *wait_for_supervisor
+
+      - name: Restore SSH app from backup
+        run: |
+          test=$(docker exec hassio_cli ha backups restore ${{ steps.backup.outputs.slug }} --app core_ssh --no-progress --raw-json | jq -r '.result')
+          if [ "$test" != "ok" ]; then
+            exit 1
+          fi
+
+          # Make sure it actually installed
+          test=$(docker exec hassio_cli ha apps info core_ssh --no-progress --raw-json | jq -r '.data.version')
+          if [[ "$test" == "null" ]]; then
+            exit 1
+          fi
+
+          # Make sure its state is started
+          test="$(docker exec hassio_cli ha apps info core_ssh --no-progress --raw-json | jq -r '.data.state')"
+          if [ "$test" != "started" ]; then
+            exit 1
+          fi
+
+      - name: Restore SSL directory from backup
+        run: |
+          test=$(docker exec hassio_cli ha backups restore ${{ steps.backup.outputs.slug }} --folders ssl --no-progress --raw-json | jq -r '.result')
+          if [ "$test" != "ok" ]; then
+            exit 1
+          fi
+
+      - name: Get supervisor logs on failiure
+        if: ${{ cancelled() || failure() }}
+        run: docker logs hassio_supervisor
