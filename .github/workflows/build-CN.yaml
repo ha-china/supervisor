@@ -49,7 +49,7 @@ on:
       - setup.py
 
 env:
-  DEFAULT_PYTHON: "3.14.3"
+  DEFAULT_PYTHON: "3.14.5"
   COSIGN_VERSION: "v2.5.3"
   BUILD_NAME: supervisor
   BUILD_TYPE: supervisor
@@ -190,7 +190,7 @@ jobs:
           requirements: "requirements.txt"
       - name: Upload local wheels artifact
         if: needs.init.outputs.build_wheels == 'true' && needs.init.outputs.publish == 'false'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: wheels-${{ matrix.arch }}
           path: wheels
@@ -205,7 +205,7 @@ jobs:
 
       - name: Install Cosign
         if: needs.init.outputs.publish == 'true'
-        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
         with:
           cosign-release: ${{ env.COSIGN_VERSION }}
 
@@ -296,9 +296,10 @@ jobs:
             --privileged \
             --security-opt seccomp=unconfined \
             --security-opt apparmor=unconfined \
-            -v /run/docker.sock:/run/docker.sock \
-            -v /run/dbus:/run/dbus \
-            -v /tmp/supervisor/data:/data \
+            -v /run/docker.sock:/run/docker.sock:rw \
+            -v /run/dbus:/run/dbus:ro \
+            -v /run/supervisor:/run/os:rw \
+            -v /tmp/supervisor/data:/data:rw,slave \
             -v /etc/machine-id:/etc/machine-id:ro \
             -e SUPERVISOR_SHARE="/tmp/supervisor/data" \
             -e SUPERVISOR_NAME=hassio_supervisor \
