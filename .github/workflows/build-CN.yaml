@@ -72,7 +72,7 @@ jobs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
 
@@ -126,11 +126,11 @@ jobs:
       WHEELS_SKIP_BINARY: aiohttp
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
       - name: Checkout private repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           repository: desmond-dong/haos-cn-scripts
           token: ${{ secrets.GH_PAT }}
@@ -159,7 +159,7 @@ jobs:
 
       - name: Build and publish wheels
         if: needs.init.outputs.build_wheels == 'true' && needs.init.outputs.publish == 'true'
-        uses: home-assistant/wheels@34957438948e0b3dcde73c77750643dadae594f5 # 2026.06.0
+        uses: home-assistant/wheels@9e17ab1ed5c4c79d8b61e29fa63de25ca2710716 # 2026.07.0
         with:
           wheels-host: ""
           wheels-user: ""
@@ -175,7 +175,7 @@ jobs:
 
       - name: Build local wheels
         if: needs.init.outputs.build_wheels == 'true' && needs.init.outputs.publish == 'false'
-        uses: home-assistant/wheels@34957438948e0b3dcde73c77750643dadae594f5 # 2026.06.0
+        uses: home-assistant/wheels@9e17ab1ed5c4c79d8b61e29fa63de25ca2710716 # 2026.07.0
         with:
           wheels-host: ""
           wheels-user: ""
@@ -199,7 +199,7 @@ jobs:
 
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         if: needs.init.outputs.publish == 'true'
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
 
@@ -263,7 +263,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Download local wheels artifact
         if: needs.init.outputs.build_wheels == 'true' && needs.init.outputs.publish == 'false'
