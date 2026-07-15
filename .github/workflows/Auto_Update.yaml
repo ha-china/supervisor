@@ -15,11 +15,17 @@ jobs:
     steps:
       - name: Check Supervisor version difference
         id: version_check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          latest_ver=$(curl -s https://api.github.com/repos/home-assistant/supervisor/releases/latest | jq -r '.tag_name')
+          latest_ver=$(curl -s -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/home-assistant/supervisor/releases/latest | jq -r '.tag_name')
           last_ver=$(curl -s "https://${{ secrets.VER_URL }}/stable.json" | jq -r '.supervisor')
           echo "Latest version: $latest_ver"
           echo "Last version: $last_ver"
+          if [ -z "$latest_ver" ] || [ "$latest_ver" = "null" ]; then
+            echo "::error::无法从 GitHub API 获取最新 supervisor 版本（返回 '$latest_ver'），可能是被限流或 API 异常，中止运行。"
+            exit 1
+          fi
           echo "latest_ver=$latest_ver" >> $GITHUB_ENV
           # 如果是定时任务（schedule）则判断版本是否一样，一样则退出；手工 workflow_dispatch 时，哪怕版本一样也不退出
           if [ "${{ github.event_name }}" = "schedule" ] && [ "$latest_ver" = "$last_ver" ]; then
