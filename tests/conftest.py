@@ -230,6 +230,9 @@ async def docker() -> DockerAPI:
         docker_containers.get.return_value = docker_container = MagicMock(
             spec=DockerContainer, id=container_inspect["Id"]
         )
+        # container() is the sync, no-I/O counterpart to get(); alias it to
+        # the same mock so callers get consistent container state either way.
+        docker_containers.container.return_value = docker_container
         docker_containers.list.return_value = [docker_container]
         docker_containers.create.return_value = docker_container
         docker_container.show.return_value = container_inspect
