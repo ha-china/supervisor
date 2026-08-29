@@ -49,7 +49,7 @@ on:
       - setup.py
 
 env:
-  DEFAULT_PYTHON: "3.14.5"
+  DEFAULT_PYTHON: "3.14.6"
   COSIGN_VERSION: "v2.5.3"
   BUILD_NAME: supervisor
   BUILD_TYPE: supervisor
@@ -130,7 +130,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Checkout private repo
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: desmond-dong/haos-cn-scripts
           token: ${{ secrets.GH_PAT }}
@@ -188,6 +188,7 @@ jobs:
           skip-binary: ${{ env.WHEELS_SKIP_BINARY }}
           env-file: true
           requirements: "requirements.txt"
+
       - name: Upload local wheels artifact
         if: needs.init.outputs.build_wheels == 'true' && needs.init.outputs.publish == 'false'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
