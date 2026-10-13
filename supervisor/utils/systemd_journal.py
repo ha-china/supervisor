@@ -44,6 +44,23 @@ def journal_plain_formatter(entries: dict[str, str], no_colors: bool = False) ->
     return _strip_ansi_colors(entries["MESSAGE"]) if no_colors else entries["MESSAGE"]
 
 
+def _format_timestamp(timestamp: str) -> str:
+    """Format a journal timestamp in UTC with millisecond precision."""
+    ts = datetime.fromtimestamp(int(timestamp) / 1e6, UTC).isoformat(
+        sep=" ", timespec="milliseconds"
+    )
+    return ts[: ts.index(".") + 4]  # strip TZ offset
+
+
+@formatter(["__REALTIME_TIMESTAMP", "MESSAGE"])
+def journal_timestamp_formatter(
+    entries: dict[str, str], no_colors: bool = False
+) -> str:
+    """Format parsed journal entries as a timestamp followed by the message."""
+    ts = _format_timestamp(entries["__REALTIME_TIMESTAMP"])
+    return f"{ts} {journal_plain_formatter(entries, no_colors=no_colors)}"
+
+
 @formatter(
     [
         "__REALTIME_TIMESTAMP",
@@ -55,10 +72,7 @@ def journal_plain_formatter(entries: dict[str, str], no_colors: bool = False) ->
 )
 def journal_verbose_formatter(entries: dict[str, str], no_colors: bool = False) -> str:
     """Format parsed journal entries to a journalctl-like format."""
-    ts = datetime.fromtimestamp(
-        int(entries["__REALTIME_TIMESTAMP"]) / 1e6, UTC
-    ).isoformat(sep=" ", timespec="milliseconds")
-    ts = ts[: ts.index(".") + 4]  # strip TZ offset
+    ts = _format_timestamp(entries["__REALTIME_TIMESTAMP"])
 
     identifier = (
         f"{entries.get('SYSLOG_IDENTIFIER', '_UNKNOWN_')}[{entries['_PID']}]"
@@ -89,6 +103,8 @@ async def journal_logs_reader(
     match log_formatter:
         case LogFormatter.PLAIN:
             formatter_ = journal_plain_formatter
+        case LogFormatter.TIMESTAMP:
+            formatter_ = journal_timestamp_formatter
         case LogFormatter.VERBOSE:
             formatter_ = journal_verbose_formatter
         case _:
