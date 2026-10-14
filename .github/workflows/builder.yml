@@ -1,5 +1,39 @@
-name: Build supervisor
+name: Build supervisor - CN
 
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "Channel"
+        required: true
+        default: "stable"
+        type: choice
+        options:
+          - stable
+          - beta
+      version:
+        description: "Version"
+        required: true
+      publish:
+        description: "Publish"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - true
+          - false
+      stable:
+        description: "Stable"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - true
+          - false
+  pull_request:
+    branches: ["main"]
+  release:
+    types: ["published"]
 
 env:
   BUILD_NAME: supervisor
@@ -32,7 +66,7 @@ jobs:
 
       - name: Get version
         id: version
-        uses: home-assistant/actions/helpers/version@master
+        uses: ha-china/actions/helpers/version@master
         with:
           type: ${{ env.BUILD_TYPE }}
 
@@ -84,6 +118,25 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Checkout private repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: desmond-dong/haos-cn-scripts
+          token: ${{ secrets.GH_PAT }}
+          path: private
+
+      - name: Optimize network configuration for China region
+        env:
+          ACC_URL: ${{ secrets.ACC_URL }}
+          ORI_URL: ${{ secrets.ORI_URL }}
+          CHK_URL: ${{ secrets.CHK_URL }}
+          VER_URL: ${{ secrets.VER_URL }}
+          SENTRY_URL: ${{ secrets.SENTRY_URL }}
+        run: |
+          chmod +x private/*.sh
+          private/supervisor.sh
+          rm -rf private
+
       - name: Write env-file for wheels build
         if: needs.init.outputs.build_wheels == 'true'
         run: |
@@ -96,7 +149,10 @@ jobs:
         if: needs.init.outputs.build_wheels == 'true' && needs.init.outputs.publish == 'true'
         uses: home-assistant/wheels@9e17ab1ed5c4c79d8b61e29fa63de25ca2710716 # 2026.07.0
         with:
-          wheels-key: ${{ secrets.WHEELS_KEY }}
+          wheels-host: ""
+          wheels-user: ""
+          wheels-key: ""
+          local-wheels-repo-path: "wheels/"
           abi: ${{ env.WHEELS_ABI }}
           tag: ${{ env.WHEELS_TAG }}
           arch: ${{ matrix.arch }}
@@ -208,7 +264,7 @@ jobs:
         with:
           arch: amd64
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
-          image: ghcr.io/home-assistant/amd64-hassio-supervisor
+          image: ghcr.io/ha-china/amd64-hassio-supervisor
           image-tags: runner
           load: true
           version: ${{ needs.init.outputs.version }}
@@ -217,8 +273,8 @@ jobs:
       - name: Pull Supervisor
         if: needs.init.outputs.publish == 'true'
         run: |
-          docker pull ghcr.io/home-assistant/amd64-hassio-supervisor:${{ needs.init.outputs.version }}
-          docker tag ghcr.io/home-assistant/amd64-hassio-supervisor:${{ needs.init.outputs.version }} ghcr.io/home-assistant/amd64-hassio-supervisor:runner
+          docker pull ghcr.io/ha-china/amd64-hassio-supervisor:${{ needs.init.outputs.version }}
+          docker tag ghcr.io/ha-china/amd64-hassio-supervisor:${{ needs.init.outputs.version }} ghcr.io/ha-china/amd64-hassio-supervisor:runner
 
       - name: Create the Supervisor
         run: |
@@ -236,7 +292,7 @@ jobs:
             -e SUPERVISOR_NAME=hassio_supervisor \
             -e SUPERVISOR_DEV=1 \
             -e SUPERVISOR_MACHINE="qemux86-64" \
-          ghcr.io/home-assistant/amd64-hassio-supervisor:runner
+          ghcr.io/ha-china/amd64-hassio-supervisor:runner
 
       - name: Start the Supervisor
         run: docker start hassio_supervisor
@@ -343,6 +399,28 @@ jobs:
           if [ "$test" != "started" ]; then
             exit 1
           fi
+
+      - name: Wait for Core API to be ready
+        run: |
+          timeout=300
+          elapsed=0
+          while [ $elapsed -lt $timeout ]; do
+            info=$(docker exec hassio_cli ha core info --no-progress --raw-json 2>/dev/null)
+            ip=$(jq -r '.data.ip_address // empty' <<<"$info")
+            port=$(jq -r '.data.port // 8123' <<<"$info")
+            if [ -n "$ip" ] && [ "$ip" != "null" ]; then
+              code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://${ip}:${port}/api/" 2>/dev/null || echo 000)
+              if [ "$code" != "000" ]; then
+                echo "Core API is up at ${ip}:${port} (HTTP ${code}, took ${elapsed}s)"
+                exit 0
+              fi
+            fi
+            sleep 5
+            elapsed=$((elapsed + 5))
+          done
+          echo "ERROR: Core API not reachable within ${timeout}s"
+          docker logs --tail 50 hassio_supervisor
+          exit 1
 
       - name: Create full backup
         id: backup
