@@ -41,7 +41,7 @@ on:
   push:
     branches: ["main"]
     paths:
-      - ".github/workflows/builder.yml"
+      - ".github/workflows/build-CN.yaml"
       - "rootfs/**"
       - "supervisor/**"
       - Dockerfile
@@ -96,7 +96,7 @@ jobs:
           # Always build wheels for manual dispatches
           elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "build_wheels=true" >> "$GITHUB_OUTPUT"
-          elif [[ "${{ steps.changed_files.outputs.all }}" =~ (requirements\.txt|\.github/workflows/builder\.yml) ]]; then
+          elif [[ "${{ steps.changed_files.outputs.all }}" =~ (requirements\.txt|\.github/workflows/build-CN\.yaml) ]]; then
             echo "build_wheels=true" >> "$GITHUB_OUTPUT"
           else
             echo "build_wheels=false" >> "$GITHUB_OUTPUT"
@@ -104,7 +104,7 @@ jobs:
 
       - name: Get build matrix
         id: matrix
-        uses: home-assistant/builder/actions/prepare-multi-arch-matrix@4de35182ce1e329181bffcbcc84d33db5e2c7e10 # 2026.06.0
+        uses: home-assistant/builder/actions/prepare-multi-arch-matrix@7412f0023ea9b6e58e8bb5059f1660f51376f49a # 2026.09.0
         with:
           architectures: ${{ env.ARCHITECTURES }}
           image-name: ${{ env.IMAGE_NAME }}
@@ -191,7 +191,7 @@ jobs:
 
       - name: Upload local wheels artifact
         if: needs.init.outputs.build_wheels == 'true' && needs.init.outputs.publish == 'false'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wheels-${{ matrix.arch }}
           path: wheels
@@ -223,7 +223,7 @@ jobs:
           cosign sign-blob --yes rootfs/supervisor.sha256 --bundle rootfs/supervisor.sha256.sig
 
       - name: Build supervisor
-        uses: home-assistant/builder/actions/build-image@4de35182ce1e329181bffcbcc84d33db5e2c7e10 # 2026.06.0
+        uses: home-assistant/builder/actions/build-image@7412f0023ea9b6e58e8bb5059f1660f51376f49a # 2026.09.0
         with:
           arch: ${{ matrix.arch }}
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
@@ -246,7 +246,7 @@ jobs:
       packages: write
     steps:
       - name: Publish multi-arch manifest
-        uses: home-assistant/builder/actions/publish-multi-arch-manifest@4de35182ce1e329181bffcbcc84d33db5e2c7e10 # 2026.06.0
+        uses: home-assistant/builder/actions/publish-multi-arch-manifest@7412f0023ea9b6e58e8bb5059f1660f51376f49a # 2026.09.0
         with:
           architectures: ${{ env.ARCHITECTURES }}
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
@@ -268,14 +268,14 @@ jobs:
 
       - name: Download local wheels artifact
         if: needs.init.outputs.build_wheels == 'true' && needs.init.outputs.publish == 'false'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: wheels-amd64
           path: wheels
 
       - name: Build the Supervisor
         if: needs.init.outputs.publish != 'true'
-        uses: home-assistant/builder/actions/build-image@4de35182ce1e329181bffcbcc84d33db5e2c7e10 # 2026.06.0
+        uses: home-assistant/builder/actions/build-image@7412f0023ea9b6e58e8bb5059f1660f51376f49a # 2026.09.0
         with:
           arch: amd64
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
@@ -413,6 +413,23 @@ jobs:
           if [ "$test" != "started" ]; then
             exit 1
           fi
+
+      - name: Wait for Core API to be ready
+        run: |
+          timeout=300
+          elapsed=0
+          while [ $elapsed -lt $timeout ]; do
+            state=$(docker exec hassio_cli ha core info --no-progress --raw-json 2>/dev/null | jq -r '.data.state // empty')
+            if [ "$state" = "running" ]; then
+              echo "Core API is up (took ${elapsed}s)"
+              exit 0
+            fi
+            sleep 5
+            elapsed=$((elapsed + 5))
+          done
+          echo "ERROR: Core API not reachable within ${timeout}s"
+          docker logs --tail 50 hassio_supervisor
+          exit 1
 
       - name: Create full backup
         id: backup
