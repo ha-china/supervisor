@@ -38,15 +38,6 @@ on:
     branches: ["main"]
   release:
     types: ["published"]
-  push:
-    branches: ["main"]
-    paths:
-      - ".github/workflows/build-CN.yaml"
-      - "rootfs/**"
-      - "supervisor/**"
-      - Dockerfile
-      - requirements.txt
-      - setup.py
 
 env:
   BUILD_NAME: supervisor
@@ -393,10 +384,13 @@ jobs:
           timeout=300
           elapsed=0
           while [ $elapsed -lt $timeout ]; do
-            state=$(docker exec hassio_cli ha core info --no-progress --raw-json 2>/dev/null | jq -r '.data.state // empty')
-            if [ "$state" = "running" ]; then
-              echo "Core API is up (took ${elapsed}s)"
-              exit 0
+            ip=$(docker exec hassio_cli ha core info --no-progress --raw-json 2>/dev/null | jq -r '.data.ip_address // empty')
+            if [ -n "$ip" ] && [ "$ip" != "null" ]; then
+              code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://${ip}:8123/api/" 2>/dev/null || echo 000)
+              if [ "$code" != "000" ]; then
+                echo "Core API is up at ${ip}:8123 (HTTP ${code}, took ${elapsed}s)"
+                exit 0
+              fi
             fi
             sleep 5
             elapsed=$((elapsed + 5))
