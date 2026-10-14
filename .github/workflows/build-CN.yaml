@@ -384,9 +384,11 @@ jobs:
           timeout=300
           elapsed=0
           while [ $elapsed -lt $timeout ]; do
-            ip=$(docker exec hassio_cli ha core info --no-progress --raw-json 2>/dev/null | jq -r '.data.ip_address // empty')
+            info=$(docker exec hassio_cli ha core info --no-progress --raw-json 2>/dev/null)
+            ip=$(jq -r '.data.ip_address // empty' <<<"$info")
+            port=$(jq -r '.data.port // 8123' <<<"$info")
             if [ -n "$ip" ] && [ "$ip" != "null" ]; then
-              code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://${ip}:8123/api/" 2>/dev/null || echo 000)
+              code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://${ip}:${port}/api/" 2>/dev/null || echo 000)
               if [ "$code" != "000" ]; then
                 echo "Core API is up at ${ip}:8123 (HTTP ${code}, took ${elapsed}s)"
                 exit 0
