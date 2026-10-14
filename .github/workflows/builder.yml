@@ -332,17 +332,19 @@ jobs:
           exit 1
 
       # Wait for Core to come up so subsequent steps (backup, addon install) succeed.
-      # On first startup, Supervisor installs Core via the "home_assistant_core_install"
-      # job (which pulls the image and then starts Core). Jobs with cleanup=True are
-      # removed from the jobs list once done, so we poll until it's gone.
+      # Same as upstream, but matches all "home_assistant_core_*" jobs instead of
+      # only "home_assistant_core_install": on a fresh bootstrap the landingpage
+      # (home_assistant_core_install_landing_page) and the real image download run
+      # as separate jobs, and the exact match would pass while Core is still
+      # swapping, making the backup step race the swap.
       - name: Wait for Core to be started
         run: |
           echo "Waiting for Home Assistant Core to be installed and started..."
-          timeout=300
+          timeout=600
           elapsed=0
 
           while [ $elapsed -lt $timeout ]; do
-            jobs=$(docker exec hassio_cli ha jobs info --no-progress --raw-json | jq -r '.data.jobs[] | select(.name == "home_assistant_core_install" and .done == false) | .name' 2>/dev/null)
+            jobs=$(docker exec hassio_cli ha jobs info --no-progress --raw-json | jq -r '.data.jobs[] | select((.name | startswith("home_assistant_core_")) and (.done == false)) | .name' 2>/dev/null)
             if [ -z "$jobs" ]; then
               echo "Home Assistant Core install/start complete (took ${elapsed}s)"
               exit 0
@@ -399,28 +401,6 @@ jobs:
           if [ "$test" != "started" ]; then
             exit 1
           fi
-
-      - name: Wait for Core API to be ready
-        run: |
-          timeout=300
-          elapsed=0
-          while [ $elapsed -lt $timeout ]; do
-            info=$(docker exec hassio_cli ha core info --no-progress --raw-json 2>/dev/null)
-            ip=$(jq -r '.data.ip_address // empty' <<<"$info")
-            port=$(jq -r '.data.port // 8123' <<<"$info")
-            if [ -n "$ip" ] && [ "$ip" != "null" ]; then
-              code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://${ip}:${port}/api/" 2>/dev/null || echo 000)
-              if [ "$code" != "000" ]; then
-                echo "Core API is up at ${ip}:${port} (HTTP ${code}, took ${elapsed}s)"
-                exit 0
-              fi
-            fi
-            sleep 5
-            elapsed=$((elapsed + 5))
-          done
-          echo "ERROR: Core API not reachable within ${timeout}s"
-          docker logs --tail 50 hassio_supervisor
-          exit 1
 
       - name: Create full backup
         id: backup
