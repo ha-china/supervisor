@@ -48,10 +48,12 @@ jobs:
 
       # 用 merge（而不是 reset）同步上游：本地自定义内容不会被冲掉，上游更新正常并入。
       # 只有双方改到同一行才会冲突，此时任务失败，需要手动合并后重跑。
+      # fetch 加 --force：fork 上部分历史 tag 与上游同名不同指（旧机制注入/上游重打所致），
+      # 以上游为准覆盖本地镜像，随后注入步骤会单独重写 $latest_ver。
       - name: Sync main with upstream (merge)
         run: |
           git remote add upstream https://github.com/home-assistant/supervisor.git
-          git fetch upstream --tags
+          git fetch upstream --tags --force
           git checkout main
           if ! git merge upstream/main --no-edit; then
             echo "::error::合并上游 main 发生冲突，需要手动解决后推送。"
@@ -59,10 +61,6 @@ jobs:
             exit 1
           fi
           git push origin main
-
-      # 镜像上游新出现的 release tag（不做注入，注入在下一步单独处理）
-      - name: Sync upstream tags
-        run: git push origin --tags
 
       # 往最新 release tag 注入 CN 版 builder.yml，使 tag 上可以直接手动 dispatch 构建
       - name: Inject CN workflow into release tag
