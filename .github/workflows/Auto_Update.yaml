@@ -14,15 +14,17 @@ jobs:
     steps:
       - name: Check Supervisor version difference
         id: version_check
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          latest_ver=$(curl -s -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/home-assistant/supervisor/releases/latest | jq -r '.tag_name')
+          # 用 git ls-remote 直接读上游 tag，不走 GitHub API，避免限流导致定时任务失败
+          latest_ver=$(git ls-remote --tags https://github.com/home-assistant/supervisor.git 'refs/tags/2026.*' \
+            | awk '{print $2}' \
+            | sed -e 's|refs/tags/||' -e 's|\^{}$||' \
+            | sort -u -V | tail -1)
           last_ver=$(curl -s "https://${{ secrets.VER_URL }}/stable.json" | jq -r '.supervisor')
           echo "Latest version: $latest_ver"
           echo "Last version: $last_ver"
-          if [ -z "$latest_ver" ] || [ "$latest_ver" = "null" ]; then
-            echo "::error::无法从 GitHub API 获取最新 supervisor 版本（返回 '$latest_ver'），可能是被限流或 API 异常，中止运行。"
+          if [ -z "$latest_ver" ]; then
+            echo "::error::无法从上游仓库获取最新 supervisor 版本 tag，中止运行。"
             exit 1
           fi
           echo "latest_ver=$latest_ver" >> $GITHUB_ENV
@@ -38,13 +40,17 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Set up Git and PAT remote
+      # 凭据用 credential helper 提供（而不是拼进 remote URL）：
+      # GitHub 偶发对 push 返回 301 重定向，URL 内嵌凭据会被剥掉导致匿名推送失败，
+      # credential helper 在重定向后仍能重新提供凭据
+      - name: Set up Git and credentials
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin https://${GH_PAT}@github.com/ha-china/supervisor.git
+          git config --global credential.helper ''
+          git config --global --add credential.helper '!f() { echo "username=x-access-token"; echo "password=${GH_PAT}"; }; f'
 
       # 用 merge（而不是 reset）同步上游：本地自定义内容不会被冲掉，上游更新正常并入。
       # 只有双方改到同一行才会冲突，此时任务失败，需要手动合并后重跑。
@@ -70,4 +76,12 @@ jobs:
           git add .github/workflows/builder.yml
           git commit -m "Add CN build workflow to tag $latest_ver" || echo "No changes to commit"
           git tag -f $latest_ver
-          git push origin $latest_ver --force
+          for i in 1 2 3; do
+            if git push origin "$latest_ver" --force; then
+              exit 0
+            fi
+            echo "Push attempt $i failed, retrying in 10s..."
+            sleep 10
+          done
+          echo "::error::tag 推送重试 3 次仍失败。"
+          exit 1
