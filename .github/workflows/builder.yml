@@ -333,10 +333,11 @@ jobs:
 
       # Wait for Core to come up so subsequent steps (backup, addon install) succeed.
       # Same as upstream, but matches all "home_assistant_core_*" jobs instead of
-      # only "home_assistant_core_install": on a fresh bootstrap the landingpage
-      # (home_assistant_core_install_landing_page) and the real image download run
-      # as separate jobs, and the exact match would pass while Core is still
-      # swapping, making the backup step race the swap.
+      # only "home_assistant_core_install", and additionally requires the Core
+      # container to no longer run the ":landingpage" bootstrap image: on a fresh
+      # bootstrap there is a gap between the landingpage job finishing and the real
+      # image install job being created, where an empty job list would pass early
+      # and make the backup step race the swap.
       - name: Wait for Core to be started
         run: |
           echo "Waiting for Home Assistant Core to be installed and started..."
@@ -345,6 +346,8 @@ jobs:
 
           while [ $elapsed -lt $timeout ]; do
             jobs=$(docker exec hassio_cli ha jobs info --no-progress --raw-json | jq -r '.data.jobs[] | select((.name | startswith("home_assistant_core_")) and (.done == false)) | .name' 2>/dev/null)
+            image=$(docker inspect --format '{{.Config.Image}}' homeassistant 2>/dev/null || echo "")
+            if [ -z "$jobs" ] && [ -n "$image" ] && [[ "$image" != *:landingpage ]]; then
             if [ -z "$jobs" ]; then
               echo "Home Assistant Core install/start complete (took ${elapsed}s)"
               exit 0
