@@ -38,27 +38,20 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
-          persist-credentials: false
+          # 保留 checkout 写入的 GITHUB_TOKEN 凭据供后续 git push 使用：
+          # 本工作流只操作本仓库，GITHUB_TOKEN(contents:write)即可，无需 PAT
+          persist-credentials: true
 
-      # 凭据用 credential helper 提供（而不是拼进 remote URL）：
-      # GitHub 偶发对 push 返回 301 重定向，URL 内嵌凭据会被剥掉导致匿名推送失败，
-      # credential helper 在重定向后仍能重新提供凭据
-      - name: Set up Git and credentials
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
+      - name: Set up Git
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           # GitHub 部分边缘节点缓存了本仓库历史迁移的 301 重定向，会把 push 打到
-          # 错误路径并剥掉凭据；HTTP/1.1 + 重试 + credential helper 三层规避
+          # 错误路径；HTTP/1.1 + 推送重试规避
           git config --global http.version HTTP/1.1
-          git config --global credential.helper ''
-          git config --global --add credential.helper '!f() { echo "username=x-access-token"; echo "password=${GH_PAT}"; }; f'
 
       # 用 merge（而不是 reset）同步上游：本地自定义内容不会被冲掉，上游更新正常并入。
       # 只有双方改到同一行才会冲突，此时任务失败，需要手动合并后重跑。
-      # fetch 加 --force：fork 上部分历史 tag 与上游同名不同指（旧机制注入/上游重打所致），
-      # 以上游为准覆盖本地镜像，随后注入步骤会单独重写 $latest_ver。
       - name: Sync main with upstream (merge)
         run: |
           git remote add upstream https://github.com/home-assistant/supervisor.git
@@ -69,16 +62,16 @@ jobs:
             git status --short
             exit 1
           fi
-          for i in 1 2 3; do
+          for i in 1 2 3 4 5; do
             if git push origin main; then
               break
             fi
-            if [ "$i" = "3" ]; then
-              echo "::error::main 推送重试 3 次仍失败。"
+            if [ "$i" = "5" ]; then
+              echo "::error::main 推送重试 5 次仍失败。"
               exit 1
             fi
-            echo "Push attempt $i failed, retrying in 10s..."
-            sleep 10
+            echo "Push attempt $i failed, retrying in 30s..."
+            sleep 30
           done
 
       # 往最新 release tag 注入 CN 版 builder.yml，使 tag 上可以直接手动 dispatch 构建
@@ -93,8 +86,8 @@ jobs:
             if git push origin "$latest_ver" --force; then
               exit 0
             fi
-            echo "Push attempt $i failed, retrying in ${i}0s..."
-            sleep $((i * 10))
+            echo "Push attempt $i failed, retrying in 30s..."
+            sleep 30
           done
           echo "::error::tag 推送重试 5 次仍失败。"
           exit 1
