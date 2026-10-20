@@ -49,6 +49,9 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          # GitHub 部分边缘节点缓存了本仓库历史迁移的 301 重定向，会把 push 打到
+          # 错误路径并剥掉凭据；HTTP/1.1 + 重试 + credential helper 三层规避
+          git config --global http.version HTTP/1.1
           git config --global credential.helper ''
           git config --global --add credential.helper '!f() { echo "username=x-access-token"; echo "password=${GH_PAT}"; }; f'
 
@@ -66,7 +69,17 @@ jobs:
             git status --short
             exit 1
           fi
-          git push origin main
+          for i in 1 2 3; do
+            if git push origin main; then
+              break
+            fi
+            if [ "$i" = "3" ]; then
+              echo "::error::main 推送重试 3 次仍失败。"
+              exit 1
+            fi
+            echo "Push attempt $i failed, retrying in 10s..."
+            sleep 10
+          done
 
       # 往最新 release tag 注入 CN 版 builder.yml，使 tag 上可以直接手动 dispatch 构建
       - name: Inject CN workflow into release tag
@@ -76,12 +89,12 @@ jobs:
           git add .github/workflows/builder.yml
           git commit -m "Add CN build workflow to tag $latest_ver" || echo "No changes to commit"
           git tag -f $latest_ver
-          for i in 1 2 3; do
+          for i in 1 2 3 4 5; do
             if git push origin "$latest_ver" --force; then
               exit 0
             fi
-            echo "Push attempt $i failed, retrying in 10s..."
-            sleep 10
+            echo "Push attempt $i failed, retrying in ${i}0s..."
+            sleep $((i * 10))
           done
-          echo "::error::tag 推送重试 3 次仍失败。"
+          echo "::error::tag 推送重试 5 次仍失败。"
           exit 1
