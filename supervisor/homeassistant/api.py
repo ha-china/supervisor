@@ -2,10 +2,11 @@
 
 import asyncio
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 import logging
+from pathlib import Path, PurePath
 from typing import Any
 
 import aiohttp
@@ -14,11 +15,16 @@ from awesomeversion import AwesomeVersion
 from multidict import MultiMapping
 from yarl import URL
 
-from ..const import SOCKET_CORE
+from ..const import SOCKET_NAME_CORE
 from ..coresys import CoreSys, CoreSysAttributes
 from ..docker.const import ENV_CORE_API_SOCKET, ContainerState
 from ..docker.monitor import DockerContainerStateEvent
-from ..exceptions import DockerError, HomeAssistantAPIError, HomeAssistantAuthError
+from ..exceptions import (
+    DockerError,
+    HomeAssistantAPIError,
+    HomeAssistantAuthError,
+    HomeAssistantWSConnectionError,
+)
 from ..utils import version_is_new_enough
 from .const import LANDINGPAGE
 from .websocket import WSClient
@@ -83,29 +89,49 @@ class HomeAssistantAPI(CoreSysAttributes):
             )
         )
 
+    def _supervisor_view_of_core_socket(self, core_path: str) -> Path:
+        """Map Core's view of its socket path to Supervisor's view of the same file."""
+        # Core mounts the run folder at the same path as on the host
+        try:
+            relative = PurePath(core_path).relative_to(self.sys_config.path_extern_run)
+        except ValueError:
+            return self.sys_config.path_run / SOCKET_NAME_CORE
+        return self.sys_config.path_run / relative
+
     @property
-    def use_unix_socket(self) -> bool:
-        """Return True if the running Core container is configured for Unix socket.
+    def core_socket_path(self) -> Path | None:
+        """Return the running Core container's Unix socket path, None for TCP.
 
         Checks both version support and that the container was actually started
-        with the SUPERVISOR_CORE_API_SOCKET env var. This prevents failures
-        during Supervisor upgrades where Core is still running with a container
-        started by the old Supervisor.
+        with the SUPERVISOR_CORE_API_SOCKET env var. The path is read from that
+        env var, so it always matches how the running container was started,
+        even when Core is still running with a container started by an older
+        Supervisor.
 
-        Requires container metadata to be available (via attach() or run()).
-        Callers should ensure the container is running before using this.
+        Raises HomeAssistantAPIError without container metadata, i.e. when no
+        Core container exists to connect to.
         """
         if not self.supports_unix_socket:
-            return False
+            return None
         instance = self.sys_homeassistant.core.instance
         if not instance.attached:
             raise HomeAssistantAPIError(
                 "Cannot determine Core connection mode: container metadata not available"
             )
-        return any(
-            env.startswith(f"{ENV_CORE_API_SOCKET}=")
-            for env in instance.meta_config.get("Env", [])
-        )
+        for env in instance.meta_config.get("Env", []):
+            name, _, value = env.partition("=")
+            if name == ENV_CORE_API_SOCKET:
+                return self._supervisor_view_of_core_socket(value)
+        return None
+
+    @property
+    def use_unix_socket(self) -> bool:
+        """Return True if the running Core container is configured for Unix socket.
+
+        Raises HomeAssistantAPIError without container metadata, i.e. when no
+        Core container exists to connect to.
+        """
+        return self.core_socket_path is not None
 
     @property
     def session(self) -> aiohttp.ClientSession:
@@ -121,7 +147,7 @@ class HomeAssistantAPI(CoreSysAttributes):
 
         if self._unix_session is None or self._unix_session.closed:
             self._unix_session = aiohttp.ClientSession(
-                connector=aiohttp.UnixConnector(path=str(SOCKET_CORE))
+                connector=aiohttp.UnixConnector(path=str(self.core_socket_path))
             )
         return self._unix_session
 
@@ -205,18 +231,17 @@ class HomeAssistantAPI(CoreSysAttributes):
                     seconds=tokens["expires_in"]
                 )
 
-    async def _ensure_core_running(self) -> None:
-        """Ensure Core container is running before communicating with it."""
-        try:
+    async def _request_error[ErrorT: HomeAssistantAPIError](
+        self, url: URL | str, err: Exception, error_type: type[ErrorT]
+    ) -> ErrorT:
+        """Describe a failed request, naming a stopped Core container as the cause."""
+        with suppress(DockerError):
             if not await self.sys_homeassistant.core.instance.is_running():
-                raise HomeAssistantAPIError(
-                    "Core container is not running", _LOGGER.debug
-                )
-        except DockerError as err:
-            _LOGGER.debug("Error checking if Core container is running: %s", err)
-            raise HomeAssistantAPIError(
-                "Unable to determine if Core container is running"
-            ) from err
+                _LOGGER.debug("Error on call %s: Core container is not running", url)
+                return error_type("Core container is not running")
+        message = str(err) or type(err).__name__
+        _LOGGER.debug("Error on call %s: %s", url, message)
+        return error_type(message)
 
     async def connect_websocket(self) -> WSClient:
         """Connect a WebSocket to Core, handling auth as appropriate.
@@ -229,22 +254,29 @@ class HomeAssistantAPI(CoreSysAttributes):
             HomeAssistantAPIError: On connection or auth failure.
 
         """
-        await self._ensure_core_running()
+        try:
+            if self.use_unix_socket:
+                return await WSClient.connect(self.session, self.ws_url)
 
-        if self.use_unix_socket:
-            return await WSClient.connect(self.session, self.ws_url)
-
-        for attempt in (1, 2):
-            try:
-                await self._ensure_access_token()
-                assert self._access_token
-                return await WSClient.connect_with_auth(
-                    self.session, self.ws_url, self._access_token
-                )
-            except HomeAssistantAuthError:
-                self._access_token = None
-                if attempt == 2:
-                    raise
+            for attempt in (1, 2):
+                try:
+                    await self._ensure_access_token()
+                    assert self._access_token
+                    return await WSClient.connect_with_auth(
+                        self.session, self.ws_url, self._access_token
+                    )
+                except HomeAssistantAuthError:
+                    self._access_token = None
+                    if attempt == 2:
+                        raise
+        except (
+            HomeAssistantWSConnectionError,
+            TimeoutError,
+            aiohttp.ClientError,
+        ) as err:
+            raise await self._request_error(
+                self.ws_url, err, HomeAssistantWSConnectionError
+            ) from err
 
         # Unreachable, but satisfies type checker
         raise RuntimeError("Unreachable")
@@ -296,8 +328,6 @@ class HomeAssistantAPI(CoreSysAttributes):
                 credentials (HTTP 401), after one token refresh over TCP
 
         """
-        await self._ensure_core_running()
-
         # encoded=True makes yarl send the path byte-for-byte. Without it, yarl
         # would normalize percent-encoded unreserved characters (e.g. %5F -> _),
         # which lets a path that passed a deny check upstream turn into a
@@ -337,12 +367,10 @@ class HomeAssistantAPI(CoreSysAttributes):
                         raise HomeAssistantAuthError
                     yield resp
                     return
-            except TimeoutError as err:
-                _LOGGER.debug("Timeout on call %s.", url)
-                raise HomeAssistantAPIError(str(err)) from err
-            except aiohttp.ClientError as err:
-                _LOGGER.debug("Error on call %s: %s", url, err)
-                raise HomeAssistantAPIError(str(err)) from err
+            except (TimeoutError, aiohttp.ClientError) as err:
+                raise await self._request_error(
+                    url, err, HomeAssistantAPIError
+                ) from err
 
         # Core still answered 401 with a freshly refreshed token.
         _LOGGER.error(
@@ -455,7 +483,7 @@ class HomeAssistantAPI(CoreSysAttributes):
             if not self._core_connected:
                 self._core_connected = True
                 transport = (
-                    f"Unix socket {SOCKET_CORE}"
+                    f"Unix socket {self.core_socket_path}"
                     if self.use_unix_socket
                     else f"TCP {self.sys_homeassistant.api_url}"
                 )

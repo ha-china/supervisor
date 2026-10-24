@@ -26,6 +26,7 @@ from ..const import (
     ATTR_SESSION_DATA_USER_ID,
     ATTR_TITLE,
     HEADER_REMOTE_USER_DISPLAY_NAME,
+    HEADER_REMOTE_USER_GROUPS,
     HEADER_REMOTE_USER_ID,
     HEADER_REMOTE_USER_NAME,
     HEADER_TOKEN,
@@ -58,6 +59,7 @@ _REQUEST_HEADERS_FILTER = frozenset(
         HEADER_REMOTE_USER_ID,
         HEADER_REMOTE_USER_NAME,
         HEADER_REMOTE_USER_DISPLAY_NAME,
+        HEADER_REMOTE_USER_GROUPS,
     )
 )
 _RESPONSE_HEADERS_FILTER = frozenset(
@@ -413,11 +415,13 @@ def _init_header(
             headers[HEADER_REMOTE_USER_NAME] = user.username
         if user.name is not None:
             headers[HEADER_REMOTE_USER_DISPLAY_NAME] = user.name
+        if groups := user.effective_group_ids:
+            headers[HEADER_REMOTE_USER_GROUPS] = ",".join(groups)
 
-    # Update X-Forwarded-For
-    if request.transport:
+    # Update X-Forwarded-For, a Unix socket peer has no address to append
+    if request.transport and (peername := request.transport.get_extra_info("peername")):
         forward_for = request.headers.get(hdrs.X_FORWARDED_FOR)
-        connected_ip = ip_address(request.transport.get_extra_info("peername")[0])
+        connected_ip = ip_address(peername[0])
         headers[hdrs.X_FORWARDED_FOR] = f"{forward_for}, {connected_ip!s}"
 
     return headers

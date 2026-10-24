@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from ipaddress import IPv4Network, IPv6Network
-from pathlib import Path
+from pathlib import Path, PurePath
 from sys import version_info as systemversion
 from typing import TYPE_CHECKING, Any, NotRequired, Self, TypedDict
 
@@ -16,6 +16,10 @@ if TYPE_CHECKING:
 
 SUPERVISOR_VERSION = "9999.09.9.dev9999"
 SERVER_SOFTWARE = f"HomeAssistantSupervisor/{SUPERVISOR_VERSION} aiohttp/{aiohttpversion} Python/{systemversion[0]}.{systemversion[1]}"
+
+# aiohttp's 8190 byte default is too small for some servers, e.g. GitHub's
+# release download redirects carry a ~9 KiB Content-Security-Policy header.
+WEBSESSION_MAX_HEADER_SIZE: int = 65536
 
 DOCKER_PREFIX: str = "hassio"
 AUDIO_DOCKER_NAME: str = f"{DOCKER_PREFIX}_audio"
@@ -48,7 +52,10 @@ FILE_SUFFIX_CONFIGURATION = [".yaml", ".yml", ".json"]
 
 MACHINE_ID = Path("/etc/machine-id")
 RUN_SUPERVISOR_STATE = Path("/run/supervisor")
-SOCKET_CORE = Path("/run/os/core.sock")
+# Host /run/supervisor as seen from inside the Supervisor container
+RUN_OS = Path("/run/os")
+HOST_RUN_SUPERVISOR = PurePath("/run/supervisor")
+SOCKET_NAME_CORE = "core.sock"
 SOCKET_DBUS = Path("/run/dbus/system_bus_socket")
 SOCKET_DOCKER = Path("/run/docker.sock")
 SYSTEMD_JOURNAL_PERSISTENT = Path("/var/log/journal")
@@ -103,6 +110,7 @@ RESULT_OK = "ok"
 HEADER_REMOTE_USER_ID = "X-Remote-User-Id"
 HEADER_REMOTE_USER_NAME = "X-Remote-User-Name"
 HEADER_REMOTE_USER_DISPLAY_NAME = "X-Remote-User-Display-Name"
+HEADER_REMOTE_USER_GROUPS = "X-Remote-User-Groups"
 HEADER_TOKEN_OLD = "X-Hassio-Key"
 HEADER_TOKEN = "X-Supervisor-Token"
 
@@ -636,6 +644,14 @@ class HomeAssistantUser:
         return self.is_owner or (
             self.is_active and HOMEASSISTANT_GROUP_ID_ADMIN in (self.group_ids or [])
         )
+
+    @property
+    def effective_group_ids(self) -> list[str]:
+        """Return the group IDs, with the admin group folded in for owners."""
+        groups = list(self.group_ids or [])
+        if self.is_admin and HOMEASSISTANT_GROUP_ID_ADMIN not in groups:
+            groups.insert(0, HOMEASSISTANT_GROUP_ID_ADMIN)
+        return groups
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> Self:

@@ -7,11 +7,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
 from aiohttp import WSCloseCode, WSMsgType, hdrs, web
-from aiohttp.test_utils import TestClient, TestServer
+from aiohttp.test_utils import TestClient, TestServer, make_mocked_request
 from multidict import CIMultiDictProxy
 import pytest
 
 from supervisor.api.const import WEBSOCKETS
+from supervisor.api.ingress import _init_header
 from supervisor.apps.app import App
 from supervisor.const import CoreState
 from supervisor.coresys import CoreSys
@@ -291,7 +292,11 @@ async def test_ingress_proxy_enforces_panel_admin(
             {"return_value": [ADMIN_USER]},
             True,
             200,
-            {"X-Remote-User-Name": "admin", "X-Remote-User-Display-Name": "Admin"},
+            {
+                "X-Remote-User-Name": "admin",
+                "X-Remote-User-Display-Name": "Admin",
+                "X-Remote-User-Groups": "system-admin",
+            },
             True,
             id="resolved_admin",
         ),
@@ -302,6 +307,18 @@ async def test_ingress_proxy_enforces_panel_admin(
             {"X-Remote-User-Name": "admin", "X-Remote-User-Display-Name": "Renamed"},
             True,
             id="resolved_renamed_demoted_user",
+        ),
+        pytest.param(
+            {"return_value": [{**ADMIN_USER, "is_owner": True, "group_ids": []}]},
+            True,
+            200,
+            {
+                "X-Remote-User-Name": "admin",
+                "X-Remote-User-Display-Name": "Admin",
+                "X-Remote-User-Groups": "system-admin",
+            },
+            True,
+            id="resolved_owner_without_admin_group",
         ),
         pytest.param(
             {"return_value": [REGULAR_USER]}, True, 401, None, False, id="removed_user"
@@ -352,7 +369,12 @@ async def test_ingress_proxy_resolves_unresolved_session(
         received_headers = {
             key: value
             for key, value in request.headers.items()
-            if key in ("X-Remote-User-Name", "X-Remote-User-Display-Name")
+            if key
+            in (
+                "X-Remote-User-Name",
+                "X-Remote-User-Display-Name",
+                "X-Remote-User-Groups",
+            )
         }
         return web.Response(body=b"ok", content_type="text/plain")
 
@@ -408,7 +430,12 @@ async def test_ingress_proxy_uses_cached_user(
         received_headers = {
             key: value
             for key, value in request.headers.items()
-            if key in ("X-Remote-User-Name", "X-Remote-User-Display-Name")
+            if key
+            in (
+                "X-Remote-User-Name",
+                "X-Remote-User-Display-Name",
+                "X-Remote-User-Groups",
+            )
         }
         return web.Response(body=b"ok", content_type="text/plain")
 
@@ -447,6 +474,7 @@ async def test_ingress_proxy_uses_cached_user(
         assert received_headers == {
             "X-Remote-User-Name": "admin",
             "X-Remote-User-Display-Name": "Admin",
+            "X-Remote-User-Groups": "system-admin",
         }
         ha_ws_client.async_send_command.assert_not_called()
     finally:
@@ -714,6 +742,7 @@ FORGED_HEADERS = {
     "X-Remote-User-Id": "victim-id",
     "X-Remote-User-Name": "victim",
     "X-Remote-User-Display-Name": "Victim",
+    "X-Remote-User-Groups": "system-admin",
     "X-Supervisor-Token": "forged-token",
     "X-Hassio-Key": "forged-key",
 }
@@ -721,6 +750,7 @@ EXPECTED_IDENTITY_HEADERS = {
     "x-remote-user-id": "user-id",
     "x-remote-user-name": "user",
     "x-remote-user-display-name": "User",
+    "x-remote-user-groups": "system-users",
 }
 
 HEADER_CASES = [
@@ -845,3 +875,26 @@ async def test_ingress_websocket_drops_forged_identity_headers(
         }
     finally:
         await app_server.close()
+
+
+@pytest.mark.parametrize(
+    ("peername", "expected"),
+    [
+        pytest.param(("172.30.32.1", 54321), "192.168.1.10, 172.30.32.1", id="tcp"),
+        pytest.param("", "192.168.1.10", id="unix"),
+    ],
+)
+def test_init_header_forwarded_for(peername: tuple[str, int] | str, expected: str):
+    """Test X-Forwarded-For only appends the peer when it has an address."""
+    transport = MagicMock()
+    transport.get_extra_info.return_value = peername
+    request = make_mocked_request(
+        "GET",
+        "/",
+        headers={hdrs.X_FORWARDED_FOR: "192.168.1.10"},
+        transport=transport,
+    )
+
+    headers = _init_header(request, MagicMock(spec=App), None)
+
+    assert headers.getall(hdrs.X_FORWARDED_FOR) == [expected]
