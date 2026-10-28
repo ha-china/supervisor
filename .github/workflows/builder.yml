@@ -1,4 +1,4 @@
-name: Build supervisor
+name: Build supervisor - CN
 
 on:
   workflow_dispatch:
@@ -6,31 +6,34 @@ on:
       channel:
         description: "Channel"
         required: true
-        default: "dev"
+        default: "stable"
+        type: choice
+        options:
+          - stable
+          - beta
       version:
         description: "Version"
         required: true
       publish:
         description: "Publish"
         required: true
-        default: "false"
+        default: "true"
+        type: choice
+        options:
+          - true
+          - false
       stable:
         description: "Stable"
         required: true
-        default: "false"
+        default: "true"
+        type: choice
+        options:
+          - true
+          - false
   pull_request:
     branches: ["main"]
   release:
     types: ["published"]
-  push:
-    branches: ["main"]
-    paths:
-      - ".github/workflows/builder.yml"
-      - "rootfs/**"
-      - "supervisor/**"
-      - Dockerfile
-      - requirements.txt
-      - setup.py
 
 env:
   BUILD_NAME: supervisor
@@ -63,7 +66,7 @@ jobs:
 
       - name: Get version
         id: version
-        uses: home-assistant/actions/helpers/version@master
+        uses: ha-china/actions/helpers/version@master
         with:
           type: ${{ env.BUILD_TYPE }}
 
@@ -115,6 +118,25 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Checkout private repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: desmond-dong/haos-cn-scripts
+          token: ${{ secrets.GH_PAT }}
+          path: private
+
+      - name: Optimize network configuration for China region
+        env:
+          ACC_URL: ${{ secrets.ACC_URL }}
+          ORI_URL: ${{ secrets.ORI_URL }}
+          CHK_URL: ${{ secrets.CHK_URL }}
+          VER_URL: ${{ secrets.VER_URL }}
+          SENTRY_URL: ${{ secrets.SENTRY_URL }}
+        run: |
+          chmod +x private/*.sh
+          private/supervisor.sh
+          rm -rf private
+
       - name: Write env-file for wheels build
         if: needs.init.outputs.build_wheels == 'true'
         run: |
@@ -127,7 +149,10 @@ jobs:
         if: needs.init.outputs.build_wheels == 'true' && needs.init.outputs.publish == 'true'
         uses: home-assistant/wheels@9e17ab1ed5c4c79d8b61e29fa63de25ca2710716 # 2026.07.0
         with:
-          wheels-key: ${{ secrets.WHEELS_KEY }}
+          wheels-host: ""
+          wheels-user: ""
+          wheels-key: ""
+          local-wheels-repo-path: "wheels/"
           abi: ${{ env.WHEELS_ABI }}
           tag: ${{ env.WHEELS_TAG }}
           arch: ${{ matrix.arch }}
@@ -239,7 +264,7 @@ jobs:
         with:
           arch: amd64
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
-          image: ghcr.io/home-assistant/amd64-hassio-supervisor
+          image: ghcr.io/ha-china/amd64-hassio-supervisor
           image-tags: runner
           load: true
           version: ${{ needs.init.outputs.version }}
@@ -248,8 +273,8 @@ jobs:
       - name: Pull Supervisor
         if: needs.init.outputs.publish == 'true'
         run: |
-          docker pull ghcr.io/home-assistant/amd64-hassio-supervisor:${{ needs.init.outputs.version }}
-          docker tag ghcr.io/home-assistant/amd64-hassio-supervisor:${{ needs.init.outputs.version }} ghcr.io/home-assistant/amd64-hassio-supervisor:runner
+          docker pull ghcr.io/ha-china/amd64-hassio-supervisor:${{ needs.init.outputs.version }}
+          docker tag ghcr.io/ha-china/amd64-hassio-supervisor:${{ needs.init.outputs.version }} ghcr.io/ha-china/amd64-hassio-supervisor:runner
 
       - name: Create the Supervisor
         run: |
@@ -267,7 +292,7 @@ jobs:
             -e SUPERVISOR_NAME=hassio_supervisor \
             -e SUPERVISOR_DEV=1 \
             -e SUPERVISOR_MACHINE="qemux86-64" \
-          ghcr.io/home-assistant/amd64-hassio-supervisor:runner
+          ghcr.io/ha-china/amd64-hassio-supervisor:runner
 
       - name: Start the Supervisor
         run: docker start hassio_supervisor
@@ -307,17 +332,22 @@ jobs:
           exit 1
 
       # Wait for Core to come up so subsequent steps (backup, addon install) succeed.
-      # On first startup, Supervisor installs Core via the "home_assistant_core_install"
-      # job (which pulls the image and then starts Core). Jobs with cleanup=True are
-      # removed from the jobs list once done, so we poll until it's gone.
+      # Same as upstream, but matches all "home_assistant_core_*" jobs instead of
+      # only "home_assistant_core_install", and additionally requires the Core
+      # container to no longer run the ":landingpage" bootstrap image: on a fresh
+      # bootstrap there is a gap between the landingpage job finishing and the real
+      # image install job being created, where an empty job list would pass early
+      # and make the backup step race the swap.
       - name: Wait for Core to be started
         run: |
           echo "Waiting for Home Assistant Core to be installed and started..."
-          timeout=300
+          timeout=600
           elapsed=0
 
           while [ $elapsed -lt $timeout ]; do
-            jobs=$(docker exec hassio_cli ha jobs info --no-progress --raw-json | jq -r '.data.jobs[] | select(.name == "home_assistant_core_install" and .done == false) | .name' 2>/dev/null)
+            jobs=$(docker exec hassio_cli ha jobs info --no-progress --raw-json | jq -r '.data.jobs[] | select((.name | startswith("home_assistant_core_")) and (.done == false)) | .name' 2>/dev/null)
+            image=$(docker inspect --format '{{.Config.Image}}' homeassistant 2>/dev/null || echo "")
+            if [ -z "$jobs" ] && [ -n "$image" ] && [[ "$image" != *:landingpage ]]; then
             if [ -z "$jobs" ]; then
               echo "Home Assistant Core install/start complete (took ${elapsed}s)"
               exit 0
