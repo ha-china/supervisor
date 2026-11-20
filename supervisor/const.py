@@ -14,7 +14,7 @@ from aiohttp.web import RequestKey
 if TYPE_CHECKING:
     from .config import CoreConfig
 
-SUPERVISOR_VERSION = "9999.09.9.dev9999"
+SUPERVISOR_VERSION = "9999.9.9.dev9999"
 SERVER_SOFTWARE = f"HomeAssistantSupervisor/{SUPERVISOR_VERSION} aiohttp/{aiohttpversion} Python/{systemversion[0]}.{systemversion[1]}"
 
 # aiohttp's 8190 byte default is too small for some servers, e.g. GitHub's
@@ -543,6 +543,7 @@ class AppState(StrEnum):
 
     STARTUP = "startup"
     STARTED = "started"
+    STOPPING = "stopping"
     STOPPED = "stopped"
     UNKNOWN = "unknown"
     ERROR = "error"
